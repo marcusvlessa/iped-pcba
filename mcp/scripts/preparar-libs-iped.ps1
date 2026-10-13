@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Instala no repositório Maven local as bibliotecas do IPED usadas na compilação do MCP.
 .EXAMPLE
