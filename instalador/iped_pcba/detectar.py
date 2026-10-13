@@ -135,7 +135,46 @@ def parse_windows_json(texto):
             }
             for x in discos
         ],
+        "volumes": _volumes_windows(d, discos, mapa),
     }
+
+
+def _volumes_windows(d, discos, mapa):
+    vols = d.get("volumes") or []
+    if isinstance(vols, dict):
+        vols = [vols]
+    sistema = (d.get("sistema") or "C").upper()
+    out = []
+    for v in vols:
+        letra = (v.get("Letra") or "").upper()
+        if not letra:
+            continue
+        tipo = "desconhecido"
+        for x in discos:
+            if letra in (x.get("Letras") or "").upper():
+                tipo = mapa.get(str(x.get("MediaType")), "desconhecido")
+        out.append({"raiz": letra + ":/", "livre_gb": round(float(v.get("Livre") or 0) / 1024 ** 3),
+                    "total_gb": round(float(v.get("Total") or 0) / 1024 ** 3), "tipo": tipo,
+                    "sistema": letra == sistema})
+    return sorted(out, key=lambda x: x["raiz"])
+
+
+def parse_df(texto):
+    """df -B1 --output=source,target,avail,size (sem cabeçalho filtrado)."""
+    out = []
+    for linha in (texto or "").splitlines()[1:]:
+        partes = linha.split()
+        if len(partes) < 4 or not partes[0].startswith("/dev/"):
+            continue
+        if partes[1].startswith(("/boot", "/snap")):
+            continue
+        try:
+            livre, total = int(partes[-2]), int(partes[-1])
+        except ValueError:
+            continue
+        out.append({"dispositivo": partes[0], "raiz": " ".join(partes[1:-2]),
+                    "livre_gb": round(livre / 1024 ** 3), "total_gb": round(total / 1024 ** 3)})
+    return out
 
 
 # ---------------------------------------------------------------- coleta
@@ -154,6 +193,9 @@ $discos = foreach($d in Get-PhysicalDisk){
   cpuLogicos= ($cpus | Measure-Object NumberOfLogicalProcessors -Sum).Sum
   ramBytes  = (Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory
   discos    = @($discos)
+  volumes   = @(Get-Volume | Where-Object { $_.DriveLetter -and $_.DriveType -eq 'Fixed' } |
+                ForEach-Object { [pscustomobject]@{ Letra="$($_.DriveLetter)"; Livre=$_.SizeRemaining; Total=$_.Size } })
+  sistema   = "$($env:SystemDrive)".Substring(0,1)
 } | ConvertTo-Json -Depth 4 -Compress
 """
 
@@ -175,10 +217,15 @@ def _coletar_linux():
         ram = 0.0
     discos = parse_lsblk(_rodar(["lsblk", "-J", "-b", "-d", "-o", "NAME,ROTA,SIZE,MODEL,TYPE"]))
     logicos = os.cpu_count() or 0
+    volumes = parse_df(_rodar(["df", "-B1", "--output=source,target,avail,size"]))
+    for v in volumes:
+        v["tipo"] = tipo_disco_do_caminho(v["raiz"])
+        v["sistema"] = v["raiz"] == "/"
     return {
         "cpu": {"nome": nome, "fisicos": fisicos or logicos, "logicos": logicos},
         "ram_gb": ram,
         "discos": discos,
+        "volumes": volumes,
     }
 
 

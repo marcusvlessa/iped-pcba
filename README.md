@@ -6,63 +6,75 @@ configuração, perfis e scripts que o próprio IPED já prevê.
 
 Este repositório segue o plano "Plano IPED + IA para a PCBA". Fase atual: **1, instalador**.
 
-## O que a fase 1 entrega
+## Para quem é
 
-`instalador/iped_pcba` é um pacote Python sem dependências externas (roda no Python que já vem
-dentro do IPED no Windows, 3.9, e no `python3` do Linux). Ele:
+Qualquer policial da PCBA com o IPED instalado, em qualquer pasta e em qualquer máquina. O
+instalador não traz nada fixo de um computador: ele descobre onde está o IPED, que hardware a
+máquina tem e o que já está instalado, e configura a partir disso.
 
-1. **Reconhece a máquina**: CPU, RAM, discos (SSD ou HDD, e em qual letra), GPU NVIDIA, VRAM,
-   driver e CUDA, versão do IPED, Python e Java embarcados, pacotes de IA instalados.
-2. **Monta um plano** com motivo para cada mudança:
-   - `LocalConfig.txt`: `locale = pt-BR`, `indexTemp`, `indexTempOnSSD` só se o temp estiver em
-     SSD, `outputOnSSD`, `numThreads` limitado quando a RAM é curta;
+## Instalar numa estação Windows
+
+1. Baixe este repositório (Code, Download ZIP) e descompacte em qualquer pasta.
+2. Dê dois cliques em `instalar.bat`.
+3. Confira o plano que aparece na tela e responda `S` para aplicar.
+
+Pronto. Não precisa instalar Python nem nada: o instalador usa o Python que vem dentro do IPED.
+
+O que ele faz, nessa ordem:
+
+1. **Acha o IPED**: primeiro o caminho que o próprio IPED registra em `~\.iped\ipedRoot.txt`,
+   depois a variável `IPED_ROOT`, depois procura em todos os discos (raiz, `Tools`,
+   `Program Files`, Área de Trabalho, Downloads, Documentos) até três níveis. Se houver mais de
+   uma instalação, usa a de versão mais nova e lista as outras.
+2. **Reconhece a máquina**: CPU, RAM, discos e espaço livre, SSD ou HDD, GPU NVIDIA com VRAM,
+   driver e CUDA, versão do IPED e pacotes de IA no Python do IPED.
+3. **Escolhe a pasta temporária**: o SSD fora do disco do sistema com mais espaço livre (mínimo
+   50 GB); se não houver, o SSD do sistema; se não houver SSD, o disco com mais espaço.
+4. **Monta o plano**, com o motivo de cada mudança:
+   - `LocalConfig.txt`: `locale = pt-BR`, `indexTemp`, `indexTempOnSSD` só em SSD,
+     `outputOnSSD`, `numThreads` limitado quando a RAM é curta;
    - `conf/HashTaskConfig.txt`: inclui SHA-256 (anexos do WhatsApp e cadeia de custódia);
    - `conf/AudioTranscriptConfig.txt`: Whisper em GPU (medium ou large-v3 conforme a VRAM),
-     Whisper em CPU, transcrição remota no servidor central ou Vosk, conforme o hardware e o que
-     está instalado. Nunca liga o Whisper se o `faster-whisper` não estiver no Python do IPED;
-   - heap da JVM: 50% da RAM com teto de 30 GB, passado como `-Xmx` depois de `iped.jar`.
-3. **Gera os perfis PCBA** em `profiles/`: `pcba-celular`, `pcba-computador` (base forensic),
-   `pcba-telematica` e `pcba-triagem` (base triage).
-4. **Gera lançadores** em `<IPED>/pcba/`: `iped-pcba.bat` (Windows) ou `iped-pcba.sh` (Linux) e,
-   no servidor, `transcricao-servidor.sh` para a transcrição centralizada.
-5. **Grava `pcba/maquina.json`** com o retrato da máquina, o plano e o que mudou.
-6. **Faz backup de tudo** em `pcba/backup/<data-hora>/` e desfaz com `reverter`.
+     Whisper em CPU, transcrição no servidor central ou Vosk. Nunca liga o Whisper se o
+     `faster-whisper` não estiver no Python do IPED, para não quebrar o processamento;
+   - heap da JVM: 50% da RAM com teto de 30 GB.
+5. **Pergunta** e só então grava, com backup em `<IPED>\pcba\backup\<data-hora>\`.
+6. **Gera os perfis** `pcba-celular`, `pcba-computador`, `pcba-telematica` e `pcba-triagem`.
+7. **Gera o lançador** `<IPED>\pcba\iped-pcba.bat` e grava `<IPED>\pcba\maquina.json` com o
+   retrato da máquina e o que mudou.
 
-## Uso no Windows (estação do analista)
+Opções do `scripts\instalar.ps1` (o `instalar.bat` repassa todas):
 
-```powershell
-# só olha e mostra o plano
-.\scripts\instalar.ps1 -IpedRoot "C:\Tools\iped-4.3.1\iped-4.3.1" -Temp "E:\IPEDTemp"
+| Opção | Efeito |
+|---|---|
+| `-IpedRoot <pasta>` | usa esta instalação em vez de procurar |
+| `-Temp <pasta>` | usa esta pasta temporária em vez de escolher |
+| `-ServidorTranscricao IP:PORTA` | manda a transcrição para o servidor central |
+| `-Simular` | mostra o que mudaria, sem gravar |
+| `-Aplicar` | aplica sem perguntar (implantação em lote, GPO) |
+| `-Reverter` | desfaz a última aplicação |
 
-# mostra o que mudaria, arquivo por arquivo, sem gravar
-.\scripts\instalar.ps1 -IpedRoot "C:\Tools\iped-4.3.1\iped-4.3.1" -Temp "E:\IPEDTemp" -Aplicar -Simular
+Se o IPED estiver em `Program Files`, rode como administrador.
 
-# aplica (com backup); com servidor central de transcrição
-.\scripts\instalar.ps1 -IpedRoot "C:\Tools\iped-4.3.1\iped-4.3.1" -Temp "E:\IPEDTemp" -ServidorTranscricao 10.0.0.5:11111 -Aplicar
-
-# desfaz a última aplicação
-.\scripts\instalar.ps1 -IpedRoot "C:\Tools\iped-4.3.1\iped-4.3.1" -Reverter
-```
-
-Depois de aplicado, o processamento fica:
+Depois de aplicado, para processar:
 
 ```bat
-C:\Tools\iped-4.3.1\iped-4.3.1\pcba\iped-pcba.bat pcba-celular E:\extracoes\aparelho1.ufdr E:\casos\op-x\aparelho1
+<pasta do IPED>\pcba\iped-pcba.bat pcba-celular <evidência> <pasta do caso>
 ```
 
-## Uso no Linux (servidor central)
+## Instalar no servidor Linux central
 
 ```bash
-bash scripts/instalar.sh /opt/iped-4.3.1 diagnosticar --papel servidor --temp /srv/ipedtemp
-bash scripts/instalar.sh /opt/iped-4.3.1 aplicar      --papel servidor --temp /srv/ipedtemp
-/opt/iped-4.3.1/pcba/transcricao-servidor.sh 11111 11112   # descoberta + serviço de transcrição
+bash scripts/instalar.sh <pasta do IPED> diagnosticar --papel servidor
+bash scripts/instalar.sh <pasta do IPED> aplicar      --papel servidor
+<pasta do IPED>/pcba/transcricao-servidor.sh 11111 11112   # descoberta + serviço de transcrição
 ```
 
-As estações apontam para `IP-do-servidor:11111` com `-ServidorTranscricao`.
+As estações passam a usar o servidor com `instalar.bat -ServidorTranscricao IP-do-servidor:11111`.
 
 ### Whisper em GPU
 
-- Windows: `scripts/whisper_gpu.ps1 -IpedRoot <pasta>` (simula por padrão; `-Execute` aplica).
+- Windows: `scripts\\whisper_gpu.ps1 -IpedRoot <pasta do IPED>` (simula por padrão; `-Execute` aplica).
   Pré-requisitos manuais: Visual C++ Redistributable x64 e driver NVIDIA com CUDA 12.
 - Linux: `pip install faster-whisper` no Python usado pelo IPED, com CUDA 12 e cuDNN do sistema.
 

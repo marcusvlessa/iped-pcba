@@ -14,8 +14,9 @@ from . import __version__
 from .configurar import (Backup, aplicar_plano, gerar_lancadores, gravar_maquina,
                          listar_backups, reverter)
 from .detectar import detectar, tipo_disco_do_caminho
+from .localizar import localizar_iped
 from .perfis import PERFIS, criar_perfis
-from .recomendar import recomendar
+from .recomendar import escolher_temp, recomendar
 
 
 def _args(argv):
@@ -24,7 +25,7 @@ def _args(argv):
     sub = ap.add_subparsers(dest="comando")
 
     def comum(p):
-        p.add_argument("--iped", required=True, help="pasta raiz do IPED (onde está IPEDConfig.txt)")
+        p.add_argument("--iped", help="pasta raiz do IPED; se omitida, é procurada na máquina")
 
     d = sub.add_parser("diagnosticar", help="mostra a máquina e o plano, sem alterar nada")
     comum(d)
@@ -41,6 +42,7 @@ def _args(argv):
     a.add_argument("--simular", action="store_true", help="mostra o que mudaria, sem gravar")
     a.add_argument("--sem-perfis", action="store_true", help="não gera os perfis pcba-*")
 
+    sub.add_parser("localizar", help="lista as instalações do IPED encontradas")
     r = sub.add_parser("reverter", help="restaura um backup")
     comum(r)
     r.add_argument("--backup", help="nome do backup (padrão: o mais recente)")
@@ -50,10 +52,15 @@ def _args(argv):
 
 def _plano(args):
     maquina = detectar(args.iped)
-    tipo = tipo_disco_do_caminho(args.temp, maquina) if args.temp else "desconhecido"
-    plano = recomendar(maquina, papel=args.papel, pasta_temp=args.temp, tipo_disco_temp=tipo,
+    if args.temp:
+        temp, tipo = args.temp, tipo_disco_do_caminho(args.temp, maquina)
+        args.temp_motivo = "informada pelo usuário"
+    else:
+        temp, tipo, args.temp_motivo = escolher_temp(maquina)
+    args.temp = temp
+    plano = recomendar(maquina, papel=args.papel, pasta_temp=temp, tipo_disco_temp=tipo,
                        servidor_transcricao=args.servidor_transcricao,
-                       saida_em_ssd=args.saida_ssd)
+                       saida_em_ssd=args.saida_ssd, motivo_temp=args.temp_motivo)
     return maquina, plano
 
 
@@ -78,6 +85,7 @@ def _resumo(maquina, plano):
     iped = maquina.get("iped", {})
     linhas.append("IPED      : {} | versão {} | perfis: {}".format(
         iped.get("raiz"), iped.get("versao") or "?", ", ".join(iped.get("perfis") or []) or "-"))
+    linhas.append("Temp      : {}".format(plano.valor("LocalConfig.txt", "indexTemp") or "padrão do sistema"))
     linhas.append("Transcrição: {}".format(plano.transcricao))
     linhas.append("")
     linhas.append("Alterações propostas:")
@@ -92,10 +100,37 @@ def _resumo(maquina, plano):
 
 
 def main(argv=None):
+    try:
+        return _main(argv)
+    except PermissionError as e:
+        print("ERRO: sem permissão para gravar em {}. Feche o IPED e rode o instalador como "
+              "administrador (ou instale o IPED fora de Program Files).".format(e.filename),
+              file=sys.stderr)
+        return 3
+
+
+def _main(argv=None):
     args = _args(argv if argv is not None else sys.argv[1:])
     if not args.comando:
         _args(["-h"])
         return 2
+    if args.comando == "localizar":
+        for i in localizar_iped():
+            print("{}\t{}".format(i["versao"] or "?", i["raiz"]))
+        return 0
+
+    if not args.iped:
+        achados = localizar_iped()
+        if not achados:
+            print("ERRO: nenhuma instalação do IPED encontrada. Informe a pasta com --iped.",
+                  file=sys.stderr)
+            return 1
+        args.iped = achados[0]["raiz"]
+        print("IPED encontrado: {} (versão {})".format(args.iped, achados[0]["versao"] or "?"),
+              file=sys.stderr)
+        for outro in achados[1:]:
+            print("  outra instalação ignorada: {} ({})".format(outro["raiz"], outro["versao"] or "?"),
+                  file=sys.stderr)
     raiz = os.path.abspath(args.iped)
 
     if args.comando == "reverter":
@@ -123,6 +158,8 @@ def main(argv=None):
               file=sys.stderr)
         return 1
 
+    if args.temp and not args.simular and not os.path.isdir(args.temp):
+        os.makedirs(args.temp)
     backup = Backup(raiz)
     mudancas = aplicar_plano(raiz, plano, backup, simular=args.simular)
     perfis = {} if args.sem_perfis else criar_perfis(raiz, backup, simular=args.simular)

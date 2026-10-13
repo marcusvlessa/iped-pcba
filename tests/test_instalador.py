@@ -8,7 +8,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "instalador"))
 
-from iped_pcba import cli, configurar, detectar, perfis, recomendar  # noqa: E402
+from iped_pcba import cli, configurar, detectar, localizar, perfis, recomendar  # noqa: E402
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "iped-4.3.1")
 
@@ -66,6 +66,89 @@ class TestParsers(unittest.TestCase):
         self.assertTrue(info["encontrado"])
         self.assertEqual(info["versao"], "4.3.1")
         self.assertEqual(info["perfis"], ["forensic", "triage"])
+
+
+class TestVolumes(unittest.TestCase):
+    def test_windows_volumes(self):
+        j = json.dumps({"cpuNome": "x", "cpuFisicos": 4, "cpuLogicos": 8, "ramBytes": 1,
+                        "sistema": "C",
+                        "discos": [{"FriendlyName": "A", "MediaType": "SSD", "Size": 1, "Letras": "C"},
+                                   {"FriendlyName": "B", "MediaType": "HDD", "Size": 1, "Letras": "D"}],
+                        "volumes": [{"Letra": "C", "Livre": 200 * 1024 ** 3, "Total": 500 * 1024 ** 3},
+                                    {"Letra": "D", "Livre": 900 * 1024 ** 3, "Total": 1000 * 1024 ** 3}]})
+        v = detectar.parse_windows_json(j)["volumes"]
+        self.assertEqual([(x["raiz"], x["tipo"], x["sistema"], x["livre_gb"]) for x in v],
+                         [("C:/", "ssd", True, 200), ("D:/", "hdd", False, 900)])
+
+    def test_df(self):
+        t = ("Filesystem 1B-blocks\n/dev/nvme0n1p2 / 100000000000 500000000000\n"
+             "tmpfs /run 1 1\n/dev/sdb1 /dados 2000000000000 4000000000000\n"
+             "/dev/nvme0n1p1 /boot/efi 1 1\n")
+        self.assertEqual([x["raiz"] for x in detectar.parse_df(t)], ["/", "/dados"])
+
+
+class TestEscolherTemp(unittest.TestCase):
+    def m(self, vols, so="windows"):
+        return {"so": so, "volumes": vols}
+
+    def test_prefere_ssd_fora_do_sistema(self):
+        c, tipo, _ = recomendar.escolher_temp(self.m([
+            {"raiz": "C:/", "livre_gb": 300, "tipo": "ssd", "sistema": True},
+            {"raiz": "D:/", "livre_gb": 900, "tipo": "hdd", "sistema": False},
+            {"raiz": "E:/", "livre_gb": 120, "tipo": "ssd", "sistema": False}]))
+        self.assertEqual((c, tipo), ("E:/IPEDTemp", "ssd"))
+
+    def test_ssd_do_sistema_antes_de_hdd(self):
+        c, tipo, _ = recomendar.escolher_temp(self.m([
+            {"raiz": "C:/", "livre_gb": 300, "tipo": "ssd", "sistema": True},
+            {"raiz": "D:/", "livre_gb": 900, "tipo": "hdd", "sistema": False}]))
+        self.assertEqual(c, "C:/IPEDTemp")
+
+    def test_sem_ssd_usa_maior(self):
+        c, tipo, _ = recomendar.escolher_temp(self.m([
+            {"raiz": "/", "livre_gb": 60, "tipo": "hdd", "sistema": True},
+            {"raiz": "/dados", "livre_gb": 900, "tipo": "hdd", "sistema": False}], so="linux"))
+        self.assertEqual((c, tipo), ("/dados/ipedtemp", "hdd"))
+
+    def test_sem_espaco(self):
+        c, _, _ = recomendar.escolher_temp(self.m([{"raiz": "C:/", "livre_gb": 10, "tipo": "ssd"}]))
+        self.assertIsNone(c)
+
+
+class TestLocalizar(unittest.TestCase):
+    def test_acha_instalacoes_e_ordena_por_versao(self):
+        tmp = tempfile.mkdtemp()
+        try:
+            for rel, ver in (("Tools/iped-4.3.1/iped-4.3.1", "4.3.1"), ("IPED/iped-4.2.2", "4.2.2"),
+                             ("x/y/z/w/iped-4.4.0", "4.4.0")):
+                pasta = os.path.join(tmp, *rel.split("/"))
+                os.makedirs(os.path.join(pasta, "lib"))
+                for f in ("IPEDConfig.txt", "iped.jar", os.path.join("lib", "iped-engine-%s.jar" % ver)):
+                    open(os.path.join(pasta, f), "w").close()
+            # só configuração, sem iped.jar: não é instalação
+            os.makedirs(os.path.join(tmp, "Downloads"))
+            open(os.path.join(tmp, "Downloads", "IPEDConfig.txt"), "w").close()
+            achados = localizar.localizar_iped(bases=[tmp])
+            self.assertEqual([a["versao"] for a in achados], ["4.3.1", "4.2.2"])  # 4.4.0 fundo demais
+
+            # duas 4.3.1: vence a registrada pelo IPED como em uso
+            outra = os.path.join(tmp, "A", "iped-4.3.1")
+            os.makedirs(os.path.join(outra, "lib"))
+            for f in ("IPEDConfig.txt", "iped.jar", os.path.join("lib", "iped-engine-4.3.1.jar")):
+                open(os.path.join(outra, f), "w").close()
+            antigo = os.environ.get("IPED_ROOT")
+            os.environ["IPED_ROOT"] = outra
+            try:
+                achados = localizar.localizar_iped(bases=[tmp])
+            finally:
+                if antigo is None:
+                    del os.environ["IPED_ROOT"]
+                else:
+                    os.environ["IPED_ROOT"] = antigo
+            self.assertEqual(achados[0]["raiz"], os.path.abspath(outra))
+            self.assertTrue(achados[0]["em_uso"])
+        finally:
+            shutil.rmtree(tmp)
 
 
 class TestRecomendar(unittest.TestCase):

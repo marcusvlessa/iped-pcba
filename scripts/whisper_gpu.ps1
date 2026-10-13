@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Prepara o Python embarcado do IPED para transcricao Whisper em GPU (CUDA 12 + cuDNN 8).
 .DESCRIPTION

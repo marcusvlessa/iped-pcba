@@ -70,6 +70,34 @@ def calcular_heap(ram_gb):
     return int(max(2, min(math.floor(ram_gb * 0.5), HEAP_TETO_GB)))
 
 
+TEMP_MIN_LIVRE_GB = 50
+
+
+def escolher_temp(maquina):
+    """Sugere a pasta temporária: SSD fora do disco do sistema com mais espaço livre;
+    depois qualquer SSD; depois o volume com mais espaço. Devolve (caminho, tipo, motivo)."""
+    vols = [v for v in (maquina.get("volumes") or []) if v.get("livre_gb", 0) >= TEMP_MIN_LIVRE_GB]
+    if not vols:
+        return None, "desconhecido", "Nenhum volume com {} GB livres.".format(TEMP_MIN_LIVRE_GB)
+
+    def melhor(lista):
+        return max(lista, key=lambda v: v.get("livre_gb", 0)) if lista else None
+
+    ssd = [v for v in vols if v.get("tipo") == "ssd"]
+    v = melhor([x for x in ssd if not x.get("sistema")])
+    motivo = "SSD fora do disco do sistema, com mais espaço livre."
+    if not v:
+        v = melhor(ssd)
+        motivo = "Único SSD com espaço (é o disco do sistema)."
+    if not v:
+        v = melhor(vols)
+        motivo = "Nenhum SSD confirmado; volume com mais espaço livre."
+    raiz = v["raiz"].replace("\\", "/")
+    nome = "IPEDTemp" if maquina.get("so") == "windows" else "ipedtemp"
+    caminho = raiz.rstrip("/") + "/" + nome
+    return caminho, v.get("tipo", "desconhecido"), "{} ({} GB livres)".format(motivo, v.get("livre_gb"))
+
+
 def calcular_threads(ram_gb, logicos, heap_gb):
     """'default' quando há memória para todos os núcleos; senão limita."""
     if not logicos or not heap_gb:
@@ -80,7 +108,7 @@ def calcular_threads(ram_gb, logicos, heap_gb):
 
 
 def recomendar(maquina, papel="cliente", pasta_temp=None, tipo_disco_temp="desconhecido",
-               servidor_transcricao=None, saida_em_ssd=False):
+               servidor_transcricao=None, saida_em_ssd=False, motivo_temp=None):
     """papel: 'cliente' (estação Windows do analista) ou 'servidor' (Linux central).
     servidor_transcricao: 'host:porta' do nó de descoberta da transcrição remota."""
     p = Plano()
@@ -92,7 +120,7 @@ def recomendar(maquina, papel="cliente", pasta_temp=None, tipo_disco_temp="desco
     p.definir(LOCAL, "locale", "pt-BR", "Interface e transcrição em português.")
     if pasta_temp:
         p.definir(LOCAL, "indexTemp", pasta_temp.replace("\\", "/"),
-                  "Pasta temporária escolhida na instalação.")
+                  motivo_temp or "Pasta temporária escolhida na instalação.")
         if tipo_disco_temp == "ssd":
             p.definir(LOCAL, "indexTempOnSSD", "true",
                       "indexTemp está em SSD/NVMe (até 2x mais rápido).")
