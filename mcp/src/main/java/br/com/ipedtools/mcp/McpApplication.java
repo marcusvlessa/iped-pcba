@@ -20,6 +20,20 @@ import io.quarkus.runtime.annotations.QuarkusMain;
 @QuarkusMain
 public class McpApplication {
 
+    // PCBA: roda antes de qualquer logger. Com as bibliotecas do IPED no classpath, o log4j do IPED
+    // escreveria na saída padrão (canal JSON-RPC) e o jboss-logging poderia escolher o log4j.
+    static {
+        definirSeAusente("log4j2.configurationFile", "classpath:log4j2-pcba-mcp.xml");
+        definirSeAusente("org.jboss.logging.provider", "jboss");
+        definirSeAusente("java.util.logging.manager", "org.jboss.logmanager.LogManager");
+    }
+
+    private static void definirSeAusente(String chave, String valor) {
+        if (System.getProperty(chave) == null) {
+            System.setProperty(chave, valor);
+        }
+    }
+
     private static final Logger LOGGER = LoggerFactory.getLogger(McpApplication.class);
 
     public static void main(String... args) {

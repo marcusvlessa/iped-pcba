@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PCBA: no modo STDIO a saída padrão é o canal JSON-RPC com a IA. Qualquer log (do IPED ou
+     do Quarkus via log4j) vai para a saída de erro, senão corrompe o protocolo. -->
+<Configuration status="WARN">
+  <Appenders>
+    <Console name="Erro" target="SYSTEM_ERR">
+      <PatternLayout pattern="%d{HH:mm:ss} %-5level [%c{1}] %msg%n"/>
+    </Console>
+  </Appenders>
+  <Loggers>
+    <Root level="warn">
+      <AppenderRef ref="Erro"/>
+    </Root>
+  </Loggers>
+</Configuration>
