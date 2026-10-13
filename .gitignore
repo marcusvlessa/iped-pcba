@@ -5,3 +5,6 @@ __pycache__/
 casos/
 *.ufdr
 *.E01
+
+# pacote do MCP (gerado pelo GitHub Actions)
+mcp-dist/

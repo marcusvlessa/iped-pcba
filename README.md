@@ -4,7 +4,8 @@ Instalação, autoconfiguração e extensões do [IPED](https://github.com/sepin
 Polícia Civil da Bahia. O núcleo do IPED não é alterado: tudo aqui atua sobre os arquivos de
 configuração, perfis e scripts que o próprio IPED já prevê.
 
-Este repositório segue o plano "Plano IPED + IA para a PCBA". Fase atual: **1, instalador**.
+Este repositório segue o plano "Plano IPED + IA para a PCBA". Fases prontas: **1, instalador**
+e **2, MCP com auditoria** (pasta [`mcp/`](mcp/README.md)).
 
 ## Para quem é
 
@@ -14,7 +15,8 @@ máquina tem e o que já está instalado, e configura a partir disso.
 
 ## Instalar numa estação Windows
 
-1. Baixe este repositório (Code, Download ZIP) e descompacte em qualquer pasta.
+1. Baixe o `iped-pcba-windows.zip` da página de Releases e descompacte em qualquer pasta.
+   (O "Download ZIP" do código também serve, mas sem o MCP, que precisa ser compilado.)
 2. Dê dois cliques em `instalar.bat`.
 3. Confira o plano que aparece na tela e responda `S` para aplicar.
 
@@ -42,6 +44,9 @@ O que ele faz, nessa ordem:
 6. **Gera os perfis** `pcba-celular`, `pcba-computador`, `pcba-telematica` e `pcba-triagem`.
 7. **Gera o lançador** `<IPED>\pcba\iped-pcba.bat` e grava `<IPED>\pcba\maquina.json` com o
    retrato da máquina e o que mudou.
+8. **Instala o MCP** (IA) em `<IPED>\pcba\mcp\`, com o lançador `iped-pcba-mcp.bat` e o trecho
+   de configuração para o Claude Desktop e o LM Studio. Somente leitura e com log de auditoria
+   no próprio caso. Detalhes em [mcp/README.md](mcp/README.md).
 
 Opções do `scripts\instalar.ps1` (o `instalar.bat` repassa todas):
 
@@ -52,7 +57,7 @@ Opções do `scripts\instalar.ps1` (o `instalar.bat` repassa todas):
 | `-ServidorTranscricao IP:PORTA` | manda a transcrição para o servidor central |
 | `-Simular` | mostra o que mudaria, sem gravar |
 | `-Aplicar` | aplica sem perguntar (implantação em lote, GPO) |
-| `-Reverter` | desfaz a última aplicação |
+| `-Reverter` | desfaz a última aplicação (inclusive o MCP) |
 
 Se o IPED estiver em `Program Files`, rode como administrador.
 
@@ -99,7 +104,12 @@ gerados como cópia completa da base com as chaves da PCBA por cima, e o que dep
 
 ```bash
 python3 -m unittest discover -s tests -v
+cd mcp && mvn package          # depois de scripts/preparar-libs-iped.sh <IPED>
 ```
+
+O GitHub Actions roda os testes no Windows (Python 3.9, o mesmo do IPED) e no Linux, compila o
+MCP contra o código-fonte oficial do IPED 4.3.1 e gera os pacotes `iped-pcba-windows.zip` e
+`iped-pcba-linux.tar.gz` com o Java 21 embutido. Uma tag `v*` publica os pacotes em Releases.
 
 Os testes usam cópias dos arquivos de configuração reais do IPED 4.3.1 em
 `tests/fixtures/iped-4.3.1` e verificam, entre outras coisas, que aplicar duas vezes não muda nada
@@ -113,7 +123,6 @@ na segunda e que reverter devolve os arquivos byte a byte.
 
 ## Próximas fases
 
-2. Fork do `iped-tools-mcp` com log de auditoria, modo somente leitura e transporte HTTP.
 3. Parsers de retornos de provedores e importador do Guardião (Dígitro).
 4. Gerador de relatórios no padrão da 9ª COORPIN.
 

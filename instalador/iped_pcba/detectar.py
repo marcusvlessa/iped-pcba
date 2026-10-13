@@ -263,6 +263,19 @@ def tipo_disco_do_caminho(caminho, maquina=None):
     return "desconhecido"
 
 
+def _tsk_jar(raiz):
+    """Valor de tskJarPath no LocalConfig.txt (obrigatório no Linux para o IPED abrir casos)."""
+    try:
+        with open(os.path.join(raiz, "LocalConfig.txt"), encoding="utf-8", errors="ignore") as f:
+            for linha in f:
+                m = re.match(r"\s*tskJarPath\s*=\s*(\S.*?)\s*$", linha)
+                if m:
+                    return m.group(1)
+    except OSError:
+        pass
+    return ""
+
+
 def detectar_iped(raiz):
     """Inspeciona uma pasta de instalação do IPED."""
     info = {"raiz": raiz, "encontrado": False}
@@ -283,6 +296,7 @@ def detectar_iped(raiz):
     java = "java.exe" if os.name == "nt" else "java"
     info["java_embarcado"] = os.path.isfile(os.path.join(raiz, "jre", "bin", java))
     info["pacotes_python"] = pacotes_python(raiz)
+    info["tsk_jar"] = _tsk_jar(raiz)
     info["perfis"] = sorted(
         p for p in os.listdir(os.path.join(raiz, "profiles"))
         if os.path.isdir(os.path.join(raiz, "profiles", p))

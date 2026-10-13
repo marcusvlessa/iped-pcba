@@ -15,8 +15,11 @@ from .configurar import (Backup, aplicar_plano, gerar_lancadores, gravar_maquina
                          listar_backups, reverter)
 from .detectar import detectar, tipo_disco_do_caminho
 from .localizar import localizar_iped
+from .mcp import instalar_mcp
 from .perfis import PERFIS, criar_perfis
 from .recomendar import escolher_temp, recomendar
+
+REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
 def _args(argv):
@@ -41,6 +44,7 @@ def _args(argv):
         p.add_argument("--json", action="store_true", help="saída em JSON")
     a.add_argument("--simular", action="store_true", help="mostra o que mudaria, sem gravar")
     a.add_argument("--sem-perfis", action="store_true", help="não gera os perfis pcba-*")
+    a.add_argument("--sem-mcp", action="store_true", help="não instala o MCP (IA)")
 
     sub.add_parser("localizar", help="lista as instalações do IPED encontradas")
     r = sub.add_parser("reverter", help="restaura um backup")
@@ -164,6 +168,8 @@ def _main(argv=None):
     mudancas = aplicar_plano(raiz, plano, backup, simular=args.simular)
     perfis = {} if args.sem_perfis else criar_perfis(raiz, backup, simular=args.simular)
     lancadores = []
+    mcp = None if args.sem_mcp else instalar_mcp(raiz, maquina["so"], REPO, backup,
+                                                 simular=args.simular)
     if not args.simular:
         lancadores = gerar_lancadores(raiz, plano, sorted(PERFIS), maquina["so"], backup,
                                       papel=args.papel)
@@ -172,7 +178,7 @@ def _main(argv=None):
 
     if args.json:
         print(json.dumps({"mudancas": mudancas, "perfis": sorted(perfis), "lancadores": lancadores,
-                          "backup": pasta_backup, "avisos": plano.avisos},
+                          "mcp": mcp, "backup": pasta_backup, "avisos": plano.avisos},
                          indent=2, ensure_ascii=False))
         return 0
     print(_resumo(maquina, plano))
@@ -187,6 +193,13 @@ def _main(argv=None):
         print("  perfil {} ({} chaves)".format(p, len(perfis[p])))
     for l in lancadores:
         print("  lançador " + l)
+    if mcp:
+        if mcp.get("aviso"):
+            print("  ! " + mcp["aviso"])
+        else:
+            print("  MCP (IA): {} (Java {})".format(mcp["lancador"], mcp["java"]))
+            print("    Para usar no Claude Desktop ou LM Studio, acrescente ao arquivo de configuração:")
+            print("    " + json.dumps(mcp["config_clientes"], ensure_ascii=False))
     if pasta_backup:
         print("Backup em {}. Para desfazer: python -m iped_pcba reverter --iped \"{}\"".format(
             pasta_backup, raiz))

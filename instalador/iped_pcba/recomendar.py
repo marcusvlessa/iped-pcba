@@ -196,6 +196,10 @@ def recomendar(maquina, papel="cliente", pasta_temp=None, tipo_disco_temp="desco
                         "caso real.".format(iped["versao"]))
     if not iped.get("encontrado"):
         p.avisos.append("Pasta do IPED não reconhecida (IPEDConfig.txt ausente).")
+    elif maquina.get("so") != "windows" and not iped.get("tsk_jar"):
+        p.avisos.append("No Linux o IPED só abre e processa casos com tskJarPath definido no "
+                        "LocalConfig.txt, apontando para o sleuthkit-4.12 compilado nesta máquina "
+                        "(veja o README do IPED). Sem isso o MCP também não abre casos.")
     return p
 
 

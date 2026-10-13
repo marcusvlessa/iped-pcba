@@ -177,6 +177,14 @@ class TestRecomendar(unittest.TestCase):
         self.assertEqual(p.transcricao, "vosk")
         self.assertTrue(any("faster-whisper" in a for a in p.avisos))
 
+    def test_linux_sem_tsk_jar_avisa(self):
+        m = maquina()
+        self.assertFalse(any("tskJarPath" in a for a in recomendar.recomendar(m).avisos))
+        m["so"] = "linux"
+        self.assertTrue(any("tskJarPath" in a for a in recomendar.recomendar(m).avisos))
+        m["iped"]["tsk_jar"] = "/usr/local/share/java/sleuthkit-4.12.0.jar"
+        self.assertFalse(any("tskJarPath" in a for a in recomendar.recomendar(m).avisos))
+
     def test_cpu_forte_com_whisper(self):
         p = recomendar.recomendar(maquina(ram=40, logicos=12))
         self.assertEqual(p.transcricao, "whisper-cpu")

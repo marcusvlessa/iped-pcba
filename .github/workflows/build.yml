@@ -1,0 +1,135 @@
+name: Testes e pacotes
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  IPED_VERSAO: "4.3.1"
+
+jobs:
+  instalador:
+    name: Testes do instalador (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            python: "3.9"   # mesma versão do Python embarcado no IPED 4.3
+          - os: ubuntu-latest
+            python: "3.12"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m unittest discover -s tests -v
+
+  mcp:
+    name: Compilar o MCP contra o IPED
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: m2-iped-${{ env.IPED_VERSAO }}-${{ hashFiles('mcp/pom.xml') }}
+          restore-keys: m2-iped-${{ env.IPED_VERSAO }}-
+      - name: Bibliotecas do IPED a partir do código-fonte oficial
+        run: |
+          if [ ! -f ~/.m2/repository/iped/iped-engine/$IPED_VERSAO/iped-engine-$IPED_VERSAO.jar ]; then
+            git clone --depth 1 --branch "$IPED_VERSAO" https://github.com/sepinf-inc/IPED.git iped-src
+            cd iped-src
+            mvn -B -q install -DskipTests -pl iped-engine -am
+          fi
+      - name: Compilar e testar
+        working-directory: mcp
+        run: mvn -B package -Diped.version=$IPED_VERSAO
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcp-jar
+          path: mcp/target/*-runner.jar
+          if-no-files-found: error
+
+  pacote:
+    name: Pacote ${{ matrix.nome }}
+    needs: [instalador, mcp]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            nome: windows
+          - os: ubuntu-latest
+            nome: linux
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/download-artifact@v4
+        with:
+          name: mcp-jar
+          path: jar
+      - name: Montar mcp-dist (MCP + Java 21 enxuto)
+        run: |
+          mkdir -p mcp-dist
+          cp jar/*-runner.jar mcp-dist/iped-pcba-mcp.jar
+          "$JAVA_HOME/bin/jlink" \
+            --add-modules java.se,jdk.dynalink,jdk.unsupported,jdk.unsupported.desktop,jdk.charsets,jdk.localedata,jdk.crypto.ec,jdk.management,jdk.zipfs,jdk.naming.dns,jdk.xml.dom,jdk.net,jdk.nio.mapmode,jdk.random,jdk.security.auth,jdk.security.jgss \
+            --strip-debug --no-man-pages --no-header-files --compress zip-6 \
+            --output mcp-dist/runtime
+      - name: Teste de fumaça (initialize e lista de ferramentas)
+        run: |
+          JAVA=mcp-dist/runtime/bin/java
+          { printf '%s\n' \
+              '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}' \
+              '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+              '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'; sleep 15; } \
+            | timeout 60 "$JAVA" -Dstdout.encoding=UTF-8 -jar mcp-dist/iped-pcba-mcp.jar --stdio > saida.jsonl || true
+          python3 - <<'PY'
+          import json, sys
+          r = {d.get("id"): d for d in map(json.loads, open("saida.jsonl", encoding="utf-8")) if "id" in d}
+          nomes = [t["name"] for t in r[2]["result"]["tools"]]
+          print(len(nomes), "ferramentas")
+          assert len(nomes) >= 20, nomes
+          assert "set_item_checked" not in nomes and "add_to_bookmark" not in nomes, "modo somente leitura falhou"
+          PY
+      - name: Compactar
+        run: |
+          mkdir -p saida/iped-pcba
+          git archive HEAD | tar -x -C saida/iped-pcba
+          cp -r mcp-dist saida/iped-pcba/
+          cd saida
+          if [ "${{ matrix.nome }}" = "windows" ]; then
+            7z a -tzip ../iped-pcba-${{ matrix.nome }}.zip iped-pcba > /dev/null
+          else
+            tar -czf ../iped-pcba-${{ matrix.nome }}.tar.gz iped-pcba
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iped-pcba-${{ matrix.nome }}
+          path: iped-pcba-${{ matrix.nome }}.*
+          if-no-files-found: error
+      - name: Publicar na página de Releases (tags v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: iped-pcba-${{ matrix.nome }}.*

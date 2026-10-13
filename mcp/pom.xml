@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>br.com.ipedtools</groupId>
+    <artifactId>iped-tools-mcp</artifactId>
+    <version>1.0.1</version>
+    <packaging>jar</packaging>
+
+    <name>IPED Tools MCP</name>
+    <description>Assistente de IA Forense para casos do IPED via Model Context Protocol</description>
+    <url>https://github.com/thiagofuer/iped-tools-mcp</url>
+
+    <scm>
+        <connection>scm:git:git://github.com/thiagofuer/iped-tools-mcp.git</connection>
+        <developerConnection>scm:git:ssh://github.com:thiagofuer/iped-tools-mcp.git</developerConnection>
+        <url>https://github.com/thiagofuer/iped-tools-mcp</url>
+    </scm>
+
+    <properties>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <quarkus.platform.version>3.39.3</quarkus.platform.version>
+        <quarkus-mcp.version>2.0.1</quarkus-mcp.version>
+        <iped.version>4.3.1</iped.version>
+        <lucene.version>9.2.0</lucene.version>
+        <quarkus.package.jar.type>uber-jar</quarkus.package.jar.type>
+        <maven.build.timestamp.format>yyyy-MM-dd HH:mm:ss</maven.build.timestamp.format>
+        <timestamp>${maven.build.timestamp}</timestamp>
+    </properties>
+
+    <repositories>
+        <repository>
+            <id>central</id>
+            <url>https://repo1.maven.org/maven2</url>
+        </repository>
+    </repositories>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.quarkus.platform</groupId>
+                <artifactId>quarkus-bom</artifactId>
+                <version>${quarkus.platform.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Quarkus MCP Server (STDIO transport) -->
+        <dependency>
+            <groupId>io.quarkiverse.mcp</groupId>
+            <artifactId>quarkus-mcp-server-stdio</artifactId>
+            <version>${quarkus-mcp.version}</version>
+        </dependency>
+
+        <!-- PCBA: transporte HTTP (Streamable HTTP) para o servidor Linux central -->
+        <dependency>
+            <groupId>io.quarkiverse.mcp</groupId>
+            <artifactId>quarkus-mcp-server-http</artifactId>
+            <version>${quarkus-mcp.version}</version>
+        </dependency>
+        
+        <!-- Quarkus CDI Arc -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-arc</artifactId>
+        </dependency>
+
+        <!-- IPED: bibliotecas da instalação do policial (scope provided).
+             Não vão dentro do jar; em execução o lançador põe <IPED>/lib/* no classpath,
+             então o MCP usa exatamente a versão do IPED que gerou os casos.
+             Para compilar: scripts/preparar-libs-iped.sh <pasta do IPED> (ou .ps1). -->
+        <dependency>
+            <groupId>iped</groupId>
+            <artifactId>iped-api</artifactId>
+            <version>${iped.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>iped</groupId>
+            <artifactId>iped-engine</artifactId>
+            <version>${iped.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>iped</groupId>
+            <artifactId>iped-utils</artifactId>
+            <version>${iped.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>iped</groupId>
+            <artifactId>iped-parsers-impl</artifactId>
+            <version>${iped.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>iped</groupId>
+            <artifactId>iped-viewers-api</artifactId>
+            <version>${iped.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>iped</groupId>
+            <artifactId>iped-carvers-api</artifactId>
+            <version>${iped.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-core</artifactId>
+            <version>${lucene.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-queryparser</artifactId>
+            <version>${lucene.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-analysis-common</artifactId>
+            <version>${lucene.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-core</artifactId>
+            <version>2.4.0</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna-platform</artifactId>
+            <version>5.12.1</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Test Dependencies -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>io.quarkus.platform</groupId>
+                <artifactId>quarkus-maven-plugin</artifactId>
+                <version>${quarkus.platform.version}</version>
+                <extensions>true</extensions>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>build</goal>
+                            <goal>generate-code</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>21</release>
+                    <parameters>true</parameters>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.2</version>
+                <configuration>
+                    <argLine>
+                        @{argLine}
+                        --add-opens=java.base/java.lang=ALL-UNNAMED
+                        --add-opens=java.base/java.lang.reflect=ALL-UNNAMED
+                        --add-opens=java.base/java.math=ALL-UNNAMED
+                        --add-opens=java.base/java.util=ALL-UNNAMED
+                        --add-opens=java.base/java.util.concurrent=ALL-UNNAMED
+                        --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED
+                        --add-opens=java.base/java.net=ALL-UNNAMED
+                        --add-opens=java.base/java.text=ALL-UNNAMED
+                        --add-opens=java.base/java.nio=ALL-UNNAMED
+                        --add-opens=java.base/java.io=ALL-UNNAMED
+                    </argLine>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
