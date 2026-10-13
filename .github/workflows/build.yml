@@ -121,6 +121,7 @@ jobs:
           print(len(nomes), "ferramentas")
           assert len(nomes) >= 20, nomes
           assert "set_item_checked" not in nomes and "add_to_bookmark" not in nomes, "modo somente leitura falhou"
+          assert "get_report_draft" in nomes and "update_report_field" not in nomes, "ferramentas do relatório"
           PY
       - name: Compactar
         run: |

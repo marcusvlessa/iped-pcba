@@ -13,7 +13,8 @@ public class ConfigPcba {
 
     /** Ferramentas que alteram o caso. Ficam escondidas e bloqueadas no modo somente leitura. */
     public static final Set<String> FERRAMENTAS_DE_ESCRITA = Set.of("add_to_bookmark", "set_item_checked",
-            "remove_from_bookmark", "set_bookmark_comment", "bookmark_search_results");
+            "remove_from_bookmark", "set_bookmark_comment", "bookmark_search_results",
+            "update_report_field", "update_report_analysis");
 
     @ConfigProperty(name = "pcba.somente-leitura", defaultValue = "true")
     boolean somenteLeitura;

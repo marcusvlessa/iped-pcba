@@ -55,6 +55,18 @@ def _args(argv):
     pn.add_argument("--porta", type=int, default=0, help="porta local (padrão: livre)")
     pn.add_argument("--sem-navegador", action="store_true", help="não abre o navegador")
 
+    rl = sub.add_parser("relatorio", help="relatório técnico (RT) do caso em .docx")
+    rl.add_argument("acao", choices=["gerar", "lacunas", "telematica"],
+                    help="gerar = .docx; lacunas = o que falta preencher; "
+                         "telematica = resume um CSV de registros padronizados no RT do caso")
+    rl.add_argument("--caso", help="pasta do caso (o rascunho fica em <caso>/iped-pcba-relatorio/rt.json)")
+    rl.add_argument("--dados", help="JSON do RT (em vez do rascunho do caso)")
+    rl.add_argument("--saida", help="arquivo .docx de saída")
+    rl.add_argument("--registros", help="CSV de registros telemáticos padronizados")
+    rl.add_argument("--investigado", action="append", default=[], metavar="CONTA=NOME",
+                    help="nome do investigado de uma conta (pode repetir)")
+    rl.add_argument("--unidade", help="JSON da unidade (padrão: ~/.iped-pcba/unidade.json)")
+
     sub.add_parser("localizar", help="lista as instalações do IPED encontradas")
     r = sub.add_parser("reverter", help="restaura um backup")
     comum(r)
@@ -144,11 +156,67 @@ def main(argv=None):
         return 3
 
 
+def _relatorio(args):
+    from . import rt
+    if not (args.caso or args.dados):
+        print("ERRO: informe --caso ou --dados.", file=sys.stderr)
+        return 2
+    unidade = rt.ler_unidade(args.unidade)
+    if args.dados:
+        with open(args.dados, encoding="utf-8") as f:
+            dados = json.load(f)
+    else:
+        dados = rt.ler_rt(args.caso)
+    if args.acao == "telematica":
+        if not (args.registros and args.caso):
+            print("ERRO: informe --caso e --registros.", file=sys.stderr)
+            return 2
+        nomes = dict(x.split("=", 1) for x in args.investigado if "=" in x)
+        dados, info = incorporar_telematica(args.caso, args.registros, nomes)
+        print("{} registros lidos, {} linhas rejeitadas, {} conta(s) em {} provedor(es).".format(
+            info["registros"], len(info["rejeitadas"]), info["contas"], info["provedores"]))
+        print("Rascunho atualizado: " + rt.arq_rt(args.caso))
+        return 0
+    if args.acao == "lacunas":
+        faltas = rt.lacunas(dados, unidade)
+        for onde, txt in faltas:
+            print("{}\t{}".format(onde, txt))
+        print("{} lacuna(s).".format(len(faltas)), file=sys.stderr)
+        return 0
+    saida = args.saida or os.path.join(args.caso or os.path.dirname(os.path.abspath(args.dados)),
+                                       rt.PASTA_CASO, "RT.docx")
+    print(rt.gerar_docx(dados, saida, unidade))
+    return 0
+
+
+def incorporar_telematica(caso, registros, investigados=None):
+    """Lê o CSV padronizado e põe uma análise por provedor no rascunho do RT do caso.
+
+    Análises que a pessoa já editou (sem 'gerado_automaticamente') nunca são substituídas.
+    """
+    from . import rt, telematica
+    regs, rejeitadas = telematica.ler_csv(registros)
+    resumos = telematica.resumir(regs)
+    novas = telematica.analises_para_rt(resumos, investigados)
+    dados = rt.ler_rt(caso)
+    manter = [a for a in dados.get("analises") or []
+              if not a.get("gerado_automaticamente")
+              or a.get("provedor") not in {n["provedor"] for n in novas}]
+    editadas = {a.get("provedor") for a in manter if not a.get("gerado_automaticamente")}
+    dados["analises"] = manter + [n for n in novas if n["provedor"] not in editadas]
+    rt.gravar_rt(caso, dados)
+    return dados, {"registros": len(regs), "rejeitadas": rejeitadas, "contas": len(resumos),
+                   "provedores": len({s["provedor"] for s in resumos}),
+                   "resumos": telematica.resumo_json(resumos)}
+
+
 def _main(argv=None):
     args = _args(argv if argv is not None else sys.argv[1:])
     if not args.comando:
         _args(["-h"])
         return 2
+    if args.comando == "relatorio":
+        return _relatorio(args)
     if args.comando == "localizar":
         for i in localizar_iped():
             print("{}\t{}".format(i["versao"] or "?", i["raiz"]))

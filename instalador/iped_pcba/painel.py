@@ -83,7 +83,16 @@ def _boot(modulo, *args):
                   "sys.exit(main())".format(pai, modulo)] + list(args)
 
 
-def escolher(tipo, titulo="", multiplos=False):
+FILTROS = {
+    None: "Evidências|*.e01;*.ex01;*.dd;*.raw;*.img;*.001;*.iso;*.ufdr;*.zip;*.ad1;*.aff;*.vmdk;*.vhd;"
+          "*.vhdx;*.dmg|Todos os arquivos|*.*",
+    "csv": "Planilhas CSV|*.csv;*.txt|Todos os arquivos|*.*",
+    "imagem": "Imagens|*.jpg;*.jpeg;*.png",
+    "todos": "Todos os arquivos|*.*",
+}
+
+
+def escolher(tipo, titulo="", multiplos=False, filtro=None):
     """Janela nativa de escolha de pasta/arquivo. Devolve lista de caminhos ([] se cancelar)."""
     if WIN:
         if tipo == "pasta":
@@ -97,11 +106,11 @@ def escolher(tipo, titulo="", multiplos=False):
             ps = ("Add-Type -AssemblyName System.Windows.Forms;"
                   "$d=New-Object System.Windows.Forms.OpenFileDialog;$d.Title='{t}';"
                   "$d.Multiselect=${m};"
-                  "$d.Filter='Evidências|*.e01;*.ex01;*.dd;*.raw;*.img;*.001;*.iso;*.ufdr;*.zip;*.ad1;"
-                  "*.aff;*.vmdk;*.vhd;*.vhdx;*.dmg|Todos os arquivos|*.*';"
+                  "$d.Filter='{filtro}';"
                   "$f=New-Object System.Windows.Forms.Form -Property @{{TopMost=$true}};"
                   "if($d.ShowDialog($f) -eq 'OK'){{[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
-                  "$d.FileNames}}").format(t=titulo.replace("'", ""), m="true" if multiplos else "false")
+                  "$d.FileNames}}").format(t=titulo.replace("'", ""), m="true" if multiplos else "false",
+                                                   filtro=FILTROS.get(filtro, FILTROS[None]))
         r = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", ps],
                            capture_output=True, timeout=600, creationflags=0x08000000)
         return [l.strip() for l in r.stdout.decode("utf-8", "replace").splitlines() if l.strip()]
@@ -386,7 +395,7 @@ def _rotear(e, rota, d):
         return e.reverter(d)
     if rota == "/api/escolher":
         return {"caminhos": escolher(d.get("tipo", "pasta"), d.get("titulo", ""),
-                                     bool(d.get("multiplos")))}
+                                     bool(d.get("multiplos")), d.get("filtro"))}
     if rota == "/api/processar":
         return e.processar(d)
     if rota == "/api/whisper":
@@ -417,11 +426,79 @@ def _rotear(e, rota, d):
         return clientesia.remover(d["cliente"])
     if rota == "/api/ia/testar":
         return e.testar_mcp(d)
+    if rota.startswith("/api/rt/") or rota.startswith("/api/unidade/"):
+        return _rotear_rt(rota, d)
     if rota == "/api/atalho":
         return criar_atalho(e.raiz)
     if rota == "/api/sair":
         threading.Thread(target=e.servidor.shutdown, daemon=True).start()
         return {"ok": True}
+    raise KeyError(rota)
+
+
+def _caso_valido(d):
+    caso = os.path.abspath(d.get("caso") or "")
+    if not processar.eh_caso(caso):
+        raise ValueError("Escolha um caso processado pelo IPED.")
+    return caso
+
+
+def _rotear_rt(rota, d):
+    """Relatório técnico do caso: rascunho em <caso>/iped-pcba-relatorio/rt.json."""
+    from . import rt
+    from .cli import incorporar_telematica
+    if rota == "/api/unidade/ler":
+        return {"unidade": rt.ler_unidade(), "arquivo": rt.ARQ_UNIDADE}
+    if rota == "/api/unidade/gravar":
+        u = d.get("unidade") or {}
+        if u.get("logo") and not os.path.isfile(u["logo"]):
+            raise ValueError("Logotipo não encontrado: " + u["logo"])
+        return {"unidade": rt.gravar_unidade(u)}
+    caso = _caso_valido(d)
+    if rota == "/api/rt/ler":
+        dados = rt.ler_rt(caso)
+        docx = os.path.join(caso, rt.PASTA_CASO, "RT.docx")
+        return {"dados": dados, "campos": rt.CAMPOS, "lacunas": rt.lacunas(dados, rt.ler_unidade()),
+                "listas": rt.lista_de_arquivos(caso), "docx": docx if os.path.isfile(docx) else None,
+                "pasta": os.path.join(caso, rt.PASTA_CASO)}
+    if rota == "/api/rt/gravar":
+        rt.gravar_rt(caso, d.get("dados") or {})
+        return _rotear_rt("/api/rt/ler", {"caso": caso})
+    if rota == "/api/rt/telematica":
+        if not os.path.isfile(d.get("registros") or ""):
+            raise ValueError("Escolha o CSV de registros telemáticos.")
+        _, info = incorporar_telematica(caso, d["registros"], d.get("investigados") or {})
+        r = _rotear_rt("/api/rt/ler", {"caso": caso})
+        r["importacao"] = {k: info[k] for k in ("registros", "rejeitadas", "contas", "provedores")}
+        return r
+    if rota == "/api/rt/hash":
+        arq = d.get("arquivo") or ""
+        if not os.path.isfile(arq):
+            raise ValueError("Arquivo não encontrado: " + arq)
+        dados = rt.ler_rt(caso)
+        linha = "{} — SHA-256: {}".format(os.path.basename(arq), rt.sha256(arq))
+        dados["hashes"] = [h for h in dados.get("hashes") or [] if "[" not in h and
+                           not h.startswith(os.path.basename(arq) + " —")] + [linha]
+        rt.gravar_rt(caso, dados)
+        return _rotear_rt("/api/rt/ler", {"caso": caso})
+    if rota == "/api/rt/gerar":
+        if d.get("dados") is not None:
+            rt.gravar_rt(caso, d["dados"])
+        saida = os.path.join(caso, rt.PASTA_CASO, "RT.docx")
+        try:
+            rt.gerar_docx(rt.ler_rt(caso), saida, rt.ler_unidade())
+        except PermissionError:
+            raise ValueError("Não consegui gravar o RT.docx: feche o arquivo no Word e tente de novo.")
+        return {"docx": saida}
+    if rota == "/api/rt/abrir":
+        alvo = os.path.join(caso, rt.PASTA_CASO, "RT.docx" if d.get("o") == "docx" else "")
+        if not os.path.exists(alvo):
+            raise ValueError("Ainda não existe: " + alvo)
+        if WIN:
+            os.startfile(alvo)  # noqa
+        elif shutil.which("xdg-open"):
+            subprocess.Popen(["xdg-open", alvo])
+        return {"aberto": alvo}
     raise KeyError(rota)
 
 

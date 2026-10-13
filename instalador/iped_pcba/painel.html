@@ -50,6 +50,11 @@ pre.log{background:#0e1318;color:#cfe3d4;padding:10px;border-radius:8px;height:3
 .muted{color:var(--quiet)}
 .switch{display:flex;gap:10px;align-items:center;cursor:pointer}
 .switch input{width:18px;height:18px}
+textarea{font:inherit;width:100%;min-height:90px;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+@media (max-width:760px){.grid2{grid-template-columns:1fr}}
+.lac{color:var(--bad);font-weight:600}
+.an{border:1px solid var(--line);border-radius:8px;padding:12px;margin:10px 0}
 .spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:g 1s linear infinite;vertical-align:-2px}
 @keyframes g{to{transform:rotate(360deg)}}
 @media (max-width:760px){.wrap{display:block}nav{width:auto;display:flex;overflow:auto;border-right:0;border-bottom:1px solid var(--line)}nav button{white-space:nowrap}main{padding:12px}}
@@ -67,6 +72,7 @@ pre.log{background:#0e1318;color:#cfe3d4;padding:10px;border-radius:8px;height:3
   <button data-s="proc"><span class="n" id="n2">2</span>Processar evidências</button>
   <button data-s="casos"><span class="n" id="n3">3</span>Casos</button>
   <button data-s="ia"><span class="n" id="n4">4</span>IA (MCP)</button>
+  <button data-s="relatorio"><span class="n" id="n5">5</span>Relatório técnico</button>
   <button data-s="tarefas"><span class="n">≡</span>Tarefas e logs</button>
 </nav>
 <main>
@@ -169,6 +175,48 @@ pre.log{background:#0e1318;color:#cfe3d4;padding:10px;border-radius:8px;height:3
   </div>
 </section>
 
+<!-- 5. RELATÓRIO -->
+<section id="relatorio">
+  <h2>5. Relatório técnico</h2>
+  <p class="sub">Monte o RT no modelo da PCBA. O rascunho fica dentro do caso (pasta iped-pcba-relatorio) e a IA pode ajudar a preenchê-lo pelo MCP. O que estiver entre [colchetes] sai em vermelho no Word para você completar. A conclusão é sempre do analista.</p>
+  <div class="card">
+    <div class="row"><label class="f" style="margin:0">Caso</label><select id="rtCaso" class="grow" onchange="carregarRt()"></select>
+      <button class="b" onclick="abrirRt('pasta')">Abrir a pasta</button></div>
+    <div id="rtSit" class="muted"></div>
+  </div>
+  <div id="rtCorpo" style="display:none">
+  <div class="card" id="rtIaCard" style="display:none"><h3>Escrito pela IA <span class="tag warn">revise</span></h3><div id="rtIa" class="muted"></div>
+    <div class="row"><button class="b" onclick="revisadoIa()">Revisei: tirar a marca</button></div></div>
+  <div class="card"><h3>Lacunas <span id="rtNLac" class="tag"></span></h3><div id="rtLac" class="muted"></div></div>
+  <div class="card"><h3>Dados do relatório</h3><div id="rtCampos" class="grid2"></div></div>
+  <div class="card"><h3>Dados telemáticos</h3>
+    <p class="muted" style="margin-top:0">Importe o CSV de registros padronizados (provedor, conta, tipo, data_hora, interlocutor, ip…). O painel resume cada conta e cria uma análise por provedor com tabela, texto de rascunho e quadros de interlocutores e IPs. Análises que você já editou não são substituídas.</p>
+    <div class="row"><input type="text" class="grow" id="rtCsv" placeholder="CSV de registros telemáticos">
+      <button class="b" onclick="escolherCsv()">Procurar…</button></div>
+    <label class="f">Investigados (uma linha por conta: conta = nome)</label>
+    <textarea id="rtInv" style="min-height:60px" placeholder="+5571999999999 = NOME DO INVESTIGADO"></textarea>
+    <div class="row"><button class="b p" onclick="importarTel()">Importar e resumir</button><span id="rtImp" class="muted"></span></div>
+  </div>
+  <div class="card"><h3>Análises por provedor</h3><div id="rtAnalises"></div>
+    <div class="row"><button class="b" onclick="novaAnalise()">Adicionar análise</button></div></div>
+  <div class="card"><h3>Metodologia: integridade</h3>
+    <div id="rtListas" class="muted"></div>
+    <div class="row"><button class="b" onclick="hashOutro()">Calcular SHA-256 de outro arquivo…</button></div>
+    <label class="f">Linhas de hash (uma por linha)</label><textarea id="rtHashes" style="min-height:60px"></textarea></div>
+  <div class="card"><h3>Providências necessárias</h3><div id="rtPedidos"></div>
+    <div class="row"><button class="b" onclick="novoPedido()">Adicionar pedido</button></div>
+    <label class="switch"><input type="checkbox" id="rtClaus"> <span>Incluir as cláusulas padrão (data futura, e-mails, sigilo, multa)</span></label>
+    <label class="f" style="margin-top:8px">E-mails dos investigadores deste caso (além dos da unidade), um por linha</label><textarea id="rtEmails" style="min-height:50px"></textarea></div>
+  <div class="card"><h3>Assinaturas</h3><label class="f">Uma por linha: Nome; papel; matrícula (vazio = analistas da unidade)</label><textarea id="rtAnal" style="min-height:60px"></textarea></div>
+  <div class="card"><div class="row"><button class="b" onclick="salvarRt()">Salvar rascunho</button>
+    <button class="b p" onclick="gerarRt()">Gerar RT (.docx)</button>
+    <button class="b" id="rtAbrir" onclick="abrirRt('docx')" disabled>Abrir no Word</button><span id="rtGer" class="muted"></span></div></div>
+  </div>
+  <div class="card"><h3>Dados da unidade <span class="muted" style="font-weight:400">(valem para todos os relatórios desta máquina)</span></h3>
+    <div id="unCampos" class="grid2"></div>
+    <div class="row"><button class="b" onclick="salvarUnidade()">Salvar dados da unidade</button><span class="muted" id="unArq"></span></div></div>
+</section>
+
 <!-- TAREFAS -->
 <section id="tarefas">
   <h2>Tarefas e logs</h2>
@@ -194,7 +242,7 @@ async function api(rota,dados){
 function aviso(t,ruim){const e=$("toast");e.textContent=t;e.className="toast"+(ruim?" bad":"");e.style.display="block";clearTimeout(e._t);e._t=setTimeout(()=>e.style.display="none",ruim?9000:4000)}
 async function tentar(f){try{return await f()}catch(e){aviso(e.message,true)}}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>ir(b.dataset.s));
-function ir(s){document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x.dataset.s==s));document.querySelectorAll("section").forEach(x=>x.classList.toggle("on",x.id==s));if(s=="ia")carregarIa();if(s=="tarefas")desenharTarefas();}
+function ir(s){document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x.dataset.s==s));document.querySelectorAll("section").forEach(x=>x.classList.toggle("on",x.id==s));if(s=="ia")carregarIa();if(s=="tarefas")desenharTarefas();if(s=="relatorio")entrarRt();}
 
 async function escolherPara(id,tipo,titulo){await tentar(async()=>{const r=await api("escolher",{tipo,titulo});if(r.caminhos.length)$(id).value=r.caminhos[0]})}
 async function addEvid(tipo){await tentar(async()=>{const r=await api("escolher",{tipo,titulo:"Evidência",multiplos:tipo=="arquivo"});if(r.caminhos.length){const t=$("evid");t.value=(t.value.trim()?t.value.trim()+"\n":"")+r.caminhos.join("\n")}})}
@@ -283,7 +331,7 @@ function desenharCasos(){
   $("listaCasos").innerHTML=l.length?`<table><thead><tr><th>Caso</th><th>Situação</th><th></th></tr></thead><tbody>`+l.map(c=>{
     const ativo=R.caso_ativo&&R.caso_ativo.toLowerCase()==c.pasta.toLowerCase();
     return `<tr><td><b>${esc(c.nome)}</b><br><span class="muted">${esc(c.pasta)}</span></td><td>${c.existe?'<span class="tag ok">pronto</span>':'<span class="tag bad">pasta não encontrada</span>'} ${ativo?'<span class="tag ok">a IA está usando</span>':''}</td>
-    <td><div class="row" style="margin:0">${c.existe?`<button class="b" onclick="abrirCaso('${esc(js(c.pasta))}')">Abrir no IPED</button><button class="b ${ativo?'':'p'}" onclick="ativarCaso('${esc(js(c.pasta))}')">${ativo?'Caso da IA':'Usar com a IA'}</button><button class="b" onclick="verAud('${esc(js(c.pasta))}')">Auditoria</button>`:''}<button class="b d" onclick="esquecer('${esc(js(c.pasta))}')">Tirar da lista</button></div></td></tr>`}).join("")+`</tbody></table>`:"nenhum caso ainda. Processe uma evidência ou adicione a pasta de um caso.";
+    <td><div class="row" style="margin:0">${c.existe?`<button class="b" onclick="abrirCaso('${esc(js(c.pasta))}')">Abrir no IPED</button><button class="b ${ativo?'':'p'}" onclick="ativarCaso('${esc(js(c.pasta))}')">${ativo?'Caso da IA':'Usar com a IA'}</button><button class="b" onclick="verAud('${esc(js(c.pasta))}')">Auditoria</button><button class="b" onclick="irRt('${esc(js(c.pasta))}')">Relatório</button>`:''}<button class="b d" onclick="esquecer('${esc(js(c.pasta))}')">Tirar da lista</button></div></td></tr>`}).join("")+`</tbody></table>`:"nenhum caso ainda. Processe uma evidência ou adicione a pasta de um caso.";
 }
 const js=s=>s.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
 async function addCaso(){await tentar(async()=>{await api("caso/adicionar",{pasta:val("casoNovo")});$("casoNovo").value="";await resumo()})}
@@ -322,6 +370,67 @@ function desenharTarefas(){
 }
 function abrirTarefa(id,titulo){tarefaId=id;tarefaPos=0;$("tarefaLog").textContent="";$("tarefaCard").style.display="block";$("tarefaTitulo").textContent=titulo;lerTarefa()}
 async function lerTarefa(){if(!tarefaId)return;const id=tarefaId;try{const r=await api("tarefa",{id,desde:tarefaPos});if(id!=tarefaId)return;tarefaPos=r.pos;$("tarefaLog").textContent+=r.texto;$("tarefaLog").scrollTop=1e9;if(r.tarefa.rodando)setTimeout(lerTarefa,2000);else resumo()}catch(e){}}
+
+// ------------------------------------------------------------------ relatório
+let RT=null, UN=null;
+const UN_CAMPOS=[["orgao","Órgão"],["departamento","Departamento"],["unidade","Unidade (cabeçalho)"],["endereco","Endereço e telefone (cabeçalho)"],["sigla_rt","Sigla após o número do RT"],["nucleo","Núcleo responsável (providências)"],["remetente_da","DA (remetente)"],["origem","ORIGEM"],["logo","Logotipo (JPEG/PNG; vazio = brasão da PCBA)"],["ferramenta_hash","Ferramenta do SHA-256"]];
+function irRt(p){ir("relatorio");$("rtCaso").value=p;carregarRt()}
+async function entrarRt(){
+  const s=$("rtCaso"),atual=s.value,l=(R.casos||[]).filter(c=>c.existe);
+  s.innerHTML='<option value="">escolha um caso…</option>'+l.map(c=>`<option value="${esc(c.pasta)}">${esc(c.nome)} — ${esc(c.pasta)}</option>`).join("");
+  if(atual)s.value=atual;else if(R.caso_ativo&&l.some(c=>c.pasta.toLowerCase()==R.caso_ativo.toLowerCase()))s.value=l.find(c=>c.pasta.toLowerCase()==R.caso_ativo.toLowerCase()).pasta;
+  if(!l.length)$("rtSit").textContent="Nenhum caso processado na lista. Adicione um em Casos.";
+  await carregarUnidade();if(s.value)carregarRt();
+}
+async function carregarUnidade(){await tentar(async()=>{const r=await api("unidade/ler");UN=r.unidade;$("unArq").textContent=r.arquivo;
+  $("unCampos").innerHTML=UN_CAMPOS.map(([k,n])=>`<div><label class="f">${esc(n)}</label><input type="text" style="width:100%" id="un_${k}" value="${esc(UN[k])}"></div>`).join("")+
+  `<div><label class="f">E-mails sempre incluídos (um por linha)</label><textarea id="un_emails" style="min-height:60px">${esc((UN.emails_obrigatorios||[]).join("\n"))}</textarea></div>`+
+  `<div><label class="f">Analistas padrão: Nome; papel; matrícula</label><textarea id="un_anal" style="min-height:60px">${esc(anaTexto(UN.analistas))}</textarea></div>`})}
+function anaTexto(l){return (l||[]).map(a=>[a.nome,a.papel||"Analista do Caso",a.matricula||""].join("; ").replace(/; $/,"")).join("\n")}
+function anaLer(t){return t.split("\n").map(x=>x.trim()).filter(Boolean).map(x=>{const p=x.split(";").map(y=>y.trim());const a={nome:p[0],papel:p[1]||"Analista do Caso"};if(p[2])a.matricula=p[2];return a})}
+const linhas=t=>t.split("\n").map(x=>x.trim()).filter(Boolean);
+async function salvarUnidade(){await tentar(async()=>{const u={};UN_CAMPOS.forEach(([k])=>u[k]=val("un_"+k));u.emails_obrigatorios=linhas($("un_emails").value);u.analistas=anaLer($("un_anal").value);
+  await api("unidade/gravar",{unidade:u});aviso("Dados da unidade salvos.");await carregarUnidade();if(RT)carregarRt()})}
+async function carregarRt(){const caso=val("rtCaso");if(!caso){$("rtCorpo").style.display="none";return}
+  await tentar(async()=>{const r=await api("rt/ler",{caso});desenharRt(r)})}
+function desenharRt(r){RT=r;const d=r.dados;$("rtCorpo").style.display="block";$("rtSit").textContent="Rascunho: "+r.pasta;
+  $("rtCampos").innerHTML=r.campos.map(([k,n,m])=>`<div style="${m?'grid-column:1/-1':''}"><label class="f">${esc(n)}</label>${m?`<textarea id="rt_${k}">${esc(d[k])}</textarea>`:`<input type="text" style="width:100%" id="rt_${k}" value="${esc(d[k])}">`}</div>`).join("");
+  $("rtAnalises").innerHTML=(d.analises||[]).map((a,i)=>`<div class="an" id="an${i}"><div class="row" style="margin-top:0"><b>${esc(a.provedor||"")}</b>${a.gerado_automaticamente?' <span class="tag warn">rascunho automático: revise</span>':''}<span style="flex:1"></span><button class="b d" onclick="tirarAnalise(${i})">Remover</button></div>
+    <div class="grid2"><div><label class="f">Provedor</label><input type="text" style="width:100%" id="an${i}_prov" value="${esc(a.provedor)}"></div><div><label class="f">Título da seção</label><input type="text" style="width:100%" id="an${i}_tit" value="${esc(a.titulo)}"></div></div>
+    <label class="f">Tabela: uma linha por conta, "investigado | conta | período"</label><textarea id="an${i}_tab" style="min-height:50px">${esc((a.tabela||[]).map(l=>[l.investigado,l.conta,(l.periodo||"").replace(/\n/g," / ")].join(" | ")).join("\n"))}</textarea>
+    <label class="f">Texto da análise</label><textarea id="an${i}_txt" style="min-height:120px">${esc(a.texto)}</textarea>
+    <div class="muted" style="font-size:12px">${(a.quadros||[]).length} quadro(s) de apoio serão impressos após o texto.</div>
+    <label class="f">Conclusão (do analista)</label><textarea id="an${i}_con" style="min-height:60px">${esc(a.conclusao)}</textarea></div>`).join("")||'<div class="muted">nenhuma análise ainda</div>';
+  $("rtPedidos").innerHTML=(d.pedidos||[]).map((p,i)=>`<div class="an"><div class="row" style="margin-top:0"><input type="text" class="grow" id="pe${i}_tit" value="${esc(p.titulo)}" placeholder="DO PEDIDO PARA …"><button class="b d" onclick="tirarPedido(${i})">Remover</button></div><textarea id="pe${i}_txt">${esc(p.texto)}</textarea></div>`).join("");
+  $("rtHashes").value=(d.hashes||[]).join("\n");$("rtClaus").checked=d.incluir_clausulas!==false;
+  $("rtEmails").value=(d.emails_investigadores||[]).join("\n");$("rtAnal").value=anaTexto(d.analistas);
+  $("rtListas").innerHTML=r.listas.length?r.listas.map(a=>`<div class="row" style="margin:4px 0"><span class="grow">${esc(a)}</span><button class="b" onclick="hashArq('${esc(js(a))}')">Calcular SHA-256</button></div>`).join(""):"Nenhuma “Lista de Arquivos.csv” dentro do caso. Exporte do IPED (Lista de arquivos) ou escolha o arquivo abaixo.";
+  const lac=r.lacunas;$("rtNLac").textContent=lac.length;$("rtNLac").className="tag "+(lac.length?"warn":"ok");
+  $("rtLac").innerHTML=lac.length?lac.slice(0,60).map(([o,t])=>`<div><span class="lac">${esc(t)}</span> <span class="muted">${esc(o)}</span></div>`).join("")+(lac.length>60?`<div>… e mais ${lac.length-60}</div>`:""):"Nenhuma lacuna. Revise o texto e gere o .docx.";
+  $("rtAbrir").disabled=!r.docx;
+  const ia=Object.entries(d.ia_editou||{});$("rtIaCard").style.display=ia.length?"block":"none";
+  $("rtIa").innerHTML=ia.map(([k,q])=>`<div>${esc(k)} <span class="muted">em ${esc(q.replace("T"," "))}</span></div>`).join("");
+}
+async function revisadoIa(){RT.dados=coletarRt();RT.dados.ia_editou={};await salvarRt()}
+function coletarRt(){const d=JSON.parse(JSON.stringify(RT.dados));RT.campos.forEach(([k])=>d[k]=$("rt_"+k).value);
+  d.analises=(d.analises||[]).map((a,i)=>{if(!$("an"+i))return null;const n={...a,provedor:val("an"+i+"_prov"),titulo:val("an"+i+"_tit"),texto:$("an"+i+"_txt").value,conclusao:$("an"+i+"_con").value,
+    tabela:linhas($("an"+i+"_tab").value).map(l=>{const p=l.split("|").map(x=>x.trim());return{investigado:p[0]||"",conta:p[1]||"",periodo:(p[2]||"").replace(/ \/ /g,"\n")}})};
+    if(JSON.stringify([n.texto,n.conclusao,n.tabela,n.titulo])!=JSON.stringify([a.texto,a.conclusao,a.tabela,a.titulo]))delete n.gerado_automaticamente;return n}).filter(Boolean);
+  d.pedidos=(d.pedidos||[]).map((p,i)=>$("pe"+i+"_tit")?{titulo:val("pe"+i+"_tit"),texto:$("pe"+i+"_txt").value}:null).filter(Boolean);
+  d.hashes=linhas($("rtHashes").value);d.incluir_clausulas=$("rtClaus").checked;d.emails_investigadores=linhas($("rtEmails").value);d.analistas=anaLer($("rtAnal").value);return d}
+async function salvarRt(silencio){return tentar(async()=>{const r=await api("rt/gravar",{caso:val("rtCaso"),dados:coletarRt()});desenharRt(r);if(!silencio)aviso("Rascunho salvo.");return r})}
+async function gerarRt(){await tentar(async()=>{const r=await api("rt/gerar",{caso:val("rtCaso"),dados:coletarRt()});$("rtGer").textContent="Gerado: "+r.docx;aviso("RT gerado.");await carregarRt()})}
+async function abrirRt(o){await tentar(async()=>{await api("rt/abrir",{caso:val("rtCaso"),o})})}
+function novaAnalise(){RT.dados=coletarRt();RT.dados.analises.push({provedor:"",titulo:"",tabela:[],texto:"",conclusao:""});desenharRt(RT)}
+function tirarAnalise(i){if(!confirm("Remover esta análise do rascunho?"))return;RT.dados=coletarRt();RT.dados.analises.splice(i,1);desenharRt(RT)}
+function novoPedido(){RT.dados=coletarRt();RT.dados.pedidos.push({titulo:"DO PEDIDO PARA ",texto:""});desenharRt(RT)}
+function tirarPedido(i){RT.dados=coletarRt();RT.dados.pedidos.splice(i,1);desenharRt(RT)}
+async function escolherCsv(){await tentar(async()=>{const r=await api("escolher",{tipo:"arquivo",titulo:"Registros telemáticos (CSV)",filtro:"csv"});if(r.caminhos.length)$("rtCsv").value=r.caminhos[0]})}
+async function importarTel(){await tentar(async()=>{await salvarRt(true);const inv={};linhas($("rtInv").value).forEach(l=>{const i=l.indexOf("=");if(i>0)inv[l.slice(0,i).trim()]=l.slice(i+1).trim()});
+  const r=await api("rt/telematica",{caso:val("rtCaso"),registros:val("rtCsv"),investigados:inv});desenharRt(r);const m=r.importacao;
+  $("rtImp").textContent=`${m.registros} registros, ${m.contas} conta(s), ${m.provedores} provedor(es)`+(m.rejeitadas.length?`; ${m.rejeitadas.length} linha(s) ignoradas (sem data, provedor ou conta)`:"");aviso("Resumo telemático incluído no rascunho.")})}
+async function hashArq(a){await tentar(async()=>{await salvarRt(true);desenharRt(await api("rt/hash",{caso:val("rtCaso"),arquivo:a}));aviso("SHA-256 incluído na metodologia.")})}
+async function hashOutro(){await tentar(async()=>{const r=await api("escolher",{tipo:"arquivo",titulo:"Arquivo para o SHA-256",filtro:"todos"});if(r.caminhos.length)await hashArq(r.caminhos[0])})}
 async function sair(){if(!confirm("Fechar o painel? Processamentos em andamento continuam."))return;await tentar(()=>api("sair"));document.body.innerHTML='<p style="padding:30px">Painel encerrado. Pode fechar esta aba.</p>'}
 
 resumo().then(()=>{if(R.iped_ok&&!R.configurado)diagnosticar()}).catch(e=>aviso(e.message,true));

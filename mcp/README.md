@@ -107,6 +107,13 @@ Ferramentas que alteram o caso:
 | `set_bookmark_comment` | grava o comentário do marcador (o porquê e a busca usada) e se ele entra no relatório |
 | `remove_from_bookmark` | tira itens de um marcador |
 | `set_item_checked` | marca ou desmarca a seleção do item |
+| `update_report_field` | escreve um campo de texto do rascunho do relatório técnico do caso |
+| `update_report_analysis` | cria ou atualiza a análise de um provedor no rascunho do relatório |
+
+`get_report_draft` (leitura) devolve o rascunho do RT, as lacunas `[ENTRE COLCHETES]` e os campos
+que a IA pode escrever. O rascunho é o mesmo arquivo que o painel edita
+(`<caso>/iped-pcba-relatorio/rt.json`); cada campo escrito pela IA fica em `ia_editou` e o painel
+pede revisão. O `.docx` é gerado pelo analista no painel.
 
 O MCP sozinho começa em somente leitura: a IA não vê essas ferramentas e, se chamar mesmo assim,
 a chamada é recusada e registrada como `bloqueado`. O lançador gerado pelo instalador passa

@@ -26,7 +26,7 @@ preta do `instalar.bat` precisa ficar aberta enquanto o painel estiver em uso.
 
 ## Painel IPED-PCBA
 
-Página local (só em `127.0.0.1`, com código de acesso aleatório na URL) com quatro passos:
+Página local (só em `127.0.0.1`, com código de acesso aleatório na URL) com cinco passos:
 
 | Passo | O que faz |
 |---|---|
@@ -34,12 +34,57 @@ Página local (só em `127.0.0.1`, com código de acesso aleatório na URL) com 
 | 2. Processar evidências | Escolhe evidências (arquivos ou pastas), pasta do caso e perfil, e roda o IPED mostrando o log. Acrescentar a um caso, continuar processamento interrompido e caso portátil. O processamento continua se o painel for fechado. |
 | 3. Casos | Lista os casos, abre no IPED, escolhe qual caso a IA vai ler e mostra o log de auditoria da IA com a conferência da cadeia de hashes. |
 | 4. IA (MCP) | Liga e desliga a escrita da IA no caso, liga o MCP ao Claude Desktop, ao LM Studio e ao Hermes Agent (com cópia do arquivo antes de alterar), procura Ollama e LM Studio rodando na máquina e testa o MCP com o caso ativo. |
+| 5. Relatório técnico | Monta o RT do caso no modelo da PCBA e gera o `.docx` (veja abaixo). |
 
 Depois de aplicar, o painel fica dentro do IPED: `<IPED>\pcba\painel-pcba.bat` abre de novo,
 mesmo que a pasta baixada seja apagada. Pelo console: `python -m iped_pcba painel`.
 
 O `instalar.bat -Texto` faz só a configuração pelo console, como antes (pergunta S/N).
 Tudo o que o instalador escreve no console fica em `%TEMP%\iped-pcba-instalar.log`.
+
+## Relatório técnico (RT)
+
+O passo 5 do painel monta o RT na estrutura do modelo institucional: capa, bloco de qualificação,
+apresentação, objetivo, fatos e relações, cadastro telefônico, terminais improdutivos, uma análise
+por provedor (tabela INVESTIGADO | CONTA | PERÍODO, texto, quadros e conclusão), metodologia (IPED,
+MD5, SHA-256), providências e assinaturas, com cabeçalho institucional e rodapé SIGILO LEGAL em
+todas as páginas. O que estiver entre colchetes, `[ASSIM]`, sai em vermelho para o analista
+completar, e o painel lista essas lacunas antes de gerar.
+
+- O rascunho fica dentro do caso, em `<caso>\iped-pcba-relatorio\rt.json`, com cada versão anterior
+  em `historico\`. O `.docx` sai em `<caso>\iped-pcba-relatorio\RT.docx`.
+- Os dados da unidade (cabeçalho, endereço, sigla, núcleo, e-mails que entram em todo pedido e
+  analistas padrão) são preenchidos uma vez no painel e ficam em `~\.iped-pcba\unidade.json`.
+  Nada da unidade está fixo no código: cada delegacia preenche os seus.
+- "Calcular SHA-256" faz o hash da `Lista de Arquivos.csv` exportada do IPED e o põe na metodologia.
+- A IA pode escrever o rascunho pelo MCP (`get_report_draft`, `update_report_field`,
+  `update_report_analysis`). Tudo o que ela escreve aparece no painel como "Escrito pela IA:
+  revise". A conclusão de cada análise começa como lacuna: quem conclui é o analista.
+- O `.docx` é gerado só com a biblioteca padrão do Python, então funciona com o Python que já vem
+  no IPED, sem instalar nada.
+
+Pelo console: `python -m iped_pcba relatorio gerar --caso <pasta>` (também `lacunas` e `telematica`).
+
+### Registros telemáticos padronizados
+
+Todo retorno de provedor vira o mesmo CSV (separador `;` ou `,`), um registro por linha:
+
+| Coluna | Conteúdo |
+|---|---|
+| `provedor` | WhatsApp, Google, Apple, Meta, operadora… |
+| `conta` | conta investigada (telefone, e-mail, ID) |
+| `tipo` | `mensagem`, `chamada`, `conexao`, `login`, `localizacao`, `contato`, `grupo` ou `outro` |
+| `data_hora` | ISO 8601 com fuso (`2026-03-01T13:05:00Z`); sem fuso é tratado como UTC |
+| `interlocutor`, `direcao` | outra ponta da mensagem ou chamada, `enviada`/`recebida` |
+| `ip`, `porta` | IP e porta lógica do registro de conexão |
+| `dispositivo`, `grupo`, `duracao_s`, `local`, `fonte` | quando o provedor informa; `fonte` é o arquivo de origem |
+
+"Importar e resumir" no passo 5 lê esse CSV e cria, por provedor, a tabela de contas, um texto de
+rascunho em prosa (período em horário de Brasília, volume por tipo, principais interlocutores, IPs
+mais recorrentes com portas, dispositivos, grupos e faixa horária) e os quadros de interlocutores e
+de IPs. Análises que o analista já editou não são substituídas numa nova importação. Os conversores
+de cada provedor para esse CSV são a fase 3. Exemplo com dados fictícios:
+`tests/fixtures/telematica/registros_ficticios.csv`.
 
 ## O que a configuração faz
 
@@ -147,8 +192,8 @@ na segunda e que reverter devolve os arquivos byte a byte.
 
 ## Próximas fases
 
-3. Parsers de retornos de provedores e importador do Guardião (Dígitro).
-4. Gerador de relatórios no padrão da 9ª COORPIN.
+3. Conversores dos retornos de provedores (WhatsApp, Google, Apple, Meta) para o CSV padronizado e
+   importador do Guardião (Dígitro). Dependem de amostras anonimizadas.
 
 ## Licença
 
