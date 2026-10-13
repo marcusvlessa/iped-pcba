@@ -5,6 +5,8 @@
   3. Casos: abre no IPED, escolhe o caso que a IA vai ler, confere o log de auditoria.
   4. IA (MCP): escrita liberada ou não, liga o MCP ao Claude Desktop, LM Studio e Hermes,
      procura IA local (Ollama, LM Studio) e testa o MCP.
+  5. Relatório técnico do caso.
+  Visão do caso: gráficos do caso processado, alertas e sugestões (visao.py).
 
 Segurança: escuta só em 127.0.0.1, numa porta livre, e toda chamada precisa do código
 aleatório que vai na URL aberta pelo próprio painel. Só usa a biblioteca padrão, para rodar
@@ -256,6 +258,26 @@ class Estado(object):
         return {"arquivo": arq, "existe": True, "registros": n, "problemas": problemas,
                 "integra": not problemas, "ultimos": regs}
 
+    # ------------------------------------------------------------ visão do caso
+    def visao_ler(self, caso):
+        from . import visao
+        r = self.resumo()
+        clientes = r.get("clientes") or []
+        amb = {"mcp": (r.get("mcp") or {}).get("instalado"),
+               "ia_ligada": any(c.get("aponta_para_este") for c in clientes)}
+        out = visao.ler(caso, amb)
+        out["mcp_instalado"] = bool(amb["mcp"])
+        return out
+
+    def visao_atualizar(self, caso):
+        from . import visao
+        r = self.resumo()
+        if not r["mcp"]["instalado"]:
+            raise ValueError("O MCP não está instalado: aplique a configuração com o pacote completo (passo 1).")
+        cmd = visao.comando_exportar(r["mcp"]["lancador"], caso)
+        return {"tarefa": self.tarefas.iniciar("visao", "Números do caso " + os.path.basename(caso.rstrip("\\/")),
+                                               cmd, cwd=caso)}
+
     # ------------------------------------------------------------ IA
     def ia(self):
         return {"local": clientesia.ia_local()}
@@ -426,6 +448,10 @@ def _rotear(e, rota, d):
         return clientesia.remover(d["cliente"])
     if rota == "/api/ia/testar":
         return e.testar_mcp(d)
+    if rota == "/api/visao/ler":
+        return e.visao_ler(_caso_valido(d))
+    if rota == "/api/visao/atualizar":
+        return e.visao_atualizar(_caso_valido(d))
     if rota.startswith("/api/rt/") or rota.startswith("/api/unidade/"):
         return _rotear_rt(rota, d)
     if rota == "/api/atalho":

@@ -52,6 +52,8 @@ public class McpApplication {
         boolean stdioMode = false;
         boolean httpMode = false;
         String casePath = null;
+        String visaoSaida = null;
+        boolean exportarVisao = false;
 
         for (int i = 0; i < args.length; i++) {
             String arg = args[i];
@@ -65,6 +67,12 @@ public class McpApplication {
                 System.setProperty("quarkus.http.host", args[++i]);
             } else if ("--porta".equalsIgnoreCase(arg) && i + 1 < args.length) {
                 System.setProperty("quarkus.http.port", args[++i]);
+            } else if ("--exportar-visao".equalsIgnoreCase(arg)) {
+                // PCBA: números do caso para os gráficos do painel (só leitura, sem servidor)
+                exportarVisao = true;
+                if (i + 1 < args.length && !args[i + 1].startsWith("--")) {
+                    visaoSaida = args[++i];
+                }
             } else if ("--permitir-escrita".equalsIgnoreCase(arg)) {
                 // PCBA: libera ferramentas que alteram o caso (marcadores, itens marcados)
                 System.setProperty("pcba.somente-leitura", "false");
@@ -81,6 +89,10 @@ public class McpApplication {
                 printHelp();
                 return;
             }
+        }
+
+        if (exportarVisao) {
+            System.exit(br.com.ipedtools.mcp.pcba.VisaoCaso.exportar(casePath, visaoSaida));
         }
 
         if (stdioMode || httpMode) {
@@ -213,6 +225,7 @@ public class McpApplication {
         System.out.println("  --porta <n>          Porta do modo HTTP (padrao 8765)");
         System.out.println("  --permitir-escrita   Libera marcadores e itens marcados (padrao: somente leitura)");
         System.out.println("  --case <diretorio>   Caminho para a pasta do caso processado pelo IPED");
+        System.out.println("  --exportar-visao [arquivo.json]  Grava os numeros do caso para o painel e sai");
         System.out.println("  --gui                Forca a abertura da interface grafica");
         System.out.println("  --version, -v        Exibe a versao e informacoes de build");
         System.out.println("  --help, -h           Exibe esta mensagem de ajuda");

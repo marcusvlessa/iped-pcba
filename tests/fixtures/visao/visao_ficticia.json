@@ -1,0 +1,629 @@
+{
+ "gerado_em": "2026-10-13T21:30:00",
+ "caso": "/casos/caso-exemplo",
+ "geral": {
+  "total_itens": 184322,
+  "fontes": [
+   {
+    "id": "caso-exemplo",
+    "name": "celular-ficticio.ufdr"
+   }
+  ]
+ },
+ "categorias": [
+  {
+   "nome": "Imagens",
+   "total": 61230
+  },
+  {
+   "nome": "Chats do WhatsApp",
+   "total": 22410
+  },
+  {
+   "nome": "Mensagens do WhatsApp",
+   "total": 21877
+  },
+  {
+   "nome": "Áudios",
+   "total": 4310
+  },
+  {
+   "nome": "Vídeos",
+   "total": 2210
+  },
+  {
+   "nome": "Contatos",
+   "total": 1830
+  },
+  {
+   "nome": "Chamadas",
+   "total": 1622
+  },
+  {
+   "nome": "Documentos PDF",
+   "total": 911
+  },
+  {
+   "nome": "Histórico de Navegação",
+   "total": 870
+  },
+  {
+   "nome": "Localizações",
+   "total": 512
+  },
+  {
+   "nome": "Arquivos Criptografados",
+   "total": 14
+  },
+  {
+   "nome": "E-mails",
+   "total": 9
+  }
+ ],
+ "marcadores": [],
+ "linha_do_tempo": {
+  "meses": [
+   {
+    "mes": "2025-03",
+    "total": 565,
+    "comunicacao": 248
+   },
+   {
+    "mes": "2025-04",
+    "total": 602,
+    "comunicacao": 228
+   },
+   {
+    "mes": "2025-05",
+    "total": 437,
+    "comunicacao": 181
+   },
+   {
+    "mes": "2025-06",
+    "total": 448,
+    "comunicacao": 144
+   },
+   {
+    "mes": "2025-07",
+    "total": 429,
+    "comunicacao": 185
+   },
+   {
+    "mes": "2025-08",
+    "total": 509,
+    "comunicacao": 131
+   },
+   {
+    "mes": "2025-09",
+    "total": 622,
+    "comunicacao": 207
+   },
+   {
+    "mes": "2025-10",
+    "total": 523,
+    "comunicacao": 140
+   },
+   {
+    "mes": "2025-11",
+    "total": 617,
+    "comunicacao": 161
+   },
+   {
+    "mes": "2025-12",
+    "total": 689,
+    "comunicacao": 189
+   },
+   {
+    "mes": "2026-01",
+    "total": 514,
+    "comunicacao": 193
+   },
+   {
+    "mes": "2026-02",
+    "total": 698,
+    "comunicacao": 306
+   },
+   {
+    "mes": "2026-03",
+    "total": 695,
+    "comunicacao": 255
+   },
+   {
+    "mes": "2026-04",
+    "total": 425,
+    "comunicacao": 189
+   },
+   {
+    "mes": "2026-05",
+    "total": 6400,
+    "comunicacao": 2312
+   },
+   {
+    "mes": "2026-06",
+    "total": 468,
+    "comunicacao": 144
+   },
+   {
+    "mes": "2026-07",
+    "total": 473,
+    "comunicacao": 169
+   },
+   {
+    "mes": "2026-08",
+    "total": 692,
+    "comunicacao": 215
+   },
+   {
+    "mes": "2026-09",
+    "total": 817,
+    "comunicacao": 315
+   }
+  ],
+  "categorias_comunicacao": [
+   "Chats do WhatsApp",
+   "Chamadas",
+   "E-mails"
+  ]
+ },
+ "contatos": [
+  {
+   "rank": 1,
+   "identifier": "+5500900000001",
+   "name": "FULANO (FICTÍCIO)",
+   "total_interactions": 1079,
+   "messages_count": 903,
+   "calls_count": 176,
+   "channels": [
+    "WhatsApp",
+    "Chamadas"
+   ]
+  },
+  {
+   "rank": 2,
+   "identifier": "+5500900000002",
+   "name": "BELTRANO (FICTÍCIO)",
+   "total_interactions": 515,
+   "messages_count": 470,
+   "calls_count": 45,
+   "channels": [
+    "WhatsApp",
+    "Chamadas"
+   ]
+  },
+  {
+   "rank": 3,
+   "identifier": "+5500900000003",
+   "name": "CICRANO (FICTÍCIO)",
+   "total_interactions": 359,
+   "messages_count": 303,
+   "calls_count": 56,
+   "channels": [
+    "WhatsApp",
+    "Chamadas"
+   ]
+  },
+  {
+   "rank": 4,
+   "identifier": "+5500900000004",
+   "name": "GRUPO FAMÍLIA (FICTÍCIO)",
+   "total_interactions": 270,
+   "messages_count": 227,
+   "calls_count": 43,
+   "channels": [
+    "WhatsApp",
+    "Chamadas"
+   ],
+   "is_group": true
+  },
+  {
+   "rank": 5,
+   "identifier": "+5500900000005",
+   "name": "DELTA (FICTÍCIO)",
+   "total_interactions": 219,
+   "messages_count": 199,
+   "calls_count": 20,
+   "channels": [
+    "WhatsApp",
+    "Chamadas"
+   ]
+  },
+  {
+   "rank": 6,
+   "identifier": "+5500900000006",
+   "name": "ECO (FICTÍCIO)",
+   "total_interactions": 202,
+   "messages_count": 171,
+   "calls_count": 31,
+   "channels": [
+    "WhatsApp",
+    "Chamadas"
+   ]
+  },
+  {
+   "rank": 7,
+   "identifier": "+5500900000007",
+   "name": "FOXTROT (FICTÍCIO)",
+   "total_interactions": 171,
+   "messages_count": 152,
+   "calls_count": 19,
+   "channels": [
+    "WhatsApp",
+    "Chamadas"
+   ]
+  },
+  {
+   "rank": 8,
+   "identifier": "+5500900000008",
+   "name": "GOLF (FICTÍCIO)",
+   "total_interactions": 166,
+   "messages_count": 130,
+   "calls_count": 36,
+   "channels": [
+    "WhatsApp",
+    "Chamadas"
+   ]
+  },
+  {
+   "rank": 9,
+   "identifier": "+5500900000009",
+   "name": "HOTEL (FICTÍCIO)",
+   "total_interactions": 124,
+   "messages_count": 111,
+   "calls_count": 13,
+   "channels": [
+    "WhatsApp",
+    "Chamadas"
+   ]
+  },
+  {
+   "rank": 10,
+   "identifier": "+5500900000010",
+   "name": "ÍNDIA (FICTÍCIO)",
+   "total_interactions": 125,
+   "messages_count": 115,
+   "calls_count": 10,
+   "channels": [
+    "WhatsApp",
+    "Chamadas"
+   ]
+  },
+  {
+   "rank": 11,
+   "identifier": "+5500900000011",
+   "name": "JULIETA (FICTÍCIO)",
+   "total_interactions": 116,
+   "messages_count": 105,
+   "calls_count": 11,
+   "channels": [
+    "WhatsApp",
+    "Chamadas"
+   ]
+  },
+  {
+   "rank": 12,
+   "identifier": "+5500900000012",
+   "name": "KILO (FICTÍCIO)",
+   "total_interactions": 104,
+   "messages_count": 93,
+   "calls_count": 11,
+   "channels": [
+    "WhatsApp",
+    "Chamadas"
+   ]
+  }
+ ],
+ "rede": {
+  "total_nodes": 13,
+  "total_edges": 17,
+  "nodes": [
+   {
+    "id": "TITULAR_(FICTÍCIO)",
+    "label": "TITULAR (FICTÍCIO)",
+    "total_interactions": 3450
+   },
+   {
+    "id": "+5500900000001",
+    "label": "FULANO (FICTÍCIO)",
+    "total_interactions": 1144
+   },
+   {
+    "id": "+5500900000002",
+    "label": "BELTRANO (FICTÍCIO)",
+    "total_interactions": 567
+   },
+   {
+    "id": "+5500900000003",
+    "label": "CICRANO (FICTÍCIO)",
+    "total_interactions": 390
+   },
+   {
+    "id": "+5500900000004",
+    "label": "GRUPO FAMÍLIA (FICTÍCIO)",
+    "total_interactions": 279,
+    "is_group": true
+   },
+   {
+    "id": "+5500900000005",
+    "label": "DELTA (FICTÍCIO)",
+    "total_interactions": 231
+   },
+   {
+    "id": "+5500900000006",
+    "label": "ECO (FICTÍCIO)",
+    "total_interactions": 211
+   },
+   {
+    "id": "+5500900000007",
+    "label": "FOXTROT (FICTÍCIO)",
+    "total_interactions": 177
+   },
+   {
+    "id": "+5500900000008",
+    "label": "GOLF (FICTÍCIO)",
+    "total_interactions": 166
+   },
+   {
+    "id": "+5500900000009",
+    "label": "HOTEL (FICTÍCIO)",
+    "total_interactions": 124
+   },
+   {
+    "id": "+5500900000010",
+    "label": "ÍNDIA (FICTÍCIO)",
+    "total_interactions": 125
+   },
+   {
+    "id": "+5500900000011",
+    "label": "JULIETA (FICTÍCIO)",
+    "total_interactions": 116
+   },
+   {
+    "id": "+5500900000012",
+    "label": "KILO (FICTÍCIO)",
+    "total_interactions": 104
+   }
+  ],
+  "edges": [
+   {
+    "source": "TITULAR_(FICTÍCIO)",
+    "target": "+5500900000001",
+    "weight": 1079,
+    "channels": [
+     "WhatsApp",
+     "Chamadas"
+    ],
+    "messages_count": 903,
+    "calls_count": 176
+   },
+   {
+    "source": "TITULAR_(FICTÍCIO)",
+    "target": "+5500900000002",
+    "weight": 515,
+    "channels": [
+     "WhatsApp",
+     "Chamadas"
+    ],
+    "messages_count": 470,
+    "calls_count": 45
+   },
+   {
+    "source": "TITULAR_(FICTÍCIO)",
+    "target": "+5500900000003",
+    "weight": 359,
+    "channels": [
+     "WhatsApp",
+     "Chamadas"
+    ],
+    "messages_count": 303,
+    "calls_count": 56
+   },
+   {
+    "source": "TITULAR_(FICTÍCIO)",
+    "target": "+5500900000004",
+    "weight": 270,
+    "channels": [
+     "WhatsApp",
+     "Chamadas"
+    ],
+    "messages_count": 227,
+    "calls_count": 43
+   },
+   {
+    "source": "TITULAR_(FICTÍCIO)",
+    "target": "+5500900000005",
+    "weight": 219,
+    "channels": [
+     "WhatsApp",
+     "Chamadas"
+    ],
+    "messages_count": 199,
+    "calls_count": 20
+   },
+   {
+    "source": "TITULAR_(FICTÍCIO)",
+    "target": "+5500900000006",
+    "weight": 202,
+    "channels": [
+     "WhatsApp",
+     "Chamadas"
+    ],
+    "messages_count": 171,
+    "calls_count": 31
+   },
+   {
+    "source": "TITULAR_(FICTÍCIO)",
+    "target": "+5500900000007",
+    "weight": 171,
+    "channels": [
+     "WhatsApp",
+     "Chamadas"
+    ],
+    "messages_count": 152,
+    "calls_count": 19
+   },
+   {
+    "source": "TITULAR_(FICTÍCIO)",
+    "target": "+5500900000008",
+    "weight": 166,
+    "channels": [
+     "WhatsApp",
+     "Chamadas"
+    ],
+    "messages_count": 130,
+    "calls_count": 36
+   },
+   {
+    "source": "TITULAR_(FICTÍCIO)",
+    "target": "+5500900000009",
+    "weight": 124,
+    "channels": [
+     "WhatsApp",
+     "Chamadas"
+    ],
+    "messages_count": 111,
+    "calls_count": 13
+   },
+   {
+    "source": "TITULAR_(FICTÍCIO)",
+    "target": "+5500900000010",
+    "weight": 125,
+    "channels": [
+     "WhatsApp",
+     "Chamadas"
+    ],
+    "messages_count": 115,
+    "calls_count": 10
+   },
+   {
+    "source": "TITULAR_(FICTÍCIO)",
+    "target": "+5500900000011",
+    "weight": 116,
+    "channels": [
+     "WhatsApp",
+     "Chamadas"
+    ],
+    "messages_count": 105,
+    "calls_count": 11
+   },
+   {
+    "source": "TITULAR_(FICTÍCIO)",
+    "target": "+5500900000012",
+    "weight": 104,
+    "channels": [
+     "WhatsApp",
+     "Chamadas"
+    ],
+    "messages_count": 93,
+    "calls_count": 11
+   },
+   {
+    "source": "+5500900000001",
+    "target": "+5500900000002",
+    "weight": 40,
+    "channels": [
+     "WhatsApp"
+    ],
+    "messages_count": 40,
+    "calls_count": 0
+   },
+   {
+    "source": "+5500900000001",
+    "target": "+5500900000003",
+    "weight": 25,
+    "channels": [
+     "WhatsApp"
+    ],
+    "messages_count": 25,
+    "calls_count": 0
+   },
+   {
+    "source": "+5500900000002",
+    "target": "+5500900000005",
+    "weight": 12,
+    "channels": [
+     "WhatsApp"
+    ],
+    "messages_count": 12,
+    "calls_count": 0
+   },
+   {
+    "source": "+5500900000004",
+    "target": "+5500900000006",
+    "weight": 9,
+    "channels": [
+     "WhatsApp"
+    ],
+    "messages_count": 9,
+    "calls_count": 0
+   },
+   {
+    "source": "+5500900000003",
+    "target": "+5500900000007",
+    "weight": 6,
+    "channels": [
+     "WhatsApp"
+    ],
+    "messages_count": 6,
+    "calls_count": 0
+   }
+  ]
+ },
+ "dispositivos": [
+  {
+   "name": "celular-ficticio.ufdr",
+   "type": "Android",
+   "likely_owners": [
+    "TITULAR (FICTÍCIO)"
+   ],
+   "owner_phone_numbers": [
+    "+5500900000000"
+   ],
+   "owner_emails": [
+    "titular@example.com"
+   ]
+  }
+ ],
+ "ia_filtros": [
+  {
+   "id": "weapons",
+   "nome": "Armas de Fogo e Munições",
+   "total": 7
+  },
+  {
+   "id": "drugs",
+   "nome": "Drogas",
+   "total": 0
+  },
+  {
+   "id": "nudity",
+   "nome": "Nudez e Conteúdo Adulto",
+   "total": 31
+  },
+  {
+   "id": "faces",
+   "nome": "Faces",
+   "total": 0
+  },
+  {
+   "id": "audio_transcripts",
+   "nome": "Transcrições de áudio",
+   "total": 0
+  },
+  {
+   "id": "csam",
+   "nome": "CSAM",
+   "total": 0
+  },
+  {
+   "id": "ocr",
+   "nome": "OCR",
+   "total": 1290
+  }
+ ],
+ "especiais": {
+  "apagados": 3412,
+  "recuperados_carving": 880,
+  "alerta_hash": 0
+ },
+ "erros": {}
+}

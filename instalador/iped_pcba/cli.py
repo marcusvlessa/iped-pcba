@@ -205,6 +205,8 @@ def incorporar_telematica(caso, registros, investigados=None):
     editadas = {a.get("provedor") for a in manter if not a.get("gerado_automaticamente")}
     dados["analises"] = manter + [n for n in novas if n["provedor"] not in editadas]
     rt.gravar_rt(caso, dados)
+    from .visao import gravar_telematica
+    gravar_telematica(caso, telematica.painel(regs), registros)
     return dados, {"registros": len(regs), "rejeitadas": rejeitadas, "contas": len(resumos),
                    "provedores": len({s["provedor"] for s in resumos}),
                    "resumos": telematica.resumo_json(resumos)}

@@ -34,6 +34,7 @@ Página local (só em `127.0.0.1`, com código de acesso aleatório na URL) com 
 | 2. Processar evidências | Escolhe evidências (arquivos ou pastas), pasta do caso e perfil, e roda o IPED mostrando o log. Acrescentar a um caso, continuar processamento interrompido e caso portátil. O processamento continua se o painel for fechado. |
 | 3. Casos | Lista os casos, abre no IPED, escolhe qual caso a IA vai ler e mostra o log de auditoria da IA com a conferência da cadeia de hashes. |
 | 4. IA (MCP) | Liga e desliga a escrita da IA no caso, liga o MCP ao Claude Desktop, ao LM Studio e ao Hermes Agent (com cópia do arquivo antes de alterar), procura Ollama e LM Studio rodando na máquina e testa o MCP com o caso ativo. |
+| Visão do caso | Gráficos do caso processado (itens por mês, categorias, contatos mais ativos, rede de comunicações, detecções do IPED, dispositivos) e dos registros telemáticos importados (por dia, por hora, interlocutores, IPs, contas), com alertas e sugestões (veja abaixo). |
 | 5. Relatório técnico | Monta o RT do caso no modelo da PCBA e gera o `.docx` (veja abaixo). |
 
 Depois de aplicar, o painel fica dentro do IPED: `<IPED>\pcba\painel-pcba.bat` abre de novo,
@@ -41,6 +42,33 @@ mesmo que a pasta baixada seja apagada. Pelo console: `python -m iped_pcba paine
 
 O `instalar.bat -Texto` faz só a configuração pelo console, como antes (pergunta S/N).
 Tudo o que o instalador escreve no console fica em `%TEMP%\iped-pcba-instalar.log`.
+
+## Visão do caso
+
+O botão "Atualizar números do caso" roda o MCP em modo de exportação
+(`iped-pcba-mcp --case <caso> --exportar-visao`), que só lê o índice do IPED e grava
+`<caso>\iped-pcba-painel\visao.json`. Os registros telemáticos importados no passo 5 ficam em
+`<caso>\iped-pcba-painel\telematica.json`. Nada sai da máquina e os gráficos funcionam sem
+internet.
+
+Alertas e sugestões são regras fixas, cada uma com a fonte do número; não são conclusões:
+
+| Alerta | Quando aparece |
+|---|---|
+| Base de hashes de alerta, CSAM | qualquer item em `hashDb:status=alert` ou no filtro CSAM do IPED (nível alto) |
+| Log de auditoria da IA adulterado | a cadeia de hashes do log não confere (nível alto) |
+| Armas, drogas, carteiras de criptomoeda | filtros de IA do IPED com itens |
+| Arquivos criptografados | categoria de criptografados com itens |
+| Pico de atividade | mês acima de média + 2 desvios e de 3x a mediana dos meses |
+| Apagados e carving | itens `deleted:true` e `carved:true` |
+| Contato dominante | um contato com 35% ou mais das interações dos mais ativos |
+| Madrugada | 25% ou mais dos registros telemáticos entre 0h e 6h |
+| Conta em vários dispositivos | a mesma conta com mais de um dispositivo nos registros |
+| RT escrito pela IA | campos marcados para revisão no rascunho |
+
+As sugestões apontam o próximo passo (criar marcadores, transcrever áudios, ativar faces,
+importar telemática, pedir cadastro de IPs, completar o RT, ligar a IA) e várias trazem uma
+pergunta pronta para copiar e colar no programa de IA ligado ao MCP.
 
 ## Relatório técnico (RT)
 

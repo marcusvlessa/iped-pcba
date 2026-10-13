@@ -58,6 +58,41 @@ textarea{font:inherit;width:100%;min-height:90px;padding:7px 9px;border:1px soli
 .spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:g 1s linear infinite;vertical-align:-2px}
 @keyframes g{to{transform:rotate(360deg)}}
 @media (max-width:760px){.wrap{display:block}nav{width:auto;display:flex;overflow:auto;border-right:0;border-bottom:1px solid var(--line)}nav button{white-space:nowrap}main{padding:12px}}
+
+:root{--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--grade:#e6e9ed}
+@media (prefers-color-scheme:dark){:root{--s1:#3987e5;--s2:#d95926;--s3:#199e70;--grade:#2a3139}}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.kpi .v{font-size:26px;font-weight:650;line-height:1.1}
+.kpi .r{color:var(--quiet);font-size:12px}
+.graf{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.graf .card{margin:0;min-width:0}
+.graf .larga{grid-column:1/-1}
+#vCorpo .card{overflow-x:auto}
+@media (max-width:1000px){.graf{grid-template-columns:1fr}}
+.card h3 .muted{font-weight:400;font-size:12px}
+svg.ch{display:block;width:100%;height:auto;overflow:visible}
+svg.ch text{fill:var(--quiet);font:11px "Segoe UI",system-ui,sans-serif}
+svg.ch text.ink{fill:var(--ink)}
+svg.ch .eixo{stroke:var(--line)}
+svg.ch .grade{stroke:var(--grade)}
+svg.ch [data-tip]:hover{opacity:.8}
+.leg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--quiet);margin:2px 0 6px}
+.leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+#tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--bg);padding:6px 9px;border-radius:6px;font-size:12px;display:none;z-index:10;max-width:320px;white-space:pre-line}
+.al{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.al:last-child{border-bottom:0}
+.al .ic{flex:none;width:58px;text-align:center;font-size:11px;font-weight:700;border-radius:6px;padding:3px 0;height:fit-content}
+.al .ic.alto{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
+.al .ic.medio{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.al .ic.info{background:var(--chip);color:var(--quiet)}
+.al .ic.sug{background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent)}
+.al .t{font-weight:600}
+.al .d{color:var(--quiet);font-size:13px}
+.al .row{margin:6px 0 0}
+.al button.b{padding:3px 10px;font-size:12px}
+details.tab summary{cursor:pointer;color:var(--quiet);font-size:12px;margin-top:6px}
+details.tab table{font-size:12px}
 </style>
 </head>
 <body>
@@ -71,6 +106,7 @@ textarea{font:inherit;width:100%;min-height:90px;padding:7px 9px;border:1px soli
   <button data-s="config" class="on"><span class="n" id="n1">1</span>Máquina e configuração</button>
   <button data-s="proc"><span class="n" id="n2">2</span>Processar evidências</button>
   <button data-s="casos"><span class="n" id="n3">3</span>Casos</button>
+  <button data-s="visao"><span class="n">◎</span>Visão do caso</button>
   <button data-s="ia"><span class="n" id="n4">4</span>IA (MCP)</button>
   <button data-s="relatorio"><span class="n" id="n5">5</span>Relatório técnico</button>
   <button data-s="tarefas"><span class="n">≡</span>Tarefas e logs</button>
@@ -146,6 +182,37 @@ textarea{font:inherit;width:100%;min-height:90px;padding:7px 9px;border:1px soli
   </div>
   <div class="card"><div id="listaCasos" class="muted">nenhum caso ainda</div></div>
   <div class="card" id="audCard" style="display:none"><h3>Auditoria da IA</h3><div id="aud"></div></div>
+</section>
+
+<!-- VISÃO DO CASO -->
+<section id="visao">
+  <h2>Visão do caso</h2>
+  <p class="sub">Números do caso processado em gráficos, com alertas e sugestões do que olhar primeiro. Os alertas são regras fixas (cada um diz de onde veio o número), não conclusões. Tudo é calculado nesta máquina.</p>
+  <div class="card">
+    <div class="row"><label class="f" style="margin:0">Caso</label><select id="vCaso" class="grow" onchange="carregarVisao()"></select>
+      <button class="b p" id="vAtu" onclick="atualizarVisao()">Atualizar números do caso</button></div>
+    <div id="vSit" class="muted"></div>
+  </div>
+  <div id="vCorpo" style="display:none">
+    <div class="kpis" id="vKpis"></div>
+    <div class="graf" style="margin-bottom:14px">
+      <div class="card"><h3>Alertas <span id="vNAl" class="tag"></span></h3><div id="vAlertas"></div></div>
+      <div class="card"><h3>Sugestões</h3><div id="vSug"></div></div>
+    </div>
+    <div class="graf">
+      <div class="card larga" id="gTempoC"><h3>Itens por mês <span class="muted">itens com alguma data no mês (UTC)</span></h3><div id="gTempo"></div></div>
+      <div class="card" id="gCatC"><h3>Categorias <span class="muted">maiores</span></h3><div id="gCat"></div></div>
+      <div class="card" id="gConC"><h3>Contatos mais ativos <span class="muted">mensagens e chamadas</span></h3><div id="gCon"></div></div>
+      <div class="card larga" id="gRedeC"><h3>Rede de comunicações <span class="muted">linha mais grossa = mais interações</span></h3><div id="gRede"></div></div>
+      <div class="card" id="gIaC"><h3>Detecções do IPED</h3><div id="gIa"></div></div>
+      <div class="card" id="gDispC"><h3>Dispositivos e titulares</h3><div id="gDisp"></div></div>
+      <div class="card larga" id="gTelDiaC"><h3>Registros telemáticos por dia <span class="muted">horário de Brasília</span></h3><div id="gTelDia"></div></div>
+      <div class="card" id="gTelHoraC"><h3>Registros telemáticos por hora do dia</h3><div id="gTelHora"></div></div>
+      <div class="card" id="gTelIntC"><h3>Interlocutores nos registros telemáticos</h3><div id="gTelInt"></div></div>
+      <div class="card" id="gTelIpC"><h3>Endereços IP mais frequentes</h3><div id="gTelIp"></div></div>
+      <div class="card" id="gTelContaC"><h3>Contas nos registros telemáticos</h3><div id="gTelConta"></div></div>
+    </div>
+  </div>
 </section>
 
 <!-- 4. IA -->
@@ -228,6 +295,7 @@ textarea{font:inherit;width:100%;min-height:90px;padding:7px 9px;border:1px soli
 </main>
 </div>
 <div class="toast" id="toast"></div>
+<div id="tip"></div>
 <script>
 const TOKEN="__TOKEN__";
 let R={}, DIAG=null, procId=null, procPos=0, tarefaId=null, tarefaPos=0;
@@ -242,7 +310,7 @@ async function api(rota,dados){
 function aviso(t,ruim){const e=$("toast");e.textContent=t;e.className="toast"+(ruim?" bad":"");e.style.display="block";clearTimeout(e._t);e._t=setTimeout(()=>e.style.display="none",ruim?9000:4000)}
 async function tentar(f){try{return await f()}catch(e){aviso(e.message,true)}}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>ir(b.dataset.s));
-function ir(s){document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x.dataset.s==s));document.querySelectorAll("section").forEach(x=>x.classList.toggle("on",x.id==s));if(s=="ia")carregarIa();if(s=="tarefas")desenharTarefas();if(s=="relatorio")entrarRt();}
+function ir(s){document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x.dataset.s==s));document.querySelectorAll("section").forEach(x=>x.classList.toggle("on",x.id==s));if(s=="ia")carregarIa();if(s=="tarefas")desenharTarefas();if(s=="relatorio")entrarRt();if(s=="visao")entrarVisao();}
 
 async function escolherPara(id,tipo,titulo){await tentar(async()=>{const r=await api("escolher",{tipo,titulo});if(r.caminhos.length)$(id).value=r.caminhos[0]})}
 async function addEvid(tipo){await tentar(async()=>{const r=await api("escolher",{tipo,titulo:"Evidência",multiplos:tipo=="arquivo"});if(r.caminhos.length){const t=$("evid");t.value=(t.value.trim()?t.value.trim()+"\n":"")+r.caminhos.join("\n")}})}
@@ -331,7 +399,7 @@ function desenharCasos(){
   $("listaCasos").innerHTML=l.length?`<table><thead><tr><th>Caso</th><th>Situação</th><th></th></tr></thead><tbody>`+l.map(c=>{
     const ativo=R.caso_ativo&&R.caso_ativo.toLowerCase()==c.pasta.toLowerCase();
     return `<tr><td><b>${esc(c.nome)}</b><br><span class="muted">${esc(c.pasta)}</span></td><td>${c.existe?'<span class="tag ok">pronto</span>':'<span class="tag bad">pasta não encontrada</span>'} ${ativo?'<span class="tag ok">a IA está usando</span>':''}</td>
-    <td><div class="row" style="margin:0">${c.existe?`<button class="b" onclick="abrirCaso('${esc(js(c.pasta))}')">Abrir no IPED</button><button class="b ${ativo?'':'p'}" onclick="ativarCaso('${esc(js(c.pasta))}')">${ativo?'Caso da IA':'Usar com a IA'}</button><button class="b" onclick="verAud('${esc(js(c.pasta))}')">Auditoria</button><button class="b" onclick="irRt('${esc(js(c.pasta))}')">Relatório</button>`:''}<button class="b d" onclick="esquecer('${esc(js(c.pasta))}')">Tirar da lista</button></div></td></tr>`}).join("")+`</tbody></table>`:"nenhum caso ainda. Processe uma evidência ou adicione a pasta de um caso.";
+    <td><div class="row" style="margin:0">${c.existe?`<button class="b" onclick="abrirCaso('${esc(js(c.pasta))}')">Abrir no IPED</button><button class="b ${ativo?'':'p'}" onclick="ativarCaso('${esc(js(c.pasta))}')">${ativo?'Caso da IA':'Usar com a IA'}</button><button class="b" onclick="verAud('${esc(js(c.pasta))}')">Auditoria</button><button class="b" onclick="irVisao('${esc(js(c.pasta))}')">Visão</button><button class="b" onclick="irRt('${esc(js(c.pasta))}')">Relatório</button>`:''}<button class="b d" onclick="esquecer('${esc(js(c.pasta))}')">Tirar da lista</button></div></td></tr>`}).join("")+`</tbody></table>`:"nenhum caso ainda. Processe uma evidência ou adicione a pasta de um caso.";
 }
 const js=s=>s.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
 async function addCaso(){await tentar(async()=>{await api("caso/adicionar",{pasta:val("casoNovo")});$("casoNovo").value="";await resumo()})}
@@ -431,6 +499,117 @@ async function importarTel(){await tentar(async()=>{await salvarRt(true);const i
   $("rtImp").textContent=`${m.registros} registros, ${m.contas} conta(s), ${m.provedores} provedor(es)`+(m.rejeitadas.length?`; ${m.rejeitadas.length} linha(s) ignoradas (sem data, provedor ou conta)`:"");aviso("Resumo telemático incluído no rascunho.")})}
 async function hashArq(a){await tentar(async()=>{await salvarRt(true);desenharRt(await api("rt/hash",{caso:val("rtCaso"),arquivo:a}));aviso("SHA-256 incluído na metodologia.")})}
 async function hashOutro(){await tentar(async()=>{const r=await api("escolher",{tipo:"arquivo",titulo:"Arquivo para o SHA-256",filtro:"todos"});if(r.caminhos.length)await hashArq(r.caminhos[0])})}
+
+// ---------------------------------------------------------------- visão do caso
+let VI=null, visaoTarefa=null;
+const fmt=n=>Number(n||0).toLocaleString("pt-BR");
+const MESES=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+const mesBr=m=>{const[a,n]=m.split("-");return MESES[+n-1]+"/"+a};
+const NIVEL={alto:"ALTO",medio:"MÉDIO",info:"INFO"};
+function irVisao(p){ir("visao");$("vCaso").value=p;carregarVisao()}
+async function entrarVisao(){
+  const s=$("vCaso"),atual=s.value,l=(R.casos||[]).filter(c=>c.existe);
+  s.innerHTML='<option value="">escolha um caso…</option>'+l.map(c=>`<option value="${esc(c.pasta)}">${esc(c.nome)} — ${esc(c.pasta)}</option>`).join("");
+  if(atual)s.value=atual;else if(R.caso_ativo&&l.some(c=>c.pasta.toLowerCase()==R.caso_ativo.toLowerCase()))s.value=l.find(c=>c.pasta.toLowerCase()==R.caso_ativo.toLowerCase()).pasta;
+  if(!l.length)$("vSit").textContent="Nenhum caso processado na lista. Adicione um em Casos.";
+  if(s.value)carregarVisao();
+}
+async function carregarVisao(){const caso=val("vCaso");if(!caso){$("vCorpo").style.display="none";return}
+  await tentar(async()=>{VI=await api("visao/ler",{caso});desenharVisao()})}
+async function atualizarVisao(){await tentar(async()=>{const r=await api("visao/atualizar",{caso:val("vCaso")});visaoTarefa=r.tarefa;
+  $("vAtu").disabled=true;$("vSit").innerHTML='<span class="spin"></span> Lendo o índice do IPED. Em casos grandes isso leva alguns minutos; o log fica em Tarefas.';seguirVisao()})}
+async function seguirVisao(){try{const r=await api("tarefa",{id:visaoTarefa,desde:0});if(r.tarefa.rodando){setTimeout(seguirVisao,2500);return}
+  $("vAtu").disabled=false;if(r.tarefa.codigo!==0){$("vSit").textContent="Falhou. Veja o log em Tarefas.";aviso("Não consegui ler o caso. Veja o log em Tarefas.",true);return}
+  aviso("Números do caso atualizados.");carregarVisao()}catch(e){$("vAtu").disabled=false;aviso(e.message,true)}}
+function mostrar(id,sim){$(id).style.display=sim?"":"none"}
+function desenharVisao(){
+  const v=VI.visao,t=VI.telematica;$("vCorpo").style.display="block";
+  $("vSit").innerHTML=v?`Números lidos em ${esc((v.gerado_em||"").replace("T"," ").slice(0,16))}.`+(VI.mcp_instalado?"":' <span class="tag warn">MCP não instalado</span>'):"Os números do índice ainda não foram lidos: clique em Atualizar números do caso."+(t?" Os registros telemáticos já aparecem abaixo.":"");
+  const k=[];
+  if(v){const g=v.geral||{};k.push(["Itens indexados",g.total_itens],["Categorias com itens",(v.categorias||[]).length],["Marcadores",(v.marcadores||[]).length],["Apagados recuperados",(v.especiais||{}).apagados]);
+    const r=v.rede||{};k.push(["Contatos na rede",(r.nodes||[]).length])}
+  if(t)k.push(["Registros telemáticos",t.total],["Interlocutores (telemática)",t.n_interlocutores]);
+  $("vKpis").innerHTML=k.map(([r,n])=>`<div class="kpi"><div class="v">${n==null?"–":fmt(n)}</div><div class="r">${esc(r)}</div></div>`).join("");
+  $("vNAl").textContent=VI.alertas.length;
+  $("vAlertas").innerHTML=VI.alertas.length?VI.alertas.map(itemAlerta).join(""):'<span class="muted">Nenhum alerta pelas regras atuais.</span>';
+  $("vSug").innerHTML=VI.sugestoes.length?VI.sugestoes.map(x=>itemAlerta(Object.assign({nivel:"sug"},x))).join(""):'<span class="muted">Nada pendente.</span>';
+  const meses=v&&(v.linha_do_tempo||{}).meses||[];mostrar("gTempoC",meses.length);
+  if(meses.length)colunas("gTempo",meses.map(m=>({r:mesBr(m.mes),v:[m.total,m.comunicacao]})),[{n:"Todos os itens",c:"var(--s1)"},{n:"Comunicações",c:"var(--s2)"}],{sobrepor:true});
+  const cats=v&&v.categorias||[];mostrar("gCatC",cats.length);
+  if(cats.length)barrasH("gCat",cats.slice(0,12).map(c=>({r:c.nome,v:[c.total]})),[{n:"Itens",c:"var(--s1)"}]);
+  const con=v&&v.contatos||[];mostrar("gConC",con.length);
+  if(con.length)barrasH("gCon",con.slice(0,12).map(c=>({r:c.name||c.identifier,v:[c.messages_count||0,c.calls_count||0],x:(c.channels||[]).join(", ")})),[{n:"Mensagens",c:"var(--s1)"},{n:"Chamadas",c:"var(--s2)"}]);
+  const rede=v&&v.rede||{};mostrar("gRedeC",(rede.edges||[]).length);if((rede.edges||[]).length)desenharRede("gRede",rede);
+  const ia=(v&&v.ia_filtros||[]).filter(f=>f.total>0);mostrar("gIaC",ia.length);
+  if(ia.length)barrasH("gIa",ia.map(f=>({r:f.nome,v:[f.total]})),[{n:"Itens",c:"var(--s3)"}]);
+  const disp=v&&v.dispositivos||[];mostrar("gDispC",disp.length);
+  $("gDisp").innerHTML=disp.map(d=>`<div style="margin-bottom:10px"><b>${esc(d.name)}</b> <span class="tag">${esc(d.type||"")}</span>
+    ${(d.likely_owners||[]).length?`<div><span class="muted">Provável titular:</span> ${esc(d.likely_owners.join(", "))}</div>`:""}
+    ${(d.owner_phone_numbers||[]).length?`<div><span class="muted">Telefones:</span> ${esc(d.owner_phone_numbers.join(", "))}</div>`:""}
+    ${(d.owner_emails||[]).length?`<div><span class="muted">E-mails:</span> ${esc(d.owner_emails.join(", "))}</div>`:""}</div>`).join("");
+  ["gTelDiaC","gTelHoraC","gTelIntC","gTelIpC","gTelContaC"].forEach(i=>mostrar(i,!!t));
+  if(t){const provs=t.provedores.slice(0,3),cores=["var(--s1)","var(--s2)","var(--s3)"];
+    const series=provs.map((p,i)=>({n:p,c:cores[i]}));const outros=t.provedores.length>3;if(outros)series.push({n:"Outros",c:"var(--quiet)"});
+    colunas("gTelDia",t.por_dia.map(d=>{const v=provs.map(p=>d.por_provedor[p]||0);if(outros)v.push(Object.entries(d.por_provedor).filter(([p])=>!provs.includes(p)).reduce((a,[,n])=>a+n,0));
+      const[a,m,dd]=d.dia.split("-");return{r:dd+"/"+m+"/"+a,v}}),series,{empilhar:true});
+    colunas("gTelHora",t.por_hora.map((n,h)=>({r:String(h).padStart(2,"0")+"h",v:[n]})),[{n:"Registros",c:"var(--s1)"}]);
+    barrasH("gTelInt",t.interlocutores.map(i=>({r:i.id,v:[i.total]})),[{n:"Interações",c:"var(--s1)"}]);
+    $("gTelIp").innerHTML=t.ips.length?`<table><thead><tr><th>IP</th><th style="text-align:right">Ocorrências</th></tr></thead><tbody>${t.ips.map(i=>`<tr><td>${esc(i.ip)}</td><td style="text-align:right">${fmt(i.total)}</td></tr>`).join("")}</tbody></table><div class="muted" style="margin-top:6px">${fmt(t.n_ips)} IP(s) distintos no total.</div>`:'<span class="muted">Sem IPs nos registros.</span>';
+    $("gTelConta").innerHTML=`<table><thead><tr><th>Provedor</th><th>Conta</th><th style="text-align:right">Registros</th><th style="text-align:right">IPs</th><th>Dispositivos</th></tr></thead><tbody>${t.contas.map(c=>`<tr><td>${esc(c.provedor)}</td><td>${esc(c.conta)}</td><td style="text-align:right">${fmt(c.total)}</td><td style="text-align:right">${fmt(c.ips)}</td><td>${esc(c.dispositivos.join(", "))}</td></tr>`).join("")}</tbody></table>`}
+}
+function itemAlerta(a){
+  const bts=[];if(a.ir)bts.push(`<button class="b" onclick="ir('${a.ir}')">Ir para ${esc({config:"Configuração",casos:"Casos",relatorio:"Relatório",ia:"IA (MCP)"}[a.ir]||a.ir)}</button>`);
+  if(a.prompt)bts.push(`<button class="b" data-p="${esc(a.prompt)}" onclick="copiarPrompt(this)">Copiar pergunta para a IA</button>`);
+  return `<div class="al"><span class="ic ${a.nivel}">${a.nivel=="sug"?"SUGESTÃO":NIVEL[a.nivel]}</span><div><div class="t">${esc(a.titulo)}</div><div class="d">${esc(a.detalhe)}</div>
+    ${a.fonte?`<div class="d" style="font-size:11px">Fonte: ${esc(a.fonte)}</div>`:""}${a.prompt?`<div class="d" style="font-size:12px;font-style:italic">“${esc(a.prompt)}”</div>`:""}${bts.length?`<div class="row">${bts.join("")}</div>`:""}</div></div>`}
+async function copiarPrompt(b){const t=b.dataset.p;try{await navigator.clipboard.writeText(t);aviso("Pergunta copiada. Cole no programa de IA ligado ao MCP.")}catch(e){prompt("Copie a pergunta:",t)}}
+
+// gráficos em SVG puro (o painel roda sem internet)
+let _rz;addEventListener("resize",()=>{clearTimeout(_rz);_rz=setTimeout(()=>{if(VI&&$("visao").classList.contains("on"))desenharVisao()},200)});
+const tip=$("tip");
+document.addEventListener("mousemove",e=>{const a=e.target.closest&&e.target.closest("[data-tip]");if(!a){tip.style.display="none";return}
+  tip.textContent=a.getAttribute("data-tip");tip.style.display="block";const w=tip.offsetWidth;tip.style.left=Math.min(e.clientX+12,innerWidth-w-8)+"px";tip.style.top=(e.clientY+14)+"px"});
+function legenda(series){return series.length>1?`<div class="leg">${series.map(s=>`<span><i style="background:${s.c}"></i>${esc(s.n)}</span>`).join("")}</div>`:""}
+function tabela(itens,series,rot){return `<details class="tab"><summary>ver tabela</summary><table><thead><tr><th>${esc(rot||"")}</th>${series.map(s=>`<th style="text-align:right">${esc(s.n)}</th>`).join("")}</tr></thead><tbody>${itens.map(i=>`<tr><td>${esc(i.r)}</td>${i.v.map(n=>`<td style="text-align:right">${fmt(n)}</td>`).join("")}</tr>`).join("")}</tbody></table></details>`}
+function escala(max){if(max<=0)return[1,[0,1]];const p=Math.pow(10,Math.floor(Math.log10(max))),f=max/p,passo=(f<=2?.5:f<=5?1:2)*p,topo=Math.ceil(max/passo)*passo,ts=[];for(let x=0;x<=topo+1e-9;x+=passo)ts.push(x);return[topo,ts]}
+const abrev=n=>n>=1e6?(n/1e6).toLocaleString("pt-BR",{maximumFractionDigits:1})+" mi":n>=1e4?(n/1e3).toLocaleString("pt-BR",{maximumFractionDigits:0})+" mil":fmt(n);
+function barrasH(id,itens,series){
+  const W=Math.max(320,$(id).clientWidth||560),lw=Math.min(170,W*.36),rw=60,bh=16,gap=8,H=itens.length*(bh+gap)+4,tot=i=>i.v.reduce((a,b)=>a+b,0),max=Math.max(1,...itens.map(tot)),k=(W-lw-rw)/max;
+  let g="";itens.forEach((it,j)=>{const y=j*(bh+gap);let x=lw;const lim=Math.floor(lw/6.2),nome=it.r.length>lim?it.r.slice(0,lim-1)+"…":it.r;
+    g+=`<text x="${lw-8}" y="${y+bh/2+4}" text-anchor="end" class="ink">${esc(nome)}</text>`;
+    it.v.forEach((n,s)=>{if(!n)return;const w=Math.max(2,n*k-(s<it.v.length-1?2:0));const ult=it.v.slice(s+1).every(x=>!x);
+      g+=`<path d="${ult?`M${x},${y}h${w-4}a4,4 0 0 1 4,4v${bh-8}a4,4 0 0 1 -4,4h${-(w-4)}z`:`M${x},${y}h${w}v${bh}h${-w}z`}" fill="${series[s].c}" data-tip="${esc(it.r+"\n"+series[s].n+": "+fmt(n)+(it.x?"\n"+it.x:""))}"/>`;x+=n*k});
+    g+=`<text x="${x+6}" y="${y+bh/2+4}">${abrev(tot(it))}</text>`});
+  $(id).innerHTML=legenda(series)+`<svg class="ch" viewBox="0 0 ${W} ${H}" role="img" aria-label="gráfico de barras">${g}</svg>`+tabela(itens,series)}
+function colunas(id,itens,series,o){o=o||{};
+  const W=Math.max(320,$(id).clientWidth||900),H=220,ml=48,mb=26,mt=8,pw=W-ml-8,ph=H-mt-mb,n=itens.length,slot=pw/n,bw=Math.max(1,Math.min(28,slot-2));
+  const alto=i=>o.empilhar?i.v.reduce((a,b)=>a+b,0):Math.max(...i.v);const[topo,ts]=escala(Math.max(0,...itens.map(alto)));const y=v=>mt+ph-v/topo*ph;
+  let g=ts.map(t=>`<line class="grade" x1="${ml}" x2="${W-8}" y1="${y(t)}" y2="${y(t)}"/><text x="${ml-6}" y="${y(t)+4}" text-anchor="end">${abrev(t)}</text>`).join("");
+  const cada=o.todosRotulos?1:Math.ceil(n/Math.floor(pw/70));
+  itens.forEach((it,j)=>{const cx=ml+slot*j+slot/2,x0=cx-bw/2;let base=0;
+    const dica=esc(it.r+"\n"+series.map((s,k)=>s.n+": "+fmt(it.v[k])).join("\n"));
+    g+=`<rect x="${ml+slot*j}" y="${mt}" width="${slot}" height="${ph}" fill="transparent" data-tip="${dica}"/>`;
+    it.v.forEach((v,k)=>{if(!v)return;let w=bw,x=x0,b=base;if(o.sobrepor&&k>0){w=Math.max(1,bw*.5);x=cx-w/2;b=0}
+      const yt=y(b+v),h=Math.max(1,y(b)-yt-(o.empilhar&&base>0?1:0));
+      g+=`<rect x="${x}" y="${yt}" width="${w}" height="${h}" rx="${Math.min(3,w/2)}" fill="${series[k].c}" data-tip="${dica}"/>`;if(o.empilhar)base+=v});
+    if(j%cada==0)g+=`<text x="${cx}" y="${H-8}" text-anchor="middle">${esc(it.r)}</text>`});
+  g+=`<line class="eixo" x1="${ml}" x2="${W-8}" y1="${y(0)}" y2="${y(0)}"/>`;
+  $(id).innerHTML=legenda(series)+`<svg class="ch" viewBox="0 0 ${W} ${H}" role="img" aria-label="gráfico de colunas">${g}</svg>`+tabela(itens,series)}
+function desenharRede(id,rede){
+  const nos=rede.nodes.slice(0,60),ix={};nos.forEach((n,i)=>{ix[n.id]=i;n.x=Math.cos(i*2.4)*(50+i*4);n.y=Math.sin(i*2.4)*(50+i*4);n.vx=0;n.vy=0});
+  const ar=rede.edges.filter(e=>e.source in ix&&e.target in ix),W=Math.max(320,$(id).clientWidth||900),H=Math.min(440,Math.max(300,W*.55)),maxw=Math.max(...ar.map(e=>e.weight)),maxn=Math.max(...nos.map(n=>n.total_interactions||1));
+  for(let it=0;it<400;it++){const a=1-it/400;
+    for(let i=0;i<nos.length;i++)for(let j=i+1;j<nos.length;j++){const p=nos[i],q=nos[j];let dx=p.x-q.x,dy=p.y-q.y,d2=dx*dx+dy*dy+.01,f=1800/d2;p.vx+=dx*f;p.vy+=dy*f;q.vx-=dx*f;q.vy-=dy*f}
+    ar.forEach(e=>{const p=nos[ix[e.source]],q=nos[ix[e.target]];const dx=q.x-p.x,dy=q.y-p.y,d=Math.sqrt(dx*dx+dy*dy)+.01,f=(d-90)*.02;p.vx+=dx/d*f*d*.05;p.vy+=dy/d*f*d*.05;q.vx-=dx/d*f*d*.05;q.vy-=dy/d*f*d*.05});
+    nos.forEach(n=>{n.vx-=n.x*.01;n.vy-=n.y*.01;n.x+=Math.max(-20,Math.min(20,n.vx))*a;n.y+=Math.max(-20,Math.min(20,n.vy))*a;n.vx*=.5;n.vy*=.5})}
+  const xs=nos.map(n=>n.x),ys=nos.map(n=>n.y),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys),
+    sx=v=>20+(v-x0)/Math.max(1,x1-x0)*(W-150),sy=v=>24+(v-y0)/Math.max(1,y1-y0)*(H-48),r=n=>4+10*Math.sqrt((n.total_interactions||1)/maxn);
+  const top=new Set(nos.slice().sort((a,b)=>(b.total_interactions||0)-(a.total_interactions||0)).slice(0,16).map(n=>n.id));
+  let g=ar.map(e=>{const p=nos[ix[e.source]],q=nos[ix[e.target]];return `<line x1="${sx(p.x)}" y1="${sy(p.y)}" x2="${sx(q.x)}" y2="${sy(q.y)}" stroke="var(--quiet)" stroke-opacity=".45" stroke-width="${1+4*e.weight/maxw}" data-tip="${esc((p.label||p.id)+" ↔ "+(q.label||q.id)+"\n"+fmt(e.weight)+" interações ("+fmt(e.messages_count)+" mensagens, "+fmt(e.calls_count)+" chamadas)\n"+(e.channels||[]).join(", "))}"/>`}).join("");
+  g+=nos.map(n=>`<circle cx="${sx(n.x)}" cy="${sy(n.y)}" r="${r(n)}" fill="${n.is_group?"var(--s3)":"var(--s1)"}" stroke="var(--card)" stroke-width="2" data-tip="${esc((n.label||n.id)+(n.label&&n.label!=n.id?"\n"+n.id:"")+"\n"+fmt(n.total_interactions)+" interações"+(n.is_group?"\ngrupo":""))}"/>`+(top.has(n.id)?`<text x="${sx(n.x)+r(n)+3}" y="${sy(n.y)+4}" class="ink">${esc(String(n.label||n.id).slice(0,22))}</text>`:"")).join("");
+  $(id).innerHTML=`<div class="leg"><span><i style="background:var(--s1)"></i>Pessoa ou conta</span><span><i style="background:var(--s3)"></i>Grupo</span></div><svg class="ch" viewBox="0 0 ${W} ${H}" role="img" aria-label="rede de comunicações">${g}</svg>`+
+    `<details class="tab"><summary>ver tabela</summary><table><thead><tr><th>De</th><th>Para</th><th style="text-align:right">Interações</th><th>Canais</th></tr></thead><tbody>${ar.map(e=>`<tr><td>${esc(nos[ix[e.source]].label||e.source)}</td><td>${esc(nos[ix[e.target]].label||e.target)}</td><td style="text-align:right">${fmt(e.weight)}</td><td>${esc((e.channels||[]).join(", "))}</td></tr>`).join("")}</tbody></table></details>`}
+
 async function sair(){if(!confirm("Fechar o painel? Processamentos em andamento continuam."))return;await tentar(()=>api("sair"));document.body.innerHTML='<p style="padding:30px">Painel encerrado. Pode fechar esta aba.</p>'}
 
 resumo().then(()=>{if(R.iped_ok&&!R.configurado)diagnosticar()}).catch(e=>aviso(e.message,true));

@@ -226,3 +226,36 @@ def resumo_json(resumos):
             return [conv(x) for x in v]
         return v
     return json.loads(json.dumps(conv(resumos), ensure_ascii=False))
+
+
+def painel(registros, top=15):
+    """Números dos registros importados para os gráficos da Visão do caso (sem o texto dos eventos)."""
+    por_dia = OrderedDict()
+    for r in sorted(registros, key=lambda x: x["_data"]):
+        dia = r["_data"].strftime("%Y-%m-%d")
+        por_dia.setdefault(dia, Counter())[r["provedor"].upper()] += 1
+    horas = Counter(r["_data"].hour for r in registros)
+    inter = Counter(r["interlocutor"] for r in registros if r["interlocutor"] and r["tipo"] in ("mensagem", "chamada"))
+    ips = Counter(r["ip"] for r in registros if r["ip"])
+    contas = OrderedDict()
+    for r in registros:
+        c = contas.setdefault((r["provedor"].upper(), r["conta"]), {"provedor": r["provedor"].upper(),
+                                                                    "conta": r["conta"], "total": 0,
+                                                                    "dispositivos": set(), "ips": set()})
+        c["total"] += 1
+        if r["dispositivo"]:
+            c["dispositivos"].add(r["dispositivo"])
+        if r["ip"]:
+            c["ips"].add(r["ip"])
+    return {
+        "total": len(registros),
+        "provedores": sorted({r["provedor"].upper() for r in registros}),
+        "tipos": dict(Counter(r["tipo"] for r in registros)),
+        "por_dia": [{"dia": d, "por_provedor": dict(c)} for d, c in por_dia.items()],
+        "por_hora": [horas[h] for h in range(24)],
+        "interlocutores": [{"id": k, "total": n} for k, n in inter.most_common(top)],
+        "n_interlocutores": len(inter),
+        "ips": [{"ip": k, "total": n} for k, n in ips.most_common(10)],
+        "n_ips": len(ips),
+        "contas": [dict(c, dispositivos=sorted(c["dispositivos"]), ips=len(c["ips"])) for c in contas.values()],
+    }
