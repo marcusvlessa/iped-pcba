@@ -37,22 +37,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
       - uses: actions/cache@v4
         with:
           path: ~/.m2/repository
           key: m2-iped-${{ env.IPED_VERSAO }}-${{ hashFiles('mcp/pom.xml') }}
           restore-keys: m2-iped-${{ env.IPED_VERSAO }}-
+      # O IPED 4.3 é compilado com Java 11, como no projeto oficial.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "11"
       - name: Bibliotecas do IPED a partir do código-fonte oficial
         run: |
           if [ ! -f ~/.m2/repository/iped/iped-engine/$IPED_VERSAO/iped-engine-$IPED_VERSAO.jar ]; then
             git clone --depth 1 --branch "$IPED_VERSAO" https://github.com/sepinf-inc/IPED.git iped-src
             cd iped-src
-            mvn -B -q install -DskipTests -pl iped-engine -am
+            if ! mvn -B install -DskipTests -pl iped-engine -am > ../iped-build.log 2>&1; then
+              grep -E "\[ERROR\]" ../iped-build.log | head -30 | while IFS= read -r l; do echo "::error::$l"; done
+              tail -80 ../iped-build.log
+              exit 1
+            fi
           fi
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
       - name: Compilar e testar
         working-directory: mcp
         run: mvn -B package -Diped.version=$IPED_VERSAO
