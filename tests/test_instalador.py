@@ -1,0 +1,246 @@
+import io
+import json
+import os
+import shutil
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "instalador"))
+
+from iped_pcba import cli, configurar, detectar, perfis, recomendar  # noqa: E402
+
+FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "iped-4.3.1")
+
+
+def maquina(ram=32, logicos=16, gpus=None, versao="4.3.1", pacotes=("faster_whisper",)):
+    return {"so": "windows", "hostname": "teste", "ram_gb": ram,
+            "cpu": {"nome": "CPU", "fisicos": logicos // 2, "logicos": logicos},
+            "discos": [], "gpus": gpus or [],
+            "iped": {"encontrado": True, "versao": versao, "python_embarcado": True,
+                     "pacotes_python": pacotes}}
+
+
+class TestParsers(unittest.TestCase):
+    def test_nvidia_smi(self):
+        gpus = detectar.parse_nvidia_smi(
+            "NVIDIA GeForce RTX 3060, 12288, 552.22\n",
+            "| NVIDIA-SMI 552.22   Driver Version: 552.22   CUDA Version: 12.4 |")
+        self.assertEqual(gpus, [{"nome": "NVIDIA GeForce RTX 3060", "vram_gb": 12.0,
+                                 "driver": "552.22", "cuda": "12.4"}])
+
+    def test_nvidia_smi_vazio(self):
+        self.assertEqual(detectar.parse_nvidia_smi(""), [])
+
+    def test_meminfo(self):
+        self.assertEqual(detectar.parse_meminfo("MemTotal:       32768000 kB\n"), 31.2)
+
+    def test_cpuinfo(self):
+        txt = ("model name\t: Intel X\nphysical id\t: 0\ncore id\t: 0\n\n"
+               "model name\t: Intel X\nphysical id\t: 0\ncore id\t: 0\n\n"
+               "model name\t: Intel X\nphysical id\t: 0\ncore id\t: 1\n\n")
+        self.assertEqual(detectar.parse_cpuinfo(txt), ("Intel X", 2))
+
+    def test_lsblk(self):
+        j = json.dumps({"blockdevices": [
+            {"name": "nvme0n1", "rota": False, "size": 1024 ** 4, "model": "Samsung 980", "type": "disk"},
+            {"name": "sda", "rota": "1", "size": 2 * 1024 ** 4, "model": "WD", "type": "disk"},
+            {"name": "zram0", "rota": False, "size": 1, "model": None, "type": "disk"},
+            {"name": "loop0", "rota": False, "size": 1, "model": None, "type": "loop"}]})
+        d = detectar.parse_lsblk(j)
+        self.assertEqual([(x["dispositivo"], x["tipo"], x["tamanho_gb"]) for x in d],
+                         [("nvme0n1", "ssd", 1024), ("sda", "hdd", 2048)])
+
+    def test_windows_json(self):
+        j = json.dumps({"cpuNome": "Ryzen", "cpuFisicos": 8, "cpuLogicos": 16,
+                        "ramBytes": 64 * 1024 ** 3,
+                        "discos": {"FriendlyName": "NVMe", "MediaType": "SSD",
+                                   "Size": 512 * 1024 ** 3, "Letras": "CD"}})
+        r = detectar.parse_windows_json(j)
+        self.assertEqual(r["ram_gb"], 64.0)
+        self.assertEqual(r["discos"][0]["tipo"], "ssd")
+        self.assertEqual(r["discos"][0]["letras"], "CD")
+
+    def test_detectar_iped(self):
+        info = detectar.detectar_iped(FIXTURE)
+        self.assertTrue(info["encontrado"])
+        self.assertEqual(info["versao"], "4.3.1")
+        self.assertEqual(info["perfis"], ["forensic", "triage"])
+
+
+class TestRecomendar(unittest.TestCase):
+    def test_heap(self):
+        self.assertEqual(recomendar.calcular_heap(16), 8)
+        self.assertEqual(recomendar.calcular_heap(128), 30)
+        self.assertEqual(recomendar.calcular_heap(3), 2)
+
+    def test_threads_limitadas_com_pouca_ram(self):
+        self.assertEqual(recomendar.calcular_threads(32, 16, 16), "default")
+        self.assertEqual(recomendar.calcular_threads(16, 32, 8), "10")
+
+    def test_gpu_boa_usa_whisper_gpu(self):
+        p = recomendar.recomendar(maquina(gpus=[{"nome": "RTX", "vram_gb": 12, "driver": "", "cuda": ""}]))
+        self.assertEqual(p.transcricao, "whisper-gpu")
+        self.assertEqual(p.valor(recomendar.AUDIO, "device"), "gpu")
+        self.assertEqual(p.valor(recomendar.AUDIO, "whisperModel"), "large-v3")
+
+    def test_cliente_com_servidor_central(self):
+        p = recomendar.recomendar(maquina(), servidor_transcricao="10.0.0.5:11111")
+        self.assertEqual(p.transcricao, "remota")
+        self.assertEqual(p.valor(recomendar.AUDIO, "remoteServiceAddress"), "10.0.0.5:11111")
+
+    def test_sem_faster_whisper_cai_para_vosk(self):
+        p = recomendar.recomendar(maquina(ram=40, logicos=12, pacotes=()))
+        self.assertEqual(p.transcricao, "vosk")
+        self.assertTrue(any("faster-whisper" in a for a in p.avisos))
+
+    def test_cpu_forte_com_whisper(self):
+        p = recomendar.recomendar(maquina(ram=40, logicos=12))
+        self.assertEqual(p.transcricao, "whisper-cpu")
+
+    def test_servidor_sem_gpu_avisa(self):
+        p = recomendar.recomendar(maquina(), papel="servidor")
+        self.assertTrue(any("Servidor central sem GPU" in a for a in p.avisos))
+
+    def test_maquina_modesta_usa_vosk(self):
+        p = recomendar.recomendar(maquina(ram=8, logicos=4))
+        self.assertEqual(p.transcricao, "vosk")
+        self.assertTrue(any("8 GB" in a for a in p.avisos))
+
+    def test_temp_em_ssd(self):
+        p = recomendar.recomendar(maquina(), pasta_temp="D:\\IPEDTemp", tipo_disco_temp="ssd")
+        self.assertEqual(p.valor(recomendar.LOCAL, "indexTemp"), "D:/IPEDTemp")
+        self.assertEqual(p.valor(recomendar.LOCAL, "indexTempOnSSD"), "true")
+
+    def test_aviso_versao_antiga(self):
+        p = recomendar.recomendar(maquina(versao="4.2.2"))
+        self.assertTrue(any("4.2.2" in a for a in p.avisos))
+
+    def test_sha256_sempre(self):
+        p = recomendar.recomendar(maquina())
+        self.assertIn("sha-256", p.valor(recomendar.HASH, "hashes"))
+
+
+class TestDefinirChave(unittest.TestCase):
+    def test_substitui_ativa(self):
+        self.assertEqual(configurar.definir_chave("a = 1\nb = 2\n", "b", "3"), "a = 1\nb = 3\n")
+
+    def test_ativa_comentada(self):
+        t = "#x = 1\n# y = 2\n"
+        self.assertEqual(configurar.definir_chave(t, "y", "9"), "#x = 1\ny = 9\n")
+
+    def test_prefere_ativa_a_comentada(self):
+        t = "#impl = A\nimpl = B\n#impl = C\n"
+        self.assertEqual(configurar.definir_chave(t, "impl", "C"), "#impl = A\nimpl = C\n#impl = C\n")
+
+    def test_acrescenta_no_fim(self):
+        self.assertEqual(configurar.definir_chave("a = 1\n", "z", "0"), "a = 1\nz = 0\n")
+
+    def test_preserva_crlf_e_bom(self):
+        t = u"\ufeffa = 1\r\nb = 2\r\n"
+        self.assertEqual(configurar.definir_chave(t, "a", "5"), u"\ufeffa = 5\r\nb = 2\r\n")
+
+    def test_nao_confunde_prefixo(self):
+        t = "enableOCR = false\nenableOCRx = false\n"
+        self.assertEqual(configurar.definir_chave(t, "enableOCRx", "true"),
+                         "enableOCR = false\nenableOCRx = true\n")
+
+
+class TestAplicarNaInstalacao(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.raiz = os.path.join(self.tmp, "iped")
+        shutil.copytree(FIXTURE, self.raiz)
+        self.original = {}
+        for base, _, arqs in os.walk(self.raiz):
+            for a in arqs:
+                c = os.path.join(base, a)
+                with open(c, "rb") as f:
+                    self.original[os.path.relpath(c, self.raiz)] = f.read()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def _chaves(self, rel):
+        return configurar.ler_chaves(configurar.ler_texto(os.path.join(self.raiz, rel)))
+
+    def _rodar(self, *extra):
+        saida = io.StringIO()
+        antigo = sys.stdout
+        sys.stdout = saida
+        try:
+            codigo = cli.main(["aplicar", "--iped", self.raiz, "--json"] + list(extra))
+        finally:
+            sys.stdout = antigo
+        self.assertEqual(codigo, 0)
+        return json.loads(saida.getvalue())
+
+    def test_simular_nao_grava(self):
+        r = self._rodar("--simular")
+        self.assertTrue(r["mudancas"])
+        self.assertIsNone(r["backup"])
+        self.assertFalse(os.path.exists(os.path.join(self.raiz, "pcba")))
+        self.assertFalse(os.path.exists(os.path.join(self.raiz, "profiles", "pcba-celular")))
+
+    def test_aplicar_e_reverter(self):
+        r = self._rodar("--temp", os.path.join(self.tmp, "temp"),
+                        "--servidor-transcricao", "10.0.0.5:11111")
+        self.assertEqual(self._chaves("LocalConfig.txt")["locale"], "pt-BR")
+        audio = self._chaves("conf/AudioTranscriptConfig.txt")
+        self.assertEqual(audio["implementationClass"], recomendar.REMOTA)
+        self.assertEqual(audio["remoteServiceAddress"], "10.0.0.5:11111")
+        self.assertEqual(self._chaves("conf/HashTaskConfig.txt")["hashes"], "md5; sha-1; sha-256")
+
+        # perfis: cópia completa da base + chaves PCBA
+        cel = self._chaves("profiles/pcba-celular/IPEDConfig.txt")
+        self.assertEqual(cel["enableAudioTranscription"], "true")
+        self.assertEqual(cel["enableHash"], "true")
+        comp = self._chaves("profiles/pcba-computador/IPEDConfig.txt")
+        self.assertEqual(comp["enableCarving"], "true")  # herdado do forensic
+        self.assertTrue(os.path.isfile(os.path.join(
+            self.raiz, "profiles", "pcba-computador", "conf", "CarverConfig.xml")))
+        tri = self._chaves("profiles/pcba-triagem/IPEDConfig.txt")
+        self.assertEqual(tri["enableHash"], "false")  # herdado do triage
+
+        # BOM do original preservado
+        with open(os.path.join(self.raiz, "LocalConfig.txt"), "rb") as f:
+            self.assertTrue(f.read().startswith(b"\xef\xbb\xbf"))
+
+        maq = json.loads(configurar.ler_texto(os.path.join(self.raiz, "pcba", "maquina.json")))
+        self.assertIn("plano", maq)
+        self.assertTrue(r["lancadores"])
+
+        # segunda execução não deve mudar nada nos arquivos de configuração
+        r2 = self._rodar("--temp", os.path.join(self.tmp, "temp"),
+                         "--servidor-transcricao", "10.0.0.5:11111")
+        self.assertEqual(r2["mudancas"], [])
+
+        # reverter as duas execuções volta tudo ao original
+        configurar.reverter(self.raiz)
+        configurar.reverter(self.raiz, configurar.listar_backups(self.raiz)[0])
+        for rel, conteudo in self.original.items():
+            with open(os.path.join(self.raiz, rel), "rb") as f:
+                self.assertEqual(f.read(), conteudo, rel)
+        self.assertFalse(os.path.exists(os.path.join(self.raiz, "profiles", "pcba-celular")))
+        self.assertFalse(os.path.exists(os.path.join(self.raiz, "pcba", "maquina.json")))
+
+    def test_pasta_que_nao_e_iped(self):
+        vazio = os.path.join(self.tmp, "vazio")
+        os.makedirs(vazio)
+        antigo = sys.stderr
+        sys.stderr = io.StringIO()
+        try:
+            self.assertEqual(cli.main(["aplicar", "--iped", vazio]), 1)
+        finally:
+            sys.stderr = antigo
+
+
+class TestPerfis(unittest.TestCase):
+    def test_todos_os_perfis_tem_descricao(self):
+        for nome, spec in perfis.PERFIS.items():
+            self.assertTrue(nome.startswith("pcba-"))
+            self.assertTrue(spec["descricao"])
+
+
+if __name__ == "__main__":
+    unittest.main()
