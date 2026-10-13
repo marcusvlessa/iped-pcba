@@ -42,11 +42,12 @@ jobs:
           path: ~/.m2/repository
           key: m2-iped-${{ env.IPED_VERSAO }}-${{ hashFiles('mcp/pom.xml') }}
           restore-keys: m2-iped-${{ env.IPED_VERSAO }}-
-      # O IPED 4.3 é compilado com Java 11, como no projeto oficial.
+      # O IPED 4.3 é compilado com Java 11 com JavaFX (Liberica Full), como no projeto oficial.
       - uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: liberica
           java-version: "11"
+          java-package: jdk+fx
       - name: Bibliotecas do IPED a partir do código-fonte oficial
         run: |
           if [ ! -f ~/.m2/repository/iped/iped-engine/$IPED_VERSAO/iped-engine-$IPED_VERSAO.jar ]; then
