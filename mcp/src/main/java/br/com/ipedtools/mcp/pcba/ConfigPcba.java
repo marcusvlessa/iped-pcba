@@ -12,7 +12,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 public class ConfigPcba {
 
     /** Ferramentas que alteram o caso. Ficam escondidas e bloqueadas no modo somente leitura. */
-    public static final Set<String> FERRAMENTAS_DE_ESCRITA = Set.of("add_to_bookmark", "set_item_checked");
+    public static final Set<String> FERRAMENTAS_DE_ESCRITA = Set.of("add_to_bookmark", "set_item_checked",
+            "remove_from_bookmark", "set_bookmark_comment", "bookmark_search_results");
 
     @ConfigProperty(name = "pcba.somente-leitura", defaultValue = "true")
     boolean somenteLeitura;

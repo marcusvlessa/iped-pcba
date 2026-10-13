@@ -3,6 +3,7 @@
   python -m iped_pcba diagnosticar --iped "C:\\IPED\\iped-4.3.1"
   python -m iped_pcba aplicar      --iped "C:\\IPED\\iped-4.3.1" --temp D:\\IPEDTemp [--simular]
   python -m iped_pcba reverter     --iped "C:\\IPED\\iped-4.3.1" [--backup 20261013-120000]
+  python -m iped_pcba painel       --iped "C:\\IPED\\iped-4.3.1"   (abre o painel no navegador)
 """
 
 import argparse
@@ -16,6 +17,7 @@ from .configurar import (Backup, aplicar_plano, gerar_lancadores, gravar_maquina
 from .detectar import detectar, tipo_disco_do_caminho
 from .localizar import localizar_iped
 from .mcp import instalar_mcp
+from .painel import instalar_painel
 from .perfis import PERFIS, criar_perfis
 from .recomendar import escolher_temp, recomendar
 
@@ -45,6 +47,13 @@ def _args(argv):
     a.add_argument("--simular", action="store_true", help="mostra o que mudaria, sem gravar")
     a.add_argument("--sem-perfis", action="store_true", help="não gera os perfis pcba-*")
     a.add_argument("--sem-mcp", action="store_true", help="não instala o MCP (IA)")
+    a.add_argument("--somente-leitura", action="store_true",
+                   help="MCP sem as ferramentas de escrita (marcadores); o padrão é liberar")
+
+    pn = sub.add_parser("painel", help="abre o painel no navegador")
+    comum(pn)
+    pn.add_argument("--porta", type=int, default=0, help="porta local (padrão: livre)")
+    pn.add_argument("--sem-navegador", action="store_true", help="não abre o navegador")
 
     sub.add_parser("localizar", help="lista as instalações do IPED encontradas")
     r = sub.add_parser("reverter", help="restaura um backup")
@@ -103,6 +112,28 @@ def _resumo(maquina, plano):
     return "\n".join(linhas)
 
 
+def executar_aplicacao(raiz, maquina, plano, papel="cliente", perfis=True, mcp=True,
+                       escrita=True, simular=False):
+    """Grava o plano (com backup), os perfis pcba-*, os lançadores, o MCP e o painel."""
+    temp = plano.valor("LocalConfig.txt", "indexTemp")
+    if temp and temp != "default" and not simular and not os.path.isdir(temp):
+        os.makedirs(temp)
+    backup = Backup(raiz)
+    mudancas = aplicar_plano(raiz, plano, backup, simular=simular)
+    feitos = criar_perfis(raiz, backup, simular=simular) if perfis else {}
+    lancadores = []
+    info_mcp = instalar_mcp(raiz, maquina["so"], REPO, backup, simular=simular,
+                            escrita=escrita) if mcp else None
+    if not simular:
+        lancadores = gerar_lancadores(raiz, plano, sorted(PERFIS), maquina["so"], backup,
+                                      papel=papel)
+        lancadores += instalar_painel(raiz, maquina["so"], backup)
+        gravar_maquina(raiz, maquina, plano, mudancas, backup)
+    pasta_backup = None if simular else backup.fechar({"versao_instalador": __version__})
+    return {"mudancas": mudancas, "perfis": sorted(feitos), "lancadores": lancadores,
+            "mcp": info_mcp, "backup": pasta_backup}
+
+
 def main(argv=None):
     try:
         return _main(argv)
@@ -125,6 +156,9 @@ def _main(argv=None):
 
     if not args.iped:
         achados = localizar_iped()
+        if not achados and args.comando == "painel":
+            from .painel import servir
+            return servir(None, porta=args.porta, navegador=not args.sem_navegador)
         if not achados:
             print("ERRO: nenhuma instalação do IPED encontrada. Informe a pasta com --iped.",
                   file=sys.stderr)
@@ -136,6 +170,10 @@ def _main(argv=None):
             print("  outra instalação ignorada: {} ({})".format(outro["raiz"], outro["versao"] or "?"),
                   file=sys.stderr)
     raiz = os.path.abspath(args.iped)
+
+    if args.comando == "painel":
+        from .painel import servir
+        return servir(raiz, porta=args.porta, navegador=not args.sem_navegador)
 
     if args.comando == "reverter":
         if args.listar:
@@ -162,24 +200,14 @@ def _main(argv=None):
               file=sys.stderr)
         return 1
 
-    if args.temp and not args.simular and not os.path.isdir(args.temp):
-        os.makedirs(args.temp)
-    backup = Backup(raiz)
-    mudancas = aplicar_plano(raiz, plano, backup, simular=args.simular)
-    perfis = {} if args.sem_perfis else criar_perfis(raiz, backup, simular=args.simular)
-    lancadores = []
-    mcp = None if args.sem_mcp else instalar_mcp(raiz, maquina["so"], REPO, backup,
-                                                 simular=args.simular)
-    if not args.simular:
-        lancadores = gerar_lancadores(raiz, plano, sorted(PERFIS), maquina["so"], backup,
-                                      papel=args.papel)
-        gravar_maquina(raiz, maquina, plano, mudancas, backup)
-    pasta_backup = None if args.simular else backup.fechar({"versao_instalador": __version__})
+    r = executar_aplicacao(raiz, maquina, plano, papel=args.papel, perfis=not args.sem_perfis,
+                           mcp=not args.sem_mcp, escrita=not args.somente_leitura,
+                           simular=args.simular)
+    mudancas, perfis, lancadores, mcp, pasta_backup = (
+        r["mudancas"], r["perfis"], r["lancadores"], r["mcp"], r["backup"])
 
     if args.json:
-        print(json.dumps({"mudancas": mudancas, "perfis": sorted(perfis), "lancadores": lancadores,
-                          "mcp": mcp, "backup": pasta_backup, "avisos": plano.avisos},
-                         indent=2, ensure_ascii=False))
+        print(json.dumps(dict(r, avisos=plano.avisos), indent=2, ensure_ascii=False))
         return 0
     print(_resumo(maquina, plano))
     print("")

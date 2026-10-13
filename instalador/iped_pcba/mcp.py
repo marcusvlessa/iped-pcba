@@ -25,6 +25,11 @@ JAVA_MINIMO = 21
 HEAP_MCP_GB = 4
 PASTA_MCP = PASTA_PCBA + "/mcp"
 JAR = "iped-pcba-mcp.jar"
+# Se este arquivo existe na pasta do MCP, o lançador libera as ferramentas de escrita
+# (marcadores, comentários, seleção de itens). Tudo continua no log de auditoria.
+ARQ_ESCRITA = "escrita-ativa.txt"
+# Caso que a IA enxerga; o MCP relê este arquivo a cada chamada.
+CASO_ATIVO = os.path.join(os.path.expanduser("~"), ".iped-tools-mcp", "active_case.txt")
 CLASSE = "br.com.ipedtools.mcp.McpApplication"
 ABERTURAS = " ".join("--add-opens=java.base/{}=ALL-UNNAMED".format(p) for p in (
     "java.lang", "java.lang.reflect", "java.math", "java.util", "java.util.concurrent",
@@ -108,27 +113,33 @@ def localizar_pacote(repo):
 
 _BAT = r"""@echo off
 rem Gerado pelo instalador IPED-PCBA em {data}. Nao edite: rode o instalador de novo.
-rem MCP do IPED para IA (Claude Desktop, LM Studio, Hermes). Somente leitura e com auditoria.
+rem MCP do IPED para IA (Claude Desktop, LM Studio, Hermes), com log de auditoria.
+rem Escrita no caso (marcadores) liberada se existir {escrita} nesta pasta (o painel liga e desliga).
 rem Uso: iped-pcba-mcp.bat [--case pasta-do-caso] [--http [--host IP] [--porta N]] [--permitir-escrita]
 setlocal
 set "MCP=%~dp0"
 for %%I in ("%~dp0..\..") do set "IPED_ROOT=%%~fI"
 set "MODO=--stdio"
 echo %* | find /i "--http" >nul && set "MODO="
-"{java}" -Xmx{heap}g -Dstdout.encoding=UTF-8 -Dfile.encoding=UTF-8 {aberturas} -cp "%MCP%{jar};%IPED_ROOT%\lib\*" {classe} %MODO% %*
+set "ESCRITA="
+if exist "%MCP%{escrita}" set "ESCRITA=--permitir-escrita"
+"{java}" -Xmx{heap}g -Dstdout.encoding=UTF-8 -Dfile.encoding=UTF-8 {aberturas} -cp "%MCP%{jar};%IPED_ROOT%\lib\*" {classe} %MODO% %ESCRITA% %*
 """
 
 _SH = """#!/usr/bin/env bash
 # Gerado pelo instalador IPED-PCBA em {data}. Não edite: rode o instalador de novo.
-# MCP do IPED para IA (Claude Desktop, LM Studio, Hermes). Somente leitura e com auditoria.
+# MCP do IPED para IA (Claude Desktop, LM Studio, Hermes), com log de auditoria.
+# Escrita no caso (marcadores) liberada se existir {escrita} nesta pasta (o painel liga e desliga).
 # Uso: iped-pcba-mcp.sh [--case pasta-do-caso] [--http [--host IP] [--porta N]] [--permitir-escrita]
 set -euo pipefail
 MCP="$(cd "$(dirname "$0")" && pwd)"
 IPED_ROOT="$(cd "$MCP/../.." && pwd)"
 MODO="--stdio"
 for a in "$@"; do [ "$a" = "--http" ] && MODO=""; done
+ESCRITA=""
+[ -f "$MCP/{escrita}" ] && ESCRITA="--permitir-escrita"
 exec "{java}" -Xmx{heap}g -Dstdout.encoding=UTF-8 -Dfile.encoding=UTF-8 {aberturas} \\
-  -cp "$MCP/{jar}:$IPED_ROOT/lib/*" {classe} $MODO "$@"
+  -cp "$MCP/{jar}:$IPED_ROOT/lib/*" {classe} $MODO $ESCRITA "$@"
 """
 
 
@@ -137,7 +148,23 @@ def config_clientes(lancador):
     return {"mcpServers": {"iped-pcba": {"command": lancador, "args": []}}}
 
 
-def instalar_mcp(raiz, so, repo, backup, simular=False, java=None, pacote=None):
+def escrita_ativa(raiz):
+    return os.path.isfile(os.path.join(raiz, PASTA_MCP, ARQ_ESCRITA))
+
+
+def definir_escrita(raiz, ativa):
+    """Liga ou desliga as ferramentas de escrita para as próximas sessões do MCP."""
+    arq = os.path.join(raiz, PASTA_MCP, ARQ_ESCRITA)
+    if ativa:
+        gravar_texto(arq, "Escrita liberada em {} pelo usuário {}.\n".format(
+            datetime.datetime.now().isoformat(timespec="seconds"),
+            os.environ.get("USERNAME") or os.environ.get("USER") or "?"))
+    elif os.path.isfile(arq):
+        os.remove(arq)
+    return escrita_ativa(raiz)
+
+
+def instalar_mcp(raiz, so, repo, backup, simular=False, java=None, pacote=None, escrita=True):
     """Copia o MCP para <IPED>/pcba/mcp e gera o lançador. Devolve um dict com o resultado."""
     pacote = pacote or localizar_pacote(repo)
     if not pacote:
@@ -151,10 +178,10 @@ def instalar_mcp(raiz, so, repo, backup, simular=False, java=None, pacote=None):
                     "aviso": "MCP não instalado: precisa de Java {}+ (maior encontrado: {}). Use o "
                              "pacote da página de Releases, que já traz o Java.".format(
                                  JAVA_MINIMO, maior or "nenhum")}
-    destino = os.path.join(raiz, PASTA_MCP)
+    destino = os.path.normpath(os.path.join(raiz, PASTA_MCP))
     nome = "iped-pcba-mcp.bat" if so == "windows" else "iped-pcba-mcp.sh"
     lancador = os.path.join(destino, nome)
-    res = {"instalado": not simular, "origem": pacote["origem"], "lancador": lancador,
+    res = {"instalado": not simular, "origem": pacote["origem"], "lancador": lancador, "escrita": escrita,
            "java": java, "config_clientes": config_clientes(lancador)}
     if simular:
         return res
@@ -174,7 +201,7 @@ def instalar_mcp(raiz, so, repo, backup, simular=False, java=None, pacote=None):
         java_lanc = java.replace(os.path.join(destino, ""), "$MCP/")
     modelo = _BAT if so == "windows" else _SH
     texto = modelo.format(data=datetime.date.today().isoformat(), java=java_lanc, heap=HEAP_MCP_GB,
-                          aberturas=ABERTURAS, jar=JAR, classe=CLASSE)
+                          aberturas=ABERTURAS, jar=JAR, classe=CLASSE, escrita=ARQ_ESCRITA)
     if so == "windows":
         texto = texto.replace("\n", "\r\n")
     gravar_texto(lancador, texto)
@@ -182,5 +209,7 @@ def instalar_mcp(raiz, so, repo, backup, simular=False, java=None, pacote=None):
         os.chmod(lancador, 0o755)
     gravar_texto(os.path.join(destino, "config-clientes-ia.json"),
                  json.dumps(res["config_clientes"], indent=2, ensure_ascii=False))
+    definir_escrita(raiz, escrita)
     res["java"] = java
+    res["escrita"] = escrita
     return res

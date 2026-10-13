@@ -12,7 +12,8 @@ este fork muda:
 | Versão do IPED | 4.4.0-SNAPSHOT (desenvolvimento) | a instalada na máquina (4.3.1) |
 | Bibliotecas do IPED | dentro do executável | lidas de `<IPED>/lib` em execução |
 | Auditoria | não tem | cada chamada da IA registrada, com cadeia de hashes |
-| Escrita no caso | liberada | bloqueada por padrão (somente leitura) |
+| Escrita no caso | liberada | controlada pelo painel; bloqueada se o MCP for iniciado sem `--permitir-escrita` |
+| Ferramentas de marcadores | criar e marcar itens | também marcar resultados de busca, comentar e desmarcar |
 | Transporte | só STDIO | STDIO e HTTP com token |
 
 ## Instalação
@@ -95,11 +96,32 @@ python -m iped_pcba.auditoria "D:\Casos\caso-x\iped-pcba-auditoria\mcp-auditoria
 
 Se o log não puder ser gravado, a resposta não é entregue à IA.
 
-## Somente leitura
+## Escrita no caso
 
-Por padrão a IA não vê `add_to_bookmark` nem `set_item_checked`. Se o cliente chamar mesmo assim,
-a chamada é recusada e registrada como `bloqueado`. Para liberar, o analista inicia o MCP com
-`--permitir-escrita`.
+Ferramentas que alteram o caso:
+
+| Ferramenta | O que faz |
+|---|---|
+| `add_to_bookmark` | põe itens num marcador (cria o marcador se não existir) |
+| `bookmark_search_results` | marca de uma vez os resultados de uma busca (até 5000 itens) |
+| `set_bookmark_comment` | grava o comentário do marcador (o porquê e a busca usada) e se ele entra no relatório |
+| `remove_from_bookmark` | tira itens de um marcador |
+| `set_item_checked` | marca ou desmarca a seleção do item |
+
+O MCP sozinho começa em somente leitura: a IA não vê essas ferramentas e, se chamar mesmo assim,
+a chamada é recusada e registrada como `bloqueado`. O lançador gerado pelo instalador passa
+`--permitir-escrita` quando existe o arquivo `escrita-ativa.txt` na pasta do MCP; o painel cria e
+apaga esse arquivo (passo 4, "Permitir escrita no caso"). A instalação já vem com a escrita
+liberada; para instalar sem, use `--somente-leitura` no `aplicar`.
+
+Os marcadores ficam no próprio caso (`iped/bookmarks.iped`) e aparecem no IPED. Se o caso estiver
+aberto no IPED enquanto a IA marca, feche e abra o caso de novo depois, para o IPED não gravar por
+cima.
+
+## Caso ativo
+
+Sem `--case`, o MCP lê o caso indicado em `~/.iped-tools-mcp/active_case.txt` e troca de caso
+sozinho quando o arquivo muda. O botão "Usar com a IA" do painel grava esse arquivo.
 
 ## Compilar
 

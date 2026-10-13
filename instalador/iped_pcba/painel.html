@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel IPED-PCBA</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--ink:#1d2733;--quiet:#5d6b7a;--line:#dfe4ea;--accent:#0b5cad;--ok:#1d7a3e;--warn:#9a6200;--bad:#b42318;--chip:#eef2f6}
+@media (prefers-color-scheme:dark){:root{--bg:#12161b;--card:#1b2128;--ink:#e6ebf0;--quiet:#9aa7b4;--line:#2c343d;--accent:#5aa2f0;--ok:#4fbf74;--warn:#e0a63a;--bad:#f0726a;--chip:#252d36}}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+header{display:flex;align-items:center;gap:16px;padding:12px 20px;background:var(--card);border-bottom:1px solid var(--line)}
+header h1{font-size:17px;margin:0}
+header .iped{color:var(--quiet);font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wrap{display:flex;min-height:calc(100vh - 54px)}
+nav{width:240px;flex:none;padding:14px;border-right:1px solid var(--line);background:var(--card)}
+nav button{display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:none;border:0;padding:10px;border-radius:8px;color:var(--ink);font:inherit;cursor:pointer}
+nav button.on{background:var(--chip);font-weight:600}
+nav .n{width:22px;height:22px;border-radius:50%;display:inline-grid;place-items:center;font-size:12px;border:1px solid var(--line);flex:none}
+nav .n.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+main{flex:1;padding:20px;max-width:1100px}
+section{display:none}section.on{display:block}
+h2{font-size:18px;margin:0 0 4px}
+p.sub{color:var(--quiet);margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px}
+.card h3{font-size:15px;margin:0 0 10px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}
+label.f{display:block;font-size:12px;color:var(--quiet);margin-bottom:3px}
+input[type=text],select{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);min-width:0}
+input.grow{flex:1;min-width:260px}
+button.b{font:inherit;padding:7px 14px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.b:hover{border-color:var(--accent)}
+button.p{background:var(--accent);border-color:var(--accent);color:#fff}
+button.d{color:var(--bad)}
+button:disabled{opacity:.5;cursor:default}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--quiet);font-weight:600}
+td input[type=text]{width:100%;min-width:170px}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:4px 12px;font-size:13px}
+.kv b{color:var(--quiet);font-weight:600}
+.tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;background:var(--chip)}
+.tag.ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.tag.warn{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.tag.bad{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
+.aviso{border-left:3px solid var(--warn);padding:6px 10px;background:color-mix(in srgb,var(--warn) 8%,transparent);margin:6px 0;border-radius:4px}
+pre.log{background:#0e1318;color:#cfe3d4;padding:10px;border-radius:8px;height:340px;overflow:auto;font:12px/1.4 Consolas,monospace;white-space:pre-wrap;margin:0}
+.toast{position:fixed;right:18px;bottom:18px;max-width:520px;padding:10px 14px;border-radius:8px;background:var(--ink);color:var(--bg);display:none;white-space:pre-wrap;z-index:9}
+.toast.bad{background:var(--bad);color:#fff}
+.muted{color:var(--quiet)}
+.switch{display:flex;gap:10px;align-items:center;cursor:pointer}
+.switch input{width:18px;height:18px}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:g 1s linear infinite;vertical-align:-2px}
+@keyframes g{to{transform:rotate(360deg)}}
+@media (max-width:760px){.wrap{display:block}nav{width:auto;display:flex;overflow:auto;border-right:0;border-bottom:1px solid var(--line)}nav button{white-space:nowrap}main{padding:12px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Painel IPED-PCBA</h1>
+  <div class="iped" id="topo">carregando…</div>
+  <button class="b" onclick="sair()">Sair</button>
+</header>
+<div class="wrap">
+<nav>
+  <button data-s="config" class="on"><span class="n" id="n1">1</span>Máquina e configuração</button>
+  <button data-s="proc"><span class="n" id="n2">2</span>Processar evidências</button>
+  <button data-s="casos"><span class="n" id="n3">3</span>Casos</button>
+  <button data-s="ia"><span class="n" id="n4">4</span>IA (MCP)</button>
+  <button data-s="tarefas"><span class="n">≡</span>Tarefas e logs</button>
+</nav>
+<main>
+
+<!-- 1. CONFIGURAÇÃO -->
+<section id="config" class="on">
+  <h2>1. Máquina e configuração</h2>
+  <p class="sub">O painel lê o hardware e propõe a configuração do IPED. Você pode desmarcar ou editar cada item antes de aplicar. Tudo tem backup.</p>
+  <div class="card" id="semIped" style="display:none">
+    <h3>IPED não encontrado</h3>
+    <div class="row"><input type="text" class="grow" id="raizManual" placeholder="Pasta do IPED (onde está o iped.jar)">
+      <button class="b" onclick="escolherPara('raizManual','pasta','Pasta do IPED')">Procurar…</button>
+      <button class="b p" onclick="trocarIped(val('raizManual'))">Usar esta pasta</button></div>
+  </div>
+  <div class="card">
+    <h3>Opções</h3>
+    <div class="row">
+      <div style="flex:1;min-width:260px"><label class="f">Pasta temporária do IPED (de preferência em SSD; vazio = automática)</label>
+        <div class="row" style="margin:0"><input type="text" class="grow" id="temp"><button class="b" onclick="escolherPara('temp','pasta','Pasta temporária')">Procurar…</button></div></div>
+      <div><label class="f">Servidor de transcrição (opcional)</label><input type="text" id="srvTrans" placeholder="10.0.0.5:11111"></div>
+    </div>
+    <div class="row">
+      <label class="switch"><input type="checkbox" id="saidaSSD"> Os casos serão gravados em SSD</label>
+      <button class="b p" id="btnDiag" onclick="diagnosticar()">Analisar esta máquina</button>
+    </div>
+  </div>
+  <div id="diag"></div>
+  <div class="card">
+    <h3>Backups</h3>
+    <div id="backups" class="muted">nenhum</div>
+  </div>
+</section>
+
+<!-- 2. PROCESSAR -->
+<section id="proc">
+  <h2>2. Processar evidências</h2>
+  <p class="sub">Indexa a evidência com o IPED. O processamento continua mesmo se você fechar o painel; o log fica em Tarefas.</p>
+  <div class="card">
+    <label class="f">Evidências (uma por linha: imagem E01/DD, UFDR, ZIP, pasta…)</label>
+    <textarea id="evid" rows="3" style="width:100%;font:inherit;padding:7px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)"></textarea>
+    <div class="row"><button class="b" onclick="addEvid('arquivo')">Adicionar arquivo…</button><button class="b" onclick="addEvid('pasta')">Adicionar pasta…</button></div>
+    <div class="row">
+      <div style="flex:1;min-width:260px"><label class="f">Pasta do caso (saída; nova e vazia)</label>
+        <div class="row" style="margin:0"><input type="text" class="grow" id="saida"><button class="b" onclick="escolherPara('saida','pasta','Pasta do caso')">Procurar…</button></div></div>
+      <div><label class="f">Perfil</label><select id="perfil"></select></div>
+      <div><label class="f">Fuso das evidências FAT</label><input type="text" id="fuso" value="GMT-3" size="8"></div>
+    </div>
+    <div class="row">
+      <label class="switch"><input type="checkbox" id="adicionar"> Acrescentar ao caso existente</label>
+      <label class="switch"><input type="checkbox" id="continuar"> Continuar processamento interrompido</label>
+      <label class="switch"><input type="checkbox" id="portavel"> Caso portátil (caminhos relativos)</label>
+    </div>
+    <div class="row"><button class="b p" onclick="processarEvid()">Iniciar processamento</button></div>
+    <div id="perfisAjuda" class="muted" style="font-size:12px"></div>
+  </div>
+  <div class="card" id="procLogCard" style="display:none">
+    <h3 id="procTitulo">Processamento</h3>
+    <pre class="log" id="procLog"></pre>
+    <div class="row"><button class="b d" id="procParar">Parar</button><span id="procSit"></span></div>
+  </div>
+</section>
+
+<!-- 3. CASOS -->
+<section id="casos">
+  <h2>3. Casos</h2>
+  <p class="sub">Abra o caso no IPED, escolha qual caso a IA vai analisar e confira o registro de tudo que a IA fez.</p>
+  <div class="card">
+    <div class="row"><input type="text" class="grow" id="casoNovo" placeholder="Pasta de um caso já processado">
+      <button class="b" onclick="escolherPara('casoNovo','pasta','Pasta do caso')">Procurar…</button>
+      <button class="b" onclick="addCaso()">Adicionar à lista</button></div>
+  </div>
+  <div class="card"><div id="listaCasos" class="muted">nenhum caso ainda</div></div>
+  <div class="card" id="audCard" style="display:none"><h3>Auditoria da IA</h3><div id="aud"></div></div>
+</section>
+
+<!-- 4. IA -->
+<section id="ia">
+  <h2>4. IA (MCP)</h2>
+  <p class="sub">O MCP deixa a IA consultar o caso e, com a escrita liberada, criar marcadores e comentários. Cada chamada fica no log de auditoria do caso.</p>
+  <div class="card">
+    <h3>MCP nesta máquina</h3>
+    <div id="mcpInfo" class="kv"></div>
+    <div class="row" style="margin-top:12px">
+      <label class="switch"><input type="checkbox" id="escrita" onchange="trocarEscrita(this.checked)">
+        <span><b>Permitir escrita no caso</b>: a IA cria marcadores, comenta e seleciona itens</span></label>
+    </div>
+    <div class="muted" style="font-size:12px">Vale para as próximas conversas. Feche o IPED antes de a IA marcar itens, ou recarregue o caso depois, para não sobrescrever os marcadores.</div>
+    <div class="row"><button class="b" onclick="testarMcp()" id="btnTestar">Testar o MCP com o caso ativo</button><span id="testeSit"></span></div>
+    <pre class="log" id="testeOut" style="display:none;height:200px"></pre>
+  </div>
+  <div class="card">
+    <h3>Programas de IA</h3>
+    <table><thead><tr><th>Programa</th><th>Situação</th><th>Arquivo</th><th></th></tr></thead><tbody id="clientes"></tbody></table>
+    <div class="muted" style="font-size:12px;margin-top:8px">Depois de ligar, feche e abra o programa de IA. Antes de alterar, uma cópia do arquivo fica ao lado (.bak-pcba-…).</div>
+  </div>
+  <div class="card">
+    <h3>IA local nesta máquina</h3>
+    <div id="iaLocal" class="muted">procurando…</div>
+    <div class="muted" style="font-size:12px;margin-top:8px">As regras da PCBATech pedem IA local em produção. Com LM Studio, ligue o MCP acima e escolha um modelo com suporte a ferramentas (tool use).</div>
+  </div>
+</section>
+
+<!-- TAREFAS -->
+<section id="tarefas">
+  <h2>Tarefas e logs</h2>
+  <p class="sub">Processamentos e instalações iniciados por este painel.</p>
+  <div class="card"><div id="listaTarefas" class="muted">nenhuma</div></div>
+  <div class="card" id="tarefaCard" style="display:none"><h3 id="tarefaTitulo"></h3><pre class="log" id="tarefaLog"></pre></div>
+</section>
+
+</main>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const TOKEN="__TOKEN__";
+let R={}, DIAG=null, procId=null, procPos=0, tarefaId=null, tarefaPos=0;
+const $=id=>document.getElementById(id), val=id=>$(id).value.trim();
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+async function api(rota,dados){
+  const r=await fetch("/api/"+rota,{method:"POST",headers:{"Content-Type":"application/json","X-Token":TOKEN},body:JSON.stringify(dados||{})});
+  const j=await r.json().catch(()=>({erro:"resposta inválida"}));
+  if(!r.ok) throw new Error(j.erro||("erro "+r.status));
+  return j;
+}
+function aviso(t,ruim){const e=$("toast");e.textContent=t;e.className="toast"+(ruim?" bad":"");e.style.display="block";clearTimeout(e._t);e._t=setTimeout(()=>e.style.display="none",ruim?9000:4000)}
+async function tentar(f){try{return await f()}catch(e){aviso(e.message,true)}}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>ir(b.dataset.s));
+function ir(s){document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x.dataset.s==s));document.querySelectorAll("section").forEach(x=>x.classList.toggle("on",x.id==s));if(s=="ia")carregarIa();if(s=="tarefas")desenharTarefas();}
+
+async function escolherPara(id,tipo,titulo){await tentar(async()=>{const r=await api("escolher",{tipo,titulo});if(r.caminhos.length)$(id).value=r.caminhos[0]})}
+async function addEvid(tipo){await tentar(async()=>{const r=await api("escolher",{tipo,titulo:"Evidência",multiplos:tipo=="arquivo"});if(r.caminhos.length){const t=$("evid");t.value=(t.value.trim()?t.value.trim()+"\n":"")+r.caminhos.join("\n")}})}
+
+async function resumo(){
+  R=await api("resumo");
+  $("topo").textContent=R.iped_ok?`IPED ${R.versao_iped} em ${R.raiz}`:"IPED não encontrado";
+  $("semIped").style.display=R.iped_ok?"none":"block";
+  $("n1").classList.toggle("ok",!!R.configurado);
+  $("n2").classList.toggle("ok",(R.casos||[]).some(c=>c.existe));
+  $("n3").classList.toggle("ok",!!R.caso_ativo);
+  $("n4").classList.toggle("ok",(R.clientes||[]).some(c=>c.aponta_para_este));
+  if(!R.iped_ok)return;
+  $("backups").innerHTML=R.backups.length?R.backups.slice().reverse().map((b,i)=>`<div class="row" style="margin:4px 0"><span>${esc(b)}${i==0?' <span class="tag">mais recente</span>':''}</span><button class="b" onclick="reverter('${esc(b)}')">Restaurar este</button></div>`).join(""):"nenhum (nada foi aplicado ainda)";
+  const sel=$("perfil"),atual=sel.value;sel.innerHTML=`<option value="">padrão do IPED</option>`+R.perfis.map(p=>`<option>${esc(p)}</option>`).join("");
+  if(atual)sel.value=atual;else if(R.perfis.includes("pcba-celular"))sel.value="pcba-celular";
+  $("perfisAjuda").textContent="Perfis PCBA: pcba-celular (extrações de celular), pcba-computador, pcba-telematica (retornos de provedores), pcba-triagem (rápido).";
+  desenharCasos();desenharTarefas();
+  const t=(R.tarefas||[]).find(x=>x.tipo=="processar"&&x.rodando);if(t&&!procId)seguirProc(t.id,t.titulo);
+}
+async function trocarIped(raiz){await tentar(async()=>{await api("trocar-iped",{raiz});await resumo();aviso("IPED selecionado.")})}
+
+async function diagnosticar(){
+  const b=$("btnDiag");b.disabled=true;b.innerHTML='<span class="spin"></span> Analisando…';
+  await tentar(async()=>{DIAG=await api("diagnosticar",{temp:val("temp"),saida_ssd:$("saidaSSD").checked,servidor_transcricao:val("srvTrans")});desenharDiag()});
+  b.disabled=false;b.textContent="Analisar de novo";
+}
+function desenharDiag(){
+  const m=DIAG.maquina,c=m.cpu||{},g=(m.gpus||[]);
+  const discos=(m.discos||[]).map(d=>`${esc(d.nome)} (${esc(d.tipo)}, ${esc(d.tamanho_gb)} GB)`).join("<br>");
+  const pk=(DIAG.pacotes_python||[]);
+  let h=`<div class="card"><h3>Esta máquina</h3><div class="kv">
+  <b>Computador</b><span>${esc(m.hostname)} · ${esc(m.so_versao)}</span>
+  <b>CPU</b><span>${esc(c.nome)} · ${esc(c.fisicos)} núcleos, ${esc(c.logicos)} threads</span>
+  <b>RAM</b><span>${esc(m.ram_gb)} GB → memória do IPED: ${esc(DIAG.heap_gb)} GB</span>
+  <b>Discos</b><span>${discos||"-"}</span>
+  <b>GPU</b><span>${g.length?g.map(x=>esc(x.nome)+" "+esc(x.vram_gb)+" GB").join(", "):"nenhuma NVIDIA"}</span>
+  <b>Transcrição</b><span>${esc(DIAG.transcricao)} ${pk.includes("faster_whisper")?'<span class="tag ok">faster-whisper instalado</span>':'<button class="b" onclick="instalarWhisper()">Instalar faster-whisper (Whisper em CPU, precisa de internet)</button>'}</span>
+  <b>Java 21 (MCP)</b><span>${DIAG.java21?esc(DIAG.java21):'<span class="tag warn">não encontrado</span> use o pacote completo da página de Releases, que já traz o Java'}</span>
+  </div></div>`;
+  h+=`<div class="card"><h3>Configuração proposta</h3><table><thead><tr><th></th><th>Arquivo</th><th>Chave</th><th>Atual</th><th>Novo valor</th><th>Por quê</th></tr></thead><tbody>`+
+    DIAG.alteracoes.map((a,i)=>`<tr><td><input type="checkbox" id="al${i}" checked></td><td>${esc(a.arquivo)}</td><td>${esc(a.chave)}</td><td class="muted">${esc(a.atual??"-")}</td><td><input type="text" id="av${i}" value="${esc(a.valor)}"></td><td class="muted">${esc(a.motivo)}</td></tr>`).join("")+`</tbody></table>`;
+  h+=(DIAG.avisos||[]).map(a=>`<div class="aviso">${esc(a)}</div>`).join("");
+  h+=`<div class="row" style="margin-top:12px">
+    <label class="switch"><input type="checkbox" id="apPerfis" checked> Criar perfis pcba-*</label>
+    <label class="switch"><input type="checkbox" id="apMcp" checked> Instalar o MCP (IA)</label>
+    <label class="switch"><input type="checkbox" id="apEscrita" checked> IA pode escrever (marcadores)</label></div>
+    <div class="row"><button class="b p" id="btnAplicar" onclick="aplicar()">Aplicar configuração</button><span class="muted">Um backup é feito antes; dá para desfazer em Backups.</span></div></div>`;
+  $("diag").innerHTML=h;
+}
+async function aplicar(){
+  const alts=DIAG.alteracoes.map((a,i)=>$("al"+i).checked?Object.assign({},a,{valor:$("av"+i).value}):null).filter(Boolean);
+  const b=$("btnAplicar");b.disabled=true;b.innerHTML='<span class="spin"></span> Aplicando…';
+  await tentar(async()=>{
+    const r=await api("aplicar",{alteracoes:alts,perfis:$("apPerfis").checked,mcp:$("apMcp").checked,escrita:$("apEscrita").checked});
+    let t=`Aplicado. ${r.mudancas.length} alteração(ões), perfis: ${r.perfis.join(", ")||"-"}.`;
+    if(r.mcp&&r.mcp.aviso)t+="\n"+r.mcp.aviso;else if(r.mcp)t+="\nMCP instalado.";
+    if(r.backup)t+="\nBackup: "+r.backup;
+    aviso(t,!!(r.mcp&&r.mcp.aviso));await resumo();
+    $("diag").insertAdjacentHTML("afterbegin",`<div class="card"><h3>Aplicado <span class="tag ok">ok</span></h3><div class="muted" style="white-space:pre-wrap">${esc(t)}</div><div class="row">${R.so=="windows"&&!R.atalho?'<button class="b" onclick="atalho()">Criar atalho do painel na Área de Trabalho</button>':''}<button class="b p" onclick="ir('proc')">Próximo: processar evidências →</button></div></div>`);
+  });
+  b.disabled=false;b.textContent="Aplicar configuração";
+}
+async function reverter(nome){if(!confirm("Restaurar o backup "+nome+"? Os arquivos voltam como estavam antes dele."))return;await tentar(async()=>{const r=await api("reverter",{backup:nome});aviso("Restaurado: "+r.restaurados.length+" itens.");await resumo()})}
+async function atalho(){await tentar(async()=>{await api("atalho");aviso("Atalho criado na Área de Trabalho.");resumo()})}
+async function instalarWhisper(){await tentar(async()=>{const r=await api("whisper");aviso("Instalação iniciada. Acompanhe em Tarefas; depois clique em Analisar de novo.");abrirTarefa(r.tarefa,"Instalar faster-whisper");ir("tarefas")})}
+
+async function processarEvid(){
+  await tentar(async()=>{
+    const r=await api("processar",{evidencias:$("evid").value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),saida:val("saida"),perfil:$("perfil").value,fuso:val("fuso"),adicionar:$("adicionar").checked,continuar:$("continuar").checked,portavel:$("portavel").checked});
+    seguirProc(r.tarefa,"Processar "+val("saida"));
+  });
+}
+function seguirProc(id,titulo){procId=id;procPos=0;$("procLog").textContent="";$("procLogCard").style.display="block";$("procTitulo").textContent=titulo;$("procParar").onclick=()=>tentar(()=>api("parar",{id}));lerProc()}
+async function lerProc(){
+  if(!procId)return;const id=procId;
+  try{const r=await api("tarefa",{id,desde:procPos});procPos=r.pos;const pre=$("procLog");const fim=pre.scrollTop+pre.clientHeight>=pre.scrollHeight-20;pre.textContent+=r.texto;if(pre.textContent.length>400000)pre.textContent=pre.textContent.slice(-300000);if(fim)pre.scrollTop=pre.scrollHeight;
+    const t=r.tarefa;$("procSit").innerHTML=t.rodando?'<span class="spin"></span> processando…':(t.codigo==0?'<span class="tag ok">concluído</span> <button class="b p" onclick="ir(\'casos\')">Próximo: abrir o caso →</button>':'<span class="tag bad">terminou com erro (código '+t.codigo+')</span> veja o log acima');
+    $("procParar").disabled=!t.rodando;
+    if(t.rodando)setTimeout(lerProc,2000);else{procId=null;resumo()}
+  }catch(e){setTimeout(lerProc,4000)}
+}
+
+function desenharCasos(){
+  const l=R.casos||[];
+  $("listaCasos").innerHTML=l.length?`<table><thead><tr><th>Caso</th><th>Situação</th><th></th></tr></thead><tbody>`+l.map(c=>{
+    const ativo=R.caso_ativo&&R.caso_ativo.toLowerCase()==c.pasta.toLowerCase();
+    return `<tr><td><b>${esc(c.nome)}</b><br><span class="muted">${esc(c.pasta)}</span></td><td>${c.existe?'<span class="tag ok">pronto</span>':'<span class="tag bad">pasta não encontrada</span>'} ${ativo?'<span class="tag ok">a IA está usando</span>':''}</td>
+    <td><div class="row" style="margin:0">${c.existe?`<button class="b" onclick="abrirCaso('${esc(js(c.pasta))}')">Abrir no IPED</button><button class="b ${ativo?'':'p'}" onclick="ativarCaso('${esc(js(c.pasta))}')">${ativo?'Caso da IA':'Usar com a IA'}</button><button class="b" onclick="verAud('${esc(js(c.pasta))}')">Auditoria</button>`:''}<button class="b d" onclick="esquecer('${esc(js(c.pasta))}')">Tirar da lista</button></div></td></tr>`}).join("")+`</tbody></table>`:"nenhum caso ainda. Processe uma evidência ou adicione a pasta de um caso.";
+}
+const js=s=>s.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+async function addCaso(){await tentar(async()=>{await api("caso/adicionar",{pasta:val("casoNovo")});$("casoNovo").value="";await resumo()})}
+async function abrirCaso(p){await tentar(async()=>{await api("caso/abrir",{pasta:p});aviso("Abrindo o caso no IPED…")})}
+async function ativarCaso(p){await tentar(async()=>{await api("caso/ativar",{pasta:p});aviso("A IA agora lê este caso.");await resumo()})}
+async function esquecer(p){await tentar(async()=>{await api("caso/esquecer",{pasta:p});await resumo()})}
+async function verAud(p){await tentar(async()=>{const a=await api("caso/auditoria",{pasta:p});$("audCard").style.display="block";
+  $("aud").innerHTML=!a.existe?`<div class="muted">A IA ainda não fez chamadas neste caso.</div>`:`<div class="row">${a.integra?'<span class="tag ok">cadeia íntegra</span>':'<span class="tag bad">cadeia QUEBRADA</span>'} <span>${a.registros} registros</span> <span class="muted">${esc(a.arquivo)}</span></div>`+
+  (a.problemas||[]).map(p=>`<div class="aviso">${esc(p)}</div>`).join("")+
+  `<table><thead><tr><th>#</th><th>Quando</th><th>Usuário</th><th>Ferramenta</th><th>Argumentos</th><th>Situação</th></tr></thead><tbody>`+a.ultimos.map(r=>`<tr><td>${esc(r.seq)}</td><td>${esc((r.ts||"").replace("T"," ").slice(0,19))}</td><td>${esc(r.usuario)}</td><td>${esc(r.ferramenta)}</td><td class="muted">${esc(JSON.stringify(r.argumentos||{}).slice(0,160))}</td><td><span class="tag ${r.situacao=="ok"?"ok":r.situacao=="bloqueado"?"warn":"bad"}">${esc(r.situacao)}</span></td></tr>`).join("")+`</tbody></table>`;
+  $("audCard").scrollIntoView({behavior:"smooth"})})}
+
+async function carregarIa(){
+  const m=R.mcp||{};
+  $("mcpInfo").innerHTML=`<b>MCP</b><span>${m.instalado?'<span class="tag ok">instalado</span> '+esc(m.lancador):'<span class="tag warn">não instalado</span> aplique a configuração (passo 1) com o pacote completo da página de Releases'}</span>
+  <b>Caso que a IA lê</b><span>${R.caso_ativo?esc(R.caso_ativo):'<span class="tag warn">nenhum</span> escolha em Casos → Usar com a IA'}</span>`;
+  $("escrita").checked=!!m.escrita;$("escrita").disabled=!m.instalado;$("btnTestar").disabled=!m.instalado;
+  $("clientes").innerHTML=(R.clientes||[]).map(c=>`<tr><td><b>${esc(c.nome)}</b></td><td>${c.aponta_para_este?'<span class="tag ok">ligado</span>':c.configurado?'<span class="tag warn">ligado a outro IPED</span>':c.instalado?'<span class="tag">não ligado</span>':'<span class="tag">não encontrado</span>'}${c.erro?'<div class="aviso">'+esc(c.erro)+'</div>':''}</td><td class="muted" style="font-size:12px">${esc(c.arquivo)}</td><td><div class="row" style="margin:0"><button class="b ${c.aponta_para_este?'':'p'}" ${m.instalado?'':'disabled'} onclick="ligar('${c.cliente}')">${c.aponta_para_este?'Ligar de novo':'Ligar'}</button>${c.configurado?`<button class="b d" onclick="desligar('${c.cliente}')">Desligar</button>`:''}</div></td></tr>`).join("");
+  $("iaLocal").innerHTML='<span class="spin"></span> procurando…';
+  await tentar(async()=>{const r=await api("ia");$("iaLocal").innerHTML=r.local.map(s=>`<div class="row"><b style="width:90px">${esc(s.nome)}</b>${s.ativo?`<span class="tag ok">rodando</span> <span class="muted">${esc(s.url)}</span> <span>${s.modelos.length?esc(s.modelos.slice(0,8).join(", ")):"nenhum modelo carregado"}</span>`:'<span class="tag">não está rodando</span>'}</div>`).join("")});
+}
+async function trocarEscrita(v){await tentar(async()=>{const r=await api("ia/escrita",{ativa:v});aviso(r.escrita?"Escrita liberada para as próximas conversas.":"IA em modo somente leitura.");await resumo()})}
+async function ligar(c){await tentar(async()=>{const r=await api("ia/configurar",{cliente:c});aviso("Ligado. Feche e abra o programa de IA."+(r.copia?"\nCópia: "+r.copia:""));await resumo();carregarIa()})}
+async function desligar(c){await tentar(async()=>{await api("ia/remover",{cliente:c});await resumo();carregarIa()})}
+async function testarMcp(){
+  const b=$("btnTestar");b.disabled=true;$("testeSit").innerHTML='<span class="spin"></span> iniciando o MCP (pode levar um minuto)…';
+  await tentar(async()=>{const r=await api("ia/testar",{});$("testeSit").innerHTML=`<span class="tag ok">funcionando</span> ${r.ferramentas} ferramentas; escrita: ${r.escrita_visivel.length?"liberada ("+r.escrita_visivel.length+" ferramentas)":"bloqueada"}`;
+    const o=$("testeOut");o.style.display=r.resumo_caso?"block":"none";o.textContent=r.resumo_caso||""});
+  if(!$("testeSit").querySelector(".ok"))$("testeSit").innerHTML="";
+  b.disabled=false;
+}
+
+function desenharTarefas(){
+  const l=R.tarefas||[];
+  $("listaTarefas").innerHTML=l.length?`<table><thead><tr><th>Tarefa</th><th>Início</th><th>Situação</th><th></th></tr></thead><tbody>`+l.map(t=>`<tr><td>${esc(t.titulo)}</td><td>${esc(t.inicio.replace("T"," "))}</td><td>${t.rodando?'<span class="spin"></span> rodando':t.codigo==0?'<span class="tag ok">ok</span>':'<span class="tag bad">código '+t.codigo+'</span>'}</td><td><button class="b" onclick="abrirTarefa('${t.id}','${esc(js(t.titulo))}')">Ver log</button></td></tr>`).join("")+`</tbody></table>`:"nenhuma";
+}
+function abrirTarefa(id,titulo){tarefaId=id;tarefaPos=0;$("tarefaLog").textContent="";$("tarefaCard").style.display="block";$("tarefaTitulo").textContent=titulo;lerTarefa()}
+async function lerTarefa(){if(!tarefaId)return;const id=tarefaId;try{const r=await api("tarefa",{id,desde:tarefaPos});if(id!=tarefaId)return;tarefaPos=r.pos;$("tarefaLog").textContent+=r.texto;$("tarefaLog").scrollTop=1e9;if(r.tarefa.rodando)setTimeout(lerTarefa,2000);else resumo()}catch(e){}}
+async function sair(){if(!confirm("Fechar o painel? Processamentos em andamento continuam."))return;await tentar(()=>api("sair"));document.body.innerHTML='<p style="padding:30px">Painel encerrado. Pode fechar esta aba.</p>'}
+
+resumo().then(()=>{if(R.iped_ok&&!R.configurado)diagnosticar()}).catch(e=>aviso(e.message,true));
+setInterval(()=>{if(document.visibilityState=="visible")api("resumo").then(r=>{R=r;desenharTarefas();}).catch(()=>{})},15000);
+</script>
+</body>
+</html>

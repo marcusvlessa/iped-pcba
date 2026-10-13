@@ -4,8 +4,9 @@ Instalação, autoconfiguração e extensões do [IPED](https://github.com/sepin
 Polícia Civil da Bahia. O núcleo do IPED não é alterado: tudo aqui atua sobre os arquivos de
 configuração, perfis e scripts que o próprio IPED já prevê.
 
-Este repositório segue o plano "Plano IPED + IA para a PCBA". Fases prontas: **1, instalador**
-e **2, MCP com auditoria** (pasta [`mcp/`](mcp/README.md)).
+Este repositório segue o plano "Plano IPED + IA para a PCBA". Fases prontas: **1, instalador**,
+**2, MCP com auditoria** (pasta [`mcp/`](mcp/README.md)) e o **Painel IPED-PCBA**, que conduz o
+analista por todo o fluxo no navegador.
 
 ## Para quem é
 
@@ -17,12 +18,32 @@ máquina tem e o que já está instalado, e configura a partir disso.
 
 1. Baixe o `iped-pcba-windows.zip` da página de Releases e descompacte em qualquer pasta.
    (O "Download ZIP" do código também serve, mas sem o MCP, que precisa ser compilado.)
-2. Dê dois cliques em `instalar.bat`.
-3. Confira o plano que aparece na tela e responda `S` para aplicar.
+2. Dê dois cliques em `instalar.bat`. Ele acha o IPED e abre o **Painel IPED-PCBA** no navegador.
+3. Siga os passos do painel.
 
-Pronto. Não precisa instalar Python nem nada: o instalador usa o Python que vem dentro do IPED.
+Não precisa instalar Python nem nada: o painel usa o Python que vem dentro do IPED. A janela
+preta do `instalar.bat` precisa ficar aberta enquanto o painel estiver em uso.
 
-O que ele faz, nessa ordem:
+## Painel IPED-PCBA
+
+Página local (só em `127.0.0.1`, com código de acesso aleatório na URL) com quatro passos:
+
+| Passo | O que faz |
+|---|---|
+| 1. Máquina e configuração | Mostra o hardware e a configuração proposta, com o valor atual e o motivo de cada item. Dá para desmarcar ou editar qualquer valor antes de aplicar. Aplica com backup, restaura qualquer backup, instala o `faster-whisper` com um clique e cria um atalho do painel na Área de Trabalho. |
+| 2. Processar evidências | Escolhe evidências (arquivos ou pastas), pasta do caso e perfil, e roda o IPED mostrando o log. Acrescentar a um caso, continuar processamento interrompido e caso portátil. O processamento continua se o painel for fechado. |
+| 3. Casos | Lista os casos, abre no IPED, escolhe qual caso a IA vai ler e mostra o log de auditoria da IA com a conferência da cadeia de hashes. |
+| 4. IA (MCP) | Liga e desliga a escrita da IA no caso, liga o MCP ao Claude Desktop, ao LM Studio e ao Hermes Agent (com cópia do arquivo antes de alterar), procura Ollama e LM Studio rodando na máquina e testa o MCP com o caso ativo. |
+
+Depois de aplicar, o painel fica dentro do IPED: `<IPED>\pcba\painel-pcba.bat` abre de novo,
+mesmo que a pasta baixada seja apagada. Pelo console: `python -m iped_pcba painel`.
+
+O `instalar.bat -Texto` faz só a configuração pelo console, como antes (pergunta S/N).
+Tudo o que o instalador escreve no console fica em `%TEMP%\iped-pcba-instalar.log`.
+
+## O que a configuração faz
+
+Nessa ordem:
 
 1. **Acha o IPED**: primeiro o caminho que o próprio IPED registra em `~\.iped\ipedRoot.txt`,
    depois a variável `IPED_ROOT`, depois procura em todos os discos (raiz, `Tools`,
@@ -40,13 +61,15 @@ O que ele faz, nessa ordem:
      Whisper em CPU, transcrição no servidor central ou Vosk. Nunca liga o Whisper se o
      `faster-whisper` não estiver no Python do IPED, para não quebrar o processamento;
    - heap da JVM: 50% da RAM com teto de 30 GB.
-5. **Pergunta** e só então grava, com backup em `<IPED>\pcba\backup\<data-hora>\`.
+5. **Mostra o plano** e só grava quando você manda, com backup em `<IPED>\pcba\backup\<data-hora>\`.
 6. **Gera os perfis** `pcba-celular`, `pcba-computador`, `pcba-telematica` e `pcba-triagem`.
 7. **Gera o lançador** `<IPED>\pcba\iped-pcba.bat` e grava `<IPED>\pcba\maquina.json` com o
    retrato da máquina e o que mudou.
 8. **Instala o MCP** (IA) em `<IPED>\pcba\mcp\`, com o lançador `iped-pcba-mcp.bat` e o trecho
-   de configuração para o Claude Desktop e o LM Studio. Somente leitura e com log de auditoria
-   no próprio caso. Detalhes em [mcp/README.md](mcp/README.md).
+   de configuração para o Claude Desktop e o LM Studio. Com escrita liberada (a IA cria
+   marcadores e comentários; desligue no painel ou com `--somente-leitura`) e com log de
+   auditoria no próprio caso. Detalhes em [mcp/README.md](mcp/README.md).
+9. **Instala o painel** em `<IPED>\pcba\app\` e o lançador `<IPED>\pcba\painel-pcba.bat`.
 
 Opções do `scripts\instalar.ps1` (o `instalar.bat` repassa todas):
 
@@ -55,6 +78,7 @@ Opções do `scripts\instalar.ps1` (o `instalar.bat` repassa todas):
 | `-IpedRoot <pasta>` | usa esta instalação em vez de procurar |
 | `-Temp <pasta>` | usa esta pasta temporária em vez de escolher |
 | `-ServidorTranscricao IP:PORTA` | manda a transcrição para o servidor central |
+| `-Texto` | configuração pelo console, sem o painel |
 | `-Simular` | mostra o que mudaria, sem gravar |
 | `-Aplicar` | aplica sem perguntar (implantação em lote, GPO) |
 | `-Reverter` | desfaz a última aplicação (inclusive o MCP) |

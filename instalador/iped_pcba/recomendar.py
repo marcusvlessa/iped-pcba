@@ -179,8 +179,8 @@ def recomendar(maquina, papel="cliente", pasta_temp=None, tipo_disco_temp="desco
                   "Vosk embarcado no IPED (rápido, qualidade baixa).")
         if vram >= VRAM_MIN_GPU or (logicos >= 8 and ram >= 16):
             p.avisos.append("A máquina comporta Whisper ({}), mas o faster-whisper não está no "
-                            "Python do IPED. Instale (scripts/whisper_gpu.ps1 ou pip install "
-                            "faster-whisper) e rode o instalador de novo.".format(
+                            "Python do IPED. Instale pelo botão do painel (precisa de internet; para GPU, "
+                            "scripts/whisper_gpu.ps1) e analise de novo.".format(
                                 "GPU" if vram >= VRAM_MIN_GPU else "CPU"))
         else:
             p.avisos.append("Transcrição local ficará com qualidade baixa (Vosk). "

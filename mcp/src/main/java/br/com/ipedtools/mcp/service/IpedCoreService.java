@@ -568,6 +568,81 @@ public class IpedCoreService {
         }
     }
 
+    // ---- PCBA: escrita adicional em marcadores ----
+
+    /** Tira itens de um marcador existente (desfaz um add_to_bookmark). */
+    public synchronized String removeFromBookmark(String bookmarkName, List<Integer> docIds) {
+        checkCaseOpen();
+        int bmId = ipedSource.getBookmarks().getBookmarkId(bookmarkName);
+        if (bmId < 0) {
+            return "Erro: o marcador '" + bookmarkName + "' não existe.";
+        }
+        if (docIds == null || docIds.isEmpty()) {
+            return "Erro: Nenhum ID de documento fornecido.";
+        }
+        ipedSource.getBookmarks().removeBookmark(docIds, bmId);
+        ipedSource.getBookmarks().saveState(true);
+        return "Sucesso: " + docIds.size() + " documento(s) retirado(s) do marcador '" + bookmarkName + "'.";
+    }
+
+    /**
+     * Grava o comentário do marcador (aparece no IPED e no relatório HTML). Cria o marcador se
+     * não existir. Opcionalmente define se o marcador entra no relatório.
+     */
+    public synchronized String setBookmarkComment(String bookmarkName, String comment, Boolean inReport) {
+        checkCaseOpen();
+        if (bookmarkName == null || bookmarkName.isBlank()) {
+            return "Erro: O nome do marcador não pode ser vazio.";
+        }
+        int bmId = ipedSource.getBookmarks().newBookmark(bookmarkName);
+        ipedSource.getBookmarks().setBookmarkComment(bmId, comment == null ? "" : comment);
+        if (inReport != null) {
+            ipedSource.getBookmarks().setInReport(bmId, inReport);
+        }
+        ipedSource.getBookmarks().saveState(true);
+        return "Sucesso: comentário do marcador '" + bookmarkName + "' gravado"
+                + (inReport == null ? "." : (inReport ? " (entra no relatório)." : " (fora do relatório)."));
+    }
+
+    /** Marca de uma vez os resultados de uma busca (até maxItems). */
+    public synchronized Map<String, Object> bookmarkSearchResults(String bookmarkName, String queryText, int maxItems) {
+        checkCaseOpen();
+        if (bookmarkName == null || bookmarkName.isBlank()) {
+            throw new IllegalArgumentException("O nome do marcador não pode ser vazio.");
+        }
+        if (queryText == null || queryText.isBlank()) {
+            throw new IllegalArgumentException("Informe a busca; marcar o caso inteiro não é permitido.");
+        }
+        int limite = Math.clamp(maxItems, 1, 5000);
+        IPEDSearcher searcher = new IPEDSearcher(ipedSource, queryText.replaceAll("/", "\\\\/"));
+        SearchResult result;
+        try {
+            result = searcher.search();
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Busca inválida: " + e.getMessage(), e);
+        }
+        int[] ids = result.getIds();
+        int total = ids == null ? 0 : ids.length;
+        List<Integer> escolhidos = new ArrayList<>();
+        for (int i = 0; i < Math.min(total, limite); i++) {
+            escolhidos.add(ids[i]);
+        }
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("bookmark", bookmarkName);
+        resp.put("query", queryText);
+        resp.put("total_found", total);
+        resp.put("bookmarked", escolhidos.size());
+        if (!escolhidos.isEmpty()) {
+            int bmId = ipedSource.getBookmarks().newBookmark(bookmarkName);
+            ipedSource.getBookmarks().addBookmark(escolhidos, bmId);
+            ipedSource.getBookmarks().saveState(true);
+        }
+        resp.put("note", total > escolhidos.size()
+                ? "Marcados os primeiros " + escolhidos.size() + " de " + total + ". Refine a busca ou aumente max_items."
+                : "Todos os resultados foram marcados.");
+        return resp;
+    }
+
     /**
      * Flags or unflags an item as checked (selected) in the IPED case state database,
      * mirroring the checkmark column in IPED Desktop.

@@ -2,11 +2,14 @@
 .SYNOPSIS
   Instalador IPED-PCBA para estações Windows.
 .DESCRIPTION
-  Acha o IPED na máquina, reconhece o hardware, mostra o plano e pergunta antes de gravar.
+  Acha o IPED na máquina e abre o Painel IPED-PCBA no navegador, que conduz o analista por
+  todo o fluxo: configuração da máquina, processamento das evidências, casos e IA (MCP).
+  Com -Texto, faz só a configuração aqui no console, perguntando antes de gravar.
   Usa o Python que já vem dentro do IPED (python\python.exe); não instala nada.
   Toda gravação faz backup em <IPED>\pcba\backup\<data-hora>\ e pode ser desfeita com -Reverter.
 .EXAMPLE
-  .\instalar.ps1                                   # acha o IPED, mostra o plano e pergunta
+  .\instalar.ps1                                   # acha o IPED e abre o painel
+  .\instalar.ps1 -Texto                            # configuração pelo console (S/N)
   .\instalar.ps1 -IpedRoot "D:\IPED\iped-4.3.1"    # usa esta instalação
   .\instalar.ps1 -ServidorTranscricao 10.0.0.5:11111
   .\instalar.ps1 -Aplicar                          # sem perguntar (implantação em lote)
@@ -21,9 +24,19 @@ param(
   [switch]$Aplicar,
   [switch]$Simular,
   [switch]$Reverter,
+  [switch]$Texto,
   [switch]$Json
 )
 $ErrorActionPreference = "Stop"
+$logArq = Join-Path $env:TEMP "iped-pcba-instalar.log"
+try { Start-Transcript -Path $logArq -Force | Out-Null } catch { }
+trap {
+  Write-Host ""
+  Write-Host "ERRO: $($_.Exception.Message)" -ForegroundColor Red
+  Write-Host "Registro completo em $logArq" -ForegroundColor Yellow
+  try { Stop-Transcript | Out-Null } catch { }
+  exit 1
+}
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $aqui = Split-Path -Parent $MyInvocation.MyCommand.Path
 $pacote = Join-Path (Split-Path -Parent $aqui) "instalador"
@@ -63,6 +76,7 @@ function Find-Iped {
   return $achados | Sort-Object Raiz -Unique | Sort-Object @{e={$_.Versao};Descending=$true}, @{e={$_.EmUso};Descending=$true}
 }
 
+$modoPainel = -not ($Texto -or $Aplicar -or $Simular -or $Reverter -or $Json)
 if (-not $IpedRoot) {
   Write-Host "Procurando o IPED nesta máquina (pode levar até um minuto)..." -ForegroundColor Cyan
   $lista = @(Find-Iped)
@@ -85,6 +99,15 @@ $env:PYTHONIOENCODING = "utf-8"
 # O Python embarcado do IPED tem um arquivo ._pth que ignora PYTHONPATH;
 # por isso o pacote entra no sys.path pelo próprio comando.
 $boot = "import sys; sys.path.insert(0, r'$pacote'); from iped_pcba.cli import main; sys.exit(main())"
+
+if ($modoPainel) {
+  Write-Host ""
+  Write-Host "Abrindo o Painel IPED-PCBA no navegador..." -ForegroundColor Cyan
+  Write-Host "Deixe esta janela aberta enquanto usa o painel." -ForegroundColor Cyan
+  try { Stop-Transcript | Out-Null } catch { }
+  & $py -c $boot painel --iped $IpedRoot
+  exit $LASTEXITCODE
+}
 
 if ($Reverter) {
   & $py -c $boot reverter --iped $IpedRoot
