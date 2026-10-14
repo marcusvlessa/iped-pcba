@@ -96,6 +96,30 @@ class TestEscrita(unittest.TestCase):
         self.assertFalse(mcp.definir_escrita(raiz, False))
 
 
+class TestJanelaEscolha(unittest.TestCase):
+    def test_windows_traz_janela_para_frente(self):
+        chamadas = []
+
+        class R(object):
+            stdout = "C:\\Evid\n".encode("utf-8")
+
+        antes = painel.WIN, painel.subprocess.run
+        painel.WIN = True
+        painel.subprocess.run = lambda cmd, **k: chamadas.append(cmd[-1]) or R()
+        try:
+            self.assertEqual(painel.escolher("pasta", "Pasta d'evidência"), ["C:\\Evid"])
+            painel.escolher("arquivo", "Evidência", multiplos=True, filtro="evidencia")
+        finally:
+            painel.WIN, painel.subprocess.run = antes
+        for ps in chamadas:
+            # a janela-dona aparece e ganha foco antes do diálogo, senão ele nasce atrás do navegador
+            self.assertLess(ps.index("$f.Activate()"), ps.index("ShowDialog($f)"))
+            self.assertIn("TopMost=$true", ps)
+            self.assertTrue(ps.endswith("$f.Close()"))
+        self.assertIn("Description='Pasta devidência'", chamadas[0])
+        self.assertIn("Multiselect=$true", chamadas[1])
+
+
 class TestServidor(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()

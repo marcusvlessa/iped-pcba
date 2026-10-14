@@ -94,24 +94,29 @@ FILTROS = {
 }
 
 
+# Janela-dona invisível, sempre no topo e ativada antes do diálogo: sem ela o diálogo
+# nasce atrás do navegador (o processo do PowerShell não tem foco) e parece que nada abriu.
+_DONO = ("Add-Type -AssemblyName System.Windows.Forms;"
+         "$f=New-Object System.Windows.Forms.Form -Property @{TopMost=$true;ShowInTaskbar=$false;"
+         "StartPosition='Manual';Location=New-Object System.Drawing.Point(-32000,-32000);"
+         "Size=New-Object System.Drawing.Size(1,1);FormBorderStyle='None';Opacity=0};"
+         "$f.Show();$f.Activate();")
+
+
 def escolher(tipo, titulo="", multiplos=False, filtro=None):
     """Janela nativa de escolha de pasta/arquivo. Devolve lista de caminhos ([] se cancelar)."""
     if WIN:
         if tipo == "pasta":
-            ps = ("Add-Type -AssemblyName System.Windows.Forms;"
-                  "$d=New-Object System.Windows.Forms.FolderBrowserDialog;$d.Description='{t}';"
+            ps = _DONO + ("$d=New-Object System.Windows.Forms.FolderBrowserDialog;$d.Description='{t}';"
                   "$d.ShowNewFolderButton=$true;"
-                  "$f=New-Object System.Windows.Forms.Form -Property @{{TopMost=$true}};"
                   "if($d.ShowDialog($f) -eq 'OK'){{[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
-                  "$d.SelectedPath}}").format(t=titulo.replace("'", ""))
+                  "$d.SelectedPath}};$f.Close()").format(t=titulo.replace("'", ""))
         else:
-            ps = ("Add-Type -AssemblyName System.Windows.Forms;"
-                  "$d=New-Object System.Windows.Forms.OpenFileDialog;$d.Title='{t}';"
+            ps = _DONO + ("$d=New-Object System.Windows.Forms.OpenFileDialog;$d.Title='{t}';"
                   "$d.Multiselect=${m};"
                   "$d.Filter='{filtro}';"
-                  "$f=New-Object System.Windows.Forms.Form -Property @{{TopMost=$true}};"
                   "if($d.ShowDialog($f) -eq 'OK'){{[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
-                  "$d.FileNames}}").format(t=titulo.replace("'", ""), m="true" if multiplos else "false",
+                  "$d.FileNames}};$f.Close()").format(t=titulo.replace("'", ""), m="true" if multiplos else "false",
                                                    filtro=FILTROS.get(filtro, FILTROS[None]))
         r = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", ps],
                            capture_output=True, timeout=600, creationflags=0x08000000)
