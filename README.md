@@ -26,16 +26,36 @@ preta do `instalar.bat` precisa ficar aberta enquanto o painel estiver em uso.
 
 ## Painel IPED-PCBA
 
-Página local (só em `127.0.0.1`, com código de acesso aleatório na URL) com cinco passos:
+Página local (só em `127.0.0.1`, com código de acesso aleatório na URL). O topo mostra o
+**caso em análise**, escolhido uma vez e usado em todas as telas. A tela **Início** diz qual é o
+próximo passo e mostra o andamento. O menu segue o trabalho:
 
-| Passo | O que faz |
-|---|---|
-| 1. Máquina e configuração | Mostra o hardware e a configuração proposta, com o valor atual e o motivo de cada item. Dá para desmarcar ou editar qualquer valor antes de aplicar. Aplica com backup, restaura qualquer backup, instala o `faster-whisper` com um clique e cria um atalho do painel na Área de Trabalho. |
-| 2. Processar evidências | Escolhe evidências (arquivos ou pastas), pasta do caso e perfil, e roda o IPED mostrando o log. Acrescentar a um caso, continuar processamento interrompido e caso portátil. O processamento continua se o painel for fechado. |
-| 3. Casos | Lista os casos, abre no IPED, escolhe qual caso a IA vai ler e mostra o log de auditoria da IA com a conferência da cadeia de hashes. |
-| 4. IA (MCP) | Liga e desliga a escrita da IA no caso, liga o MCP ao Claude Desktop, ao LM Studio e ao Hermes Agent (com cópia do arquivo antes de alterar), procura Ollama e LM Studio rodando na máquina e testa o MCP com o caso ativo. |
-| Visão do caso | Gráficos do caso processado (itens por mês, categorias, contatos mais ativos, rede de comunicações, detecções do IPED, dispositivos) e dos registros telemáticos importados (por dia, por hora, interlocutores, IPs, contas), com alertas e sugestões (veja abaixo). |
-| 5. Relatório técnico | Monta o RT do caso no modelo da PCBA e gera o `.docx` (veja abaixo). |
+| Grupo | Tela | O que faz |
+|---|---|---|
+| Preparar | 1. Configurar a máquina | Mostra o hardware e a configuração proposta, com o valor atual e o motivo de cada item. Dá para desmarcar ou editar qualquer valor antes de aplicar. Aplica com backup, restaura qualquer backup, instala o `faster-whisper` com um clique e cria um atalho do painel na Área de Trabalho. |
+| Preparar | 2. Processar evidência | Escolhe evidências, pasta do caso e perfil (em cartões que explicam quando usar cada perfil, o que liga, o que desliga e quanto demora) e roda o IPED mostrando o log. |
+| Analisar | 3. Casos | Lista os casos, abre no IPED, escolhe o caso em análise e mostra o log de auditoria da IA com a conferência da cadeia de hashes. |
+| Analisar | Visão do caso | Gráficos, alertas e sugestões do caso (veja abaixo). |
+| Analisar | Assistente de IA | Agentes prontos que mandam a pergunta à IA local pelo próprio painel (veja abaixo). |
+| Concluir | 4. Relatório técnico | Monta o RT do caso no modelo da PCBA e gera o `.docx` (veja abaixo). |
+| Sistema | Conexões de IA (MCP) | Liga e desliga a escrita da IA no caso, liga o MCP ao Claude Desktop, ao Antigravity, ao LM Studio e ao Hermes Agent (com cópia do arquivo antes de alterar), procura Ollama e LM Studio na máquina e testa o MCP com o caso ativo. |
+
+### Assistente de IA
+
+Oito agentes, cada um com seu papel, as ferramentas do MCP que pode usar e perguntas prontas:
+Triagem inicial, Comunicações, Financeiro, Linha do tempo, Localização, Mídias e detecções,
+Marcação no caso e Redator do RT (os dois últimos escrevem no caso e precisam da escrita
+liberada). O texto entre `[COLCHETES]` numa pergunta é para trocar antes de enviar.
+
+**Enviar para a IA local** manda a pergunta ao Ollama ou ao LM Studio desta máquina (o painel
+recusa qualquer endereço que não seja `127.0.0.1` ou `localhost`). A IA consulta o caso pelo MCP
+e o painel mostra cada passo; toda chamada fica no log de auditoria do caso. A resposta pode ser
+copiada ou salva em `<caso>\iped-pcba-ia\conversas\`. O modelo precisa aceitar ferramentas
+(por exemplo qwen2.5, qwen3, llama3.1 ou mistral-nemo).
+
+**Copiar para Claude/Antigravity/Hermes** copia as instruções do agente e a pergunta para colar
+no programa ligado ao MCP. Claude Desktop e Antigravity usam modelos na nuvem: o painel avisa
+antes de ligá-los, e dados reais devem ficar na IA local.
 
 Depois de aplicar, o painel fica dentro do IPED: `<IPED>\pcba\painel-pcba.bat` abre de novo,
 mesmo que a pasta baixada seja apagada. Pelo console: `python -m iped_pcba painel`.
@@ -191,6 +211,9 @@ Whisper.
 | `pcba-computador` | forensic | Imagens de disco. Carving, transcrição, grafo. |
 | `pcba-telematica` | raiz | Retornos de provedores. Expande pacotes, indexa conteúdo e regex, sem carving. |
 | `pcba-triagem` | triage | Triagem em local de busca, sem transcrição. |
+
+A tela Processar evidência explica cada perfil (quando usar, o que liga e desliga, tempo) e os
+perfis do próprio IPED (`forensic`, `pedo`, `fastmode`, `triage`, `blind`).
 
 O IPED aplica a raiz e depois o perfil: o `IPEDConfig.txt` do perfil substitui o da raiz e cada
 arquivo em `profiles/<perfil>/conf/` substitui o de mesmo nome em `conf/`. Por isso os perfis são

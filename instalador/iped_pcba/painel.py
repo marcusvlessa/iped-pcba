@@ -24,7 +24,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, auditoria, clientesia, processar
+from . import __version__, assistente, auditoria, clientesia, processar
 from .configurar import PASTA_PCBA, gravar_texto, ler_chaves, ler_texto, listar_backups
 from .configurar import reverter as reverter_backup
 from .mcp import (CASO_ATIVO, PASTA_MCP, achar_java, definir_escrita, escrita_ativa,
@@ -134,6 +134,7 @@ class Estado(object):
         self.tarefas = processar.Tarefas()
         self.ultimo = None  # (maquina, plano) do último diagnóstico
         self.lock = threading.Lock()
+        self.conversas = assistente.Conversas()
 
     # ------------------------------------------------------------ visão geral
     def resumo(self):
@@ -153,6 +154,8 @@ class Estado(object):
                       "escrita": escrita_ativa(raiz),
                       "pacote": bool(localizar_pacote(os.path.dirname(os.path.dirname(PACOTE))))}
         out["perfis"] = processar.perfis(raiz)
+        from .perfis import ajuda
+        out["perfis_ajuda"] = [ajuda(p) for p in out["perfis"]]
         out["casos"] = processar.casos()
         out["caso_ativo"] = ler_texto(CASO_ATIVO).strip() if os.path.isfile(CASO_ATIVO) else None
         out["tarefas"] = self.tarefas.listar()
@@ -277,6 +280,23 @@ class Estado(object):
         cmd = visao.comando_exportar(r["mcp"]["lancador"], caso)
         return {"tarefa": self.tarefas.iniciar("visao", "Números do caso " + os.path.basename(caso.rstrip("\\/")),
                                                cmd, cwd=caso)}
+
+    # ------------------------------------------------------------ assistente (agentes)
+    def assist_agentes(self):
+        from . import agentes
+        r = self.resumo()
+        return {"agentes": agentes.para_painel(), "config": assistente.ler_config(),
+                "ia_local": clientesia.ia_local(), "escrita": (r.get("mcp") or {}).get("escrita"),
+                "mcp_instalado": (r.get("mcp") or {}).get("instalado"), "clientes": r.get("clientes")}
+
+    def assist_enviar(self, d):
+        r = self.resumo()
+        if not r["mcp"]["instalado"]:
+            raise ValueError("O MCP não está instalado: aplique a configuração com o pacote completo (passo 1).")
+        caso = _caso_valido(d)
+        cid = self.conversas.iniciar(r["mcp"]["lancador"], caso, d.get("agente"), d.get("pergunta"),
+                                     assistente.ler_config(), bool(r["mcp"]["escrita"]))
+        return {"id": cid}
 
     # ------------------------------------------------------------ IA
     def ia(self):
@@ -448,6 +468,20 @@ def _rotear(e, rota, d):
         return clientesia.remover(d["cliente"])
     if rota == "/api/ia/testar":
         return e.testar_mcp(d)
+    if rota == "/api/assist/agentes":
+        return e.assist_agentes()
+    if rota == "/api/assist/config":
+        return {"config": assistente.gravar_config(d)}
+    if rota == "/api/assist/enviar":
+        return e.assist_enviar(d)
+    if rota == "/api/assist/ler":
+        return e.conversas.ler(d["id"], int(d.get("desde") or 0))
+    if rota == "/api/assist/parar":
+        e.conversas.parar(d["id"])
+        return {"ok": True}
+    if rota == "/api/assist/salvar":
+        return {"arquivo": assistente.salvar(_caso_valido(d), d.get("agente") or "Assistente", d.get("pergunta") or "",
+                                             d.get("resposta") or "", d.get("modelo") or "")}
     if rota == "/api/visao/ler":
         return e.visao_ler(_caso_valido(d))
     if rota == "/api/visao/atualizar":

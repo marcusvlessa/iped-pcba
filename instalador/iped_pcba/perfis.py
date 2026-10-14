@@ -72,6 +72,62 @@ PERFIS = {
 }
 
 
+# Explicação de cada perfil para o painel (passo 2). "liga"/"desliga" resumem as chaves acima.
+AJUDA = {
+    "pcba-celular": {
+        "titulo": "Celular",
+        "quando": "Extração de celular: UFDR do Cellebrite, Oxygen, XRY, backup de iPhone ou Android.",
+        "liga": ["Transcrição de áudios (WhatsApp, Telegram)", "Grafo de contatos e comunicações",
+                 "Leitura de QR Code", "Busca de imagens semelhantes", "Relatório HTML"],
+        "desliga": ["OCR (lento; ligue à mão se precisar ler prints)", "Carving (a extração já vem organizada)"],
+        "tempo": "Médio. A transcrição é o que mais pesa; sem GPU, conte várias horas para muitos áudios.",
+    },
+    "pcba-computador": {
+        "titulo": "Computador",
+        "quando": "Imagem de disco (E01, DD, AD1) ou pendrive/HD de computador.",
+        "liga": ["Tudo do perfil forense do IPED", "Recuperação de apagados (carving)",
+                 "Transcrição de áudios", "Grafo de comunicações", "Relatório HTML"],
+        "desliga": ["OCR"],
+        "tempo": "Lento. Carving e hashes leem o disco inteiro; use SSD como pasta temporária.",
+    },
+    "pcba-telematica": {
+        "titulo": "Retorno de provedor",
+        "quando": "Pacotes devolvidos por Google, Meta/WhatsApp, Apple, Microsoft e operadoras após quebra de sigilo.",
+        "liga": ["Abre os pacotes (ZIP, MBOX, HTML, JSON)", "Indexa o conteúdo e expressões regulares "
+                 "(telefones, e-mails, CPFs, chaves PIX)", "Grafo de comunicações", "Transcrição de áudios",
+                 "Relatório HTML"],
+        "desliga": ["Carving", "Miniaturas de vídeo", "Imagens semelhantes", "OCR", "Detecção de idioma"],
+        "tempo": "Rápido a médio, conforme o volume do retorno.",
+    },
+    "pcba-triagem": {
+        "titulo": "Triagem rápida",
+        "quando": "Local de busca ou triagem antes de decidir o que apreender e processar por completo.",
+        "liga": ["Lista e indexa documentos de usuário (perfil triage do IPED)"],
+        "desliga": ["Hash completo", "Transcrição", "Análises demoradas"],
+        "tempo": "Rápido. Não substitui o processamento completo.",
+    },
+}
+
+# Perfis que já vêm com o IPED 4.x, para quem quiser usá-los direto.
+AJUDA_IPED = {
+    "forensic": "Perfil pericial do IPED: hashes, assinatura de arquivos, expansão de contêineres e recuperação "
+                "de apagados.",
+    "pedo": "Foco em exploração sexual infantil: detecção de nudez, bases de hashes e carving de imagens e vídeos.",
+    "fastmode": "Pré-visualização muito rápida: lista o sistema de arquivos com pouco processamento de conteúdo.",
+    "triage": "Triagem: processa só as áreas mais prováveis de conter documentos de usuário.",
+    "blind": "Processamento sem análise interativa, para extrair e categorizar automaticamente.",
+}
+
+
+def ajuda(nome):
+    """Explicação do perfil para o painel ({} se não houver)."""
+    if nome in AJUDA:
+        return dict(AJUDA[nome], nome=nome, descricao=PERFIS[nome]["descricao"], pcba=True)
+    if nome in AJUDA_IPED:
+        return {"nome": nome, "titulo": nome, "descricao": AJUDA_IPED[nome], "pcba": False}
+    return {"nome": nome, "titulo": nome, "descricao": "Perfil personalizado desta instalação.", "pcba": False}
+
+
 def _origem(raiz, base, relativo):
     """Arquivo do perfil-base, caindo para a raiz quando o perfil não o tem."""
     if base:

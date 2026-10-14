@@ -4,6 +4,9 @@ Clientes suportados:
   - Claude Desktop  (claude_desktop_config.json, chave mcpServers)
   - LM Studio       (~/.lmstudio/mcp.json, mesmo formato)
   - Hermes Agent    (~/.hermes/config.yaml, chave mcp_servers)
+  - Antigravity     (~/.gemini/antigravity/mcp_config.json, chave mcpServers)
+
+Claude Desktop e Antigravity usam modelos na nuvem: o painel avisa antes de ligar.
 
 Antes de alterar um arquivo, uma cópia fica ao lado (<arquivo>.bak-pcba-<data-hora>).
 Só a entrada "iped-pcba" é criada ou trocada; o resto do arquivo fica como estava.
@@ -39,7 +42,12 @@ def caminho_cliente(cliente):
         return os.path.join(h, ".lmstudio", "mcp.json")
     if cliente == "hermes":
         return os.path.join(h, ".hermes", "config.yaml")
+    if cliente == "antigravity":
+        return os.path.join(h, ".gemini", "antigravity", "mcp_config.json")
     raise ValueError(cliente)
+
+
+NUVEM = {"claude", "antigravity"}  # o modelo roda fora da máquina
 
 
 def _instalado(cliente):
@@ -163,10 +171,10 @@ def remover_yaml(texto):
 def situacao(lancador):
     """Para cada cliente: instalado? configurado? apontando para este lançador?"""
     out = []
-    for c, rotulo in (("claude", "Claude Desktop"), ("lmstudio", "LM Studio"),
+    for c, rotulo in (("claude", "Claude Desktop"), ("antigravity", "Antigravity"), ("lmstudio", "LM Studio"),
                       ("hermes", "Hermes Agent")):
         cam = caminho_cliente(c)
-        item = {"cliente": c, "nome": rotulo, "arquivo": cam, "instalado": _instalado(c),
+        item = {"cliente": c, "nome": rotulo, "arquivo": cam, "instalado": _instalado(c), "nuvem": c in NUVEM,
                 "configurado": False, "aponta_para_este": False}
         try:
             if c == "hermes":

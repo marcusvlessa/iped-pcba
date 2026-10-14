@@ -68,7 +68,7 @@ textarea{font:inherit;width:100%;min-height:90px;padding:7px 9px;border:1px soli
 .graf{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .graf .card{margin:0;min-width:0}
 .graf .larga{grid-column:1/-1}
-#vCorpo .card{overflow-x:auto}
+#vCorpo .card,.card:has(>table){overflow-x:auto}
 @media (max-width:1000px){.graf{grid-template-columns:1fr}}
 .card h3 .muted{font-weight:400;font-size:12px}
 svg.ch{display:block;width:100%;height:auto;overflow:visible}
@@ -93,29 +93,91 @@ svg.ch [data-tip]:hover{opacity:.8}
 .al button.b{padding:3px 10px;font-size:12px}
 details.tab summary{cursor:pointer;color:var(--quiet);font-size:12px;margin-top:6px}
 details.tab table{font-size:12px}
+
+header .caso{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+header .caso select{flex:1;min-width:0;max-width:520px}
+header .caso label{color:var(--quiet);font-size:12px;white-space:nowrap}
+.chip{font-size:12px;padding:3px 9px;border-radius:12px;background:var(--chip);color:var(--quiet);white-space:nowrap}
+.chip.ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.chip.warn{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+nav .grupo{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--quiet);margin:14px 10px 4px}
+nav .grupo:first-child{margin-top:0}
+nav .n.ok::after{content:"✓"}
+.prox{display:flex;gap:16px;align-items:center;background:color-mix(in srgb,var(--accent) 9%,var(--card));border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));border-radius:12px;padding:18px 20px;margin-bottom:14px}
+.prox .t{font-size:18px;font-weight:650;margin-bottom:2px}
+.prox .d{color:var(--quiet)}
+.etapas{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:14px}
+.etapa{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;text-align:left;font:inherit;color:var(--ink)}
+.etapa:hover{border-color:var(--accent)}
+.etapa .s{font-size:12px;margin-top:4px}
+.etapa .s.ok{color:var(--ok)}.etapa .s.pend{color:var(--warn)}
+.cards-perfil{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin:6px 0 10px}
+.perfil{border:1px solid var(--line);border-radius:10px;padding:12px;cursor:pointer;background:var(--bg);text-align:left;font:inherit;color:var(--ink)}
+.perfil:hover{border-color:var(--accent)}
+.perfil.on{border:2px solid var(--accent);padding:11px;background:color-mix(in srgb,var(--accent) 7%,var(--card))}
+.perfil .nm{font-weight:650}.perfil .id{font-size:11px;color:var(--quiet);font-family:Consolas,monospace}
+.perfil .q{font-size:13px;margin:6px 0;color:var(--quiet)}
+.perfil ul{margin:4px 0 0 16px;padding:0;font-size:12px}
+.perfil .tm{font-size:12px;margin-top:6px;color:var(--quiet)}
+.ast{display:grid;grid-template-columns:260px 1fr;gap:14px;align-items:start}
+@media (max-width:900px){.ast{grid-template-columns:1fr}}
+.perfil,.agente{display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch}
+@media (max-width:760px){header{flex-wrap:wrap;gap:8px 12px;padding:10px 12px}header h1{flex:1}header .caso{order:3;flex-basis:100%}
+ nav{align-items:center;padding:6px 8px}nav .grupo,nav #topo{display:none}nav button{width:auto;padding:8px 10px}
+ .ast>div{min-width:0}#agentes{display:flex;overflow-x:auto;gap:8px;padding-bottom:4px}#agentes .agente{flex:0 0 170px}#agentes .agente .d{display:none}}
+.agente{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:9px 11px;margin-bottom:8px;cursor:pointer;font:inherit;color:var(--ink)}
+.agente.on{border:2px solid var(--accent);padding:8px 10px}
+.agente .d{font-size:12px;color:var(--quiet)}
+.agente .esc{font-size:10px;margin-left:6px}
+.pergs{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 10px}
+.perg{border:1px solid var(--line);background:var(--bg);border-radius:16px;padding:5px 12px;cursor:pointer;font:inherit;font-size:13px;color:var(--ink)}
+.perg:hover{border-color:var(--accent)}
+.passos{font-size:12px;color:var(--quiet);border-left:2px solid var(--line);padding-left:10px;margin:10px 0;max-height:260px;overflow:auto}
+.passos div{margin:3px 0}
+.resposta table{border-collapse:collapse;margin:6px 0}.resposta td,.resposta th{border:1px solid var(--line);padding:4px 8px;text-align:left;vertical-align:top}
+.resposta p{margin:0 0 8px}.resposta ul{margin:0 0 8px;padding-left:20px}
+.resposta{overflow-x:auto;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;line-height:1.5}
+.ajuda{font-size:12px;color:var(--quiet)}
 </style>
 </head>
 <body>
 <header>
   <h1>Painel IPED-PCBA</h1>
-  <div class="iped" id="topo">carregando…</div>
+  <div class="caso"><label for="casoSel">Caso em análise</label><select id="casoSel" onchange="trocarCaso(this.value)"></select></div>
+  <span class="chip" id="chipIa" title="Situação da IA">IA</span>
   <button class="b" onclick="sair()">Sair</button>
 </header>
 <div class="wrap">
 <nav>
-  <button data-s="config" class="on"><span class="n" id="n1">1</span>Máquina e configuração</button>
-  <button data-s="proc"><span class="n" id="n2">2</span>Processar evidências</button>
+  <button data-s="inicio" class="on"><span class="n">⌂</span>Início</button>
+  <div class="grupo">Preparar</div>
+  <button data-s="config"><span class="n" id="n1">1</span>Configurar a máquina</button>
+  <button data-s="proc"><span class="n" id="n2">2</span>Processar evidência</button>
+  <div class="grupo">Analisar</div>
   <button data-s="casos"><span class="n" id="n3">3</span>Casos</button>
   <button data-s="visao"><span class="n">◎</span>Visão do caso</button>
-  <button data-s="ia"><span class="n" id="n4">4</span>IA (MCP)</button>
-  <button data-s="relatorio"><span class="n" id="n5">5</span>Relatório técnico</button>
+  <button data-s="assist"><span class="n">✦</span>Assistente de IA</button>
+  <div class="grupo">Concluir</div>
+  <button data-s="relatorio"><span class="n" id="n5">4</span>Relatório técnico</button>
+  <div class="grupo">Sistema</div>
+  <button data-s="ia"><span class="n" id="n4">⚙</span>Conexões de IA (MCP)</button>
   <button data-s="tarefas"><span class="n">≡</span>Tarefas e logs</button>
+  <div class="ajuda" id="topo" style="margin:14px 10px 0;word-break:break-all">carregando…</div>
 </nav>
 <main>
 
+<!-- INÍCIO -->
+<section id="inicio" class="on">
+  <h2>Início</h2>
+  <p class="sub">O painel conduz o trabalho do começo ao fim: preparar a máquina, processar a evidência, analisar com gráficos e IA, e fechar o relatório técnico.</p>
+  <div class="prox" id="prox"></div>
+  <div class="etapas" id="etapas"></div>
+  <div class="card" id="inicioCaso" style="display:none"></div>
+</section>
+
 <!-- 1. CONFIGURAÇÃO -->
-<section id="config" class="on">
-  <h2>1. Máquina e configuração</h2>
+<section id="config">
+  <h2>1. Configurar a máquina</h2>
   <p class="sub">O painel lê o hardware e propõe a configuração do IPED. Você pode desmarcar ou editar cada item antes de aplicar. Tudo tem backup.</p>
   <div class="card" id="semIped" style="display:none">
     <h3>IPED não encontrado</h3>
@@ -144,7 +206,7 @@ details.tab table{font-size:12px}
 
 <!-- 2. PROCESSAR -->
 <section id="proc">
-  <h2>2. Processar evidências</h2>
+  <h2>2. Processar evidência</h2>
   <p class="sub">Indexa a evidência com o IPED. O processamento continua mesmo se você fechar o painel; o log fica em Tarefas.</p>
   <div class="card">
     <label class="f">Evidências (uma por linha: imagem E01/DD, UFDR, ZIP, pasta…)</label>
@@ -153,16 +215,18 @@ details.tab table{font-size:12px}
     <div class="row">
       <div style="flex:1;min-width:260px"><label class="f">Pasta do caso (saída; nova e vazia)</label>
         <div class="row" style="margin:0"><input type="text" class="grow" id="saida"><button class="b" onclick="escolherPara('saida','pasta','Pasta do caso')">Procurar…</button></div></div>
-      <div><label class="f">Perfil</label><select id="perfil"></select></div>
       <div><label class="f">Fuso das evidências FAT</label><input type="text" id="fuso" value="GMT-3" size="8"></div>
     </div>
+    <label class="f" style="margin-top:8px">Perfil de processamento: escolha pelo tipo de evidência</label>
+    <input type="hidden" id="perfil">
+    <div class="cards-perfil" id="perfisCards"></div>
+    <details class="tab"><summary>Outros perfis desta instalação</summary><div id="perfisOutros"></div></details>
     <div class="row">
       <label class="switch"><input type="checkbox" id="adicionar"> Acrescentar ao caso existente</label>
       <label class="switch"><input type="checkbox" id="continuar"> Continuar processamento interrompido</label>
       <label class="switch"><input type="checkbox" id="portavel"> Caso portátil (caminhos relativos)</label>
     </div>
     <div class="row"><button class="b p" onclick="processarEvid()">Iniciar processamento</button></div>
-    <div id="perfisAjuda" class="muted" style="font-size:12px"></div>
   </div>
   <div class="card" id="procLogCard" style="display:none">
     <h3 id="procTitulo">Processamento</h3>
@@ -174,7 +238,7 @@ details.tab table{font-size:12px}
 <!-- 3. CASOS -->
 <section id="casos">
   <h2>3. Casos</h2>
-  <p class="sub">Abra o caso no IPED, escolha qual caso a IA vai analisar e confira o registro de tudo que a IA fez.</p>
+  <p class="sub">Todos os casos desta máquina. O caso escolhido em "Caso em análise", no alto da tela, é o que a Visão, o Assistente, o Relatório e os programas de IA ligados ao MCP leem.</p>
   <div class="card">
     <div class="row"><input type="text" class="grow" id="casoNovo" placeholder="Pasta de um caso já processado">
       <button class="b" onclick="escolherPara('casoNovo','pasta','Pasta do caso')">Procurar…</button>
@@ -189,8 +253,8 @@ details.tab table{font-size:12px}
   <h2>Visão do caso</h2>
   <p class="sub">Números do caso processado em gráficos, com alertas e sugestões do que olhar primeiro. Os alertas são regras fixas (cada um diz de onde veio o número), não conclusões. Tudo é calculado nesta máquina.</p>
   <div class="card">
-    <div class="row"><label class="f" style="margin:0">Caso</label><select id="vCaso" class="grow" onchange="carregarVisao()"></select>
-      <button class="b p" id="vAtu" onclick="atualizarVisao()">Atualizar números do caso</button></div>
+    <div class="row"><button class="b p" id="vAtu" onclick="atualizarVisao()">Atualizar números do caso</button>
+      <button class="b" onclick="ir('assist')">Perguntar à IA sobre o caso</button></div>
     <div id="vSit" class="muted"></div>
   </div>
   <div id="vCorpo" style="display:none">
@@ -215,9 +279,45 @@ details.tab table{font-size:12px}
   </div>
 </section>
 
+<!-- ASSISTENTE -->
+<section id="assist">
+  <h2>Assistente de IA</h2>
+  <p class="sub">Escolha um agente e uma pergunta pronta (ou escreva a sua). A IA local consulta o caso pelo MCP e mostra cada passo; tudo fica no log de auditoria. O que estiver entre [COLCHETES] é para você trocar antes de enviar.</p>
+  <div class="ast">
+    <div><div id="agentes"></div></div>
+    <div>
+      <div class="card">
+        <h3 id="agNome">Agente</h3><div class="muted" id="agDesc"></div>
+        <div class="pergs" id="agPergs"></div>
+        <label class="f">Pergunta</label>
+        <textarea id="agPerg" style="min-height:110px"></textarea>
+        <div class="row">
+          <label class="f" style="margin:0">IA local</label>
+          <select id="iaModelo" class="grow" style="max-width:380px"></select>
+          <button class="b p" id="agEnviar" onclick="enviarAgente()">Enviar para a IA local</button>
+          <button class="b" onclick="copiarAgente()" title="Copia as instruções do agente e a pergunta">Copiar para Claude/Antigravity/Hermes</button>
+        </div>
+        <div class="ajuda" id="iaSit"></div>
+        <details class="tab"><summary>Instruções do agente (o que a IA recebe antes da pergunta)</summary><pre class="log" id="agSist" style="height:auto;max-height:260px;background:var(--bg);color:var(--ink)"></pre></details>
+      </div>
+      <div class="card" id="convCard" style="display:none">
+        <h3 id="convTit">Conversa</h3>
+        <div class="passos" id="convPassos"></div>
+        <div id="convResp"></div>
+        <div class="row" id="convAcoes" style="display:none">
+          <button class="b" onclick="copiarResposta()">Copiar resposta</button>
+          <button class="b" onclick="salvarConversa()">Salvar no caso</button>
+          <span class="ajuda" id="convSalvo"></span>
+        </div>
+        <div class="row"><button class="b d" id="convParar" onclick="pararConversa()">Parar</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- 4. IA -->
 <section id="ia">
-  <h2>4. IA (MCP)</h2>
+  <h2>Conexões de IA (MCP)</h2>
   <p class="sub">O MCP deixa a IA consultar o caso e, com a escrita liberada, criar marcadores e comentários. Cada chamada fica no log de auditoria do caso.</p>
   <div class="card">
     <h3>MCP nesta máquina</h3>
@@ -233,7 +333,7 @@ details.tab table{font-size:12px}
   <div class="card">
     <h3>Programas de IA</h3>
     <table><thead><tr><th>Programa</th><th>Situação</th><th>Arquivo</th><th></th></tr></thead><tbody id="clientes"></tbody></table>
-    <div class="muted" style="font-size:12px;margin-top:8px">Depois de ligar, feche e abra o programa de IA. Antes de alterar, uma cópia do arquivo fica ao lado (.bak-pcba-…).</div>
+    <div class="muted" style="font-size:12px;margin-top:8px">Depois de ligar, feche e abra o programa de IA. Antes de alterar, uma cópia do arquivo fica ao lado (.bak-pcba-…). Claude Desktop e Antigravity usam modelos na nuvem: o conteúdo que a IA lê do caso sai da máquina. Para dados reais, use IA local (Assistente de IA com Ollama ou LM Studio, ou Hermes com modelo local).</div>
   </div>
   <div class="card">
     <h3>IA local nesta máquina</h3>
@@ -244,11 +344,11 @@ details.tab table{font-size:12px}
 
 <!-- 5. RELATÓRIO -->
 <section id="relatorio">
-  <h2>5. Relatório técnico</h2>
+  <h2>4. Relatório técnico</h2>
   <p class="sub">Monte o RT no modelo da PCBA. O rascunho fica dentro do caso (pasta iped-pcba-relatorio) e a IA pode ajudar a preenchê-lo pelo MCP. O que estiver entre [colchetes] sai em vermelho no Word para você completar. A conclusão é sempre do analista.</p>
   <div class="card">
-    <div class="row"><label class="f" style="margin:0">Caso</label><select id="rtCaso" class="grow" onchange="carregarRt()"></select>
-      <button class="b" onclick="abrirRt('pasta')">Abrir a pasta</button></div>
+    <div class="row"><button class="b" onclick="abrirRt('pasta')">Abrir a pasta do relatório</button>
+      <button class="b" onclick="irAgente('redator')">Pedir ajuda ao Redator do RT</button></div>
     <div id="rtSit" class="muted"></div>
   </div>
   <div id="rtCorpo" style="display:none">
@@ -310,25 +410,36 @@ async function api(rota,dados){
 function aviso(t,ruim){const e=$("toast");e.textContent=t;e.className="toast"+(ruim?" bad":"");e.style.display="block";clearTimeout(e._t);e._t=setTimeout(()=>e.style.display="none",ruim?9000:4000)}
 async function tentar(f){try{return await f()}catch(e){aviso(e.message,true)}}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>ir(b.dataset.s));
-function ir(s){document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x.dataset.s==s));document.querySelectorAll("section").forEach(x=>x.classList.toggle("on",x.id==s));if(s=="ia")carregarIa();if(s=="tarefas")desenharTarefas();if(s=="relatorio")entrarRt();if(s=="visao")entrarVisao();}
+let SECAO="inicio";
+function ir(s){SECAO=s;document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x.dataset.s==s));document.querySelectorAll("section").forEach(x=>x.classList.toggle("on",x.id==s));window.scrollTo(0,0);atualizarSecao()}
+function atualizarSecao(){const s=SECAO;if(s=="inicio")desenharInicio();if(s=="ia")carregarIa();if(s=="tarefas")desenharTarefas();if(s=="relatorio")entrarRt();if(s=="visao")entrarVisao();if(s=="assist")entrarAssist()}
+const CASO=()=>R.caso_ativo||"";
+const mesmo=(a,b)=>(a||"").toLowerCase()==(b||"").toLowerCase();
+const casosOk=()=>(R.casos||[]).filter(c=>c.existe);
+async function trocarCaso(p){if(!p)return;await tentar(async()=>{await api("caso/ativar",{pasta:p});await resumo();atualizarSecao();aviso("Caso em análise: "+p.split(/[\\/]/).filter(Boolean).pop())})}
+function semCaso(id){if(CASO())return false;$(id).innerHTML='<div class="card"><b>Escolha o caso em análise</b> no alto da tela. Se ele não aparece, adicione em <a href="#" onclick="ir(\'casos\');return false">Casos</a> ou processe a evidência.</div>';return true}
 
 async function escolherPara(id,tipo,titulo){await tentar(async()=>{const r=await api("escolher",{tipo,titulo});if(r.caminhos.length)$(id).value=r.caminhos[0]})}
 async function addEvid(tipo){await tentar(async()=>{const r=await api("escolher",{tipo,titulo:"Evidência",multiplos:tipo=="arquivo"});if(r.caminhos.length){const t=$("evid");t.value=(t.value.trim()?t.value.trim()+"\n":"")+r.caminhos.join("\n")}})}
 
 async function resumo(){
   R=await api("resumo");
-  $("topo").textContent=R.iped_ok?`IPED ${R.versao_iped} em ${R.raiz}`:"IPED não encontrado";
+  $("topo").textContent=R.iped_ok?`IPED ${R.versao_iped} em ${R.raiz} · painel ${R.versao_painel}`:"IPED não encontrado";
+  const cs=casosOk(),sel=$("casoSel");
+  sel.innerHTML=(R.caso_ativo&&cs.some(c=>mesmo(c.pasta,R.caso_ativo))?"":'<option value="">'+(cs.length?"escolha o caso…":"nenhum caso ainda")+'</option>')+cs.map(c=>`<option value="${esc(c.pasta)}">${esc(c.nome)}</option>`).join("");
+  if(R.caso_ativo){const c=cs.find(c=>mesmo(c.pasta,R.caso_ativo));if(c)sel.value=c.pasta}
+  sel.title=R.caso_ativo||"";
+  const lig=(R.clientes||[]).filter(c=>c.aponta_para_este).map(c=>c.nome);const chip=$("chipIa");
+  chip.className="chip "+(R.mcp&&R.mcp.instalado?(lig.length?"ok":""):"warn");
+  chip.textContent=R.mcp&&R.mcp.instalado?(lig.length?"IA: "+lig.join(", "):"IA: MCP instalado"):"IA: MCP não instalado";
   $("semIped").style.display=R.iped_ok?"none":"block";
   $("n1").classList.toggle("ok",!!R.configurado);
   $("n2").classList.toggle("ok",(R.casos||[]).some(c=>c.existe));
   $("n3").classList.toggle("ok",!!R.caso_ativo);
-  $("n4").classList.toggle("ok",(R.clientes||[]).some(c=>c.aponta_para_este));
   if(!R.iped_ok)return;
   $("backups").innerHTML=R.backups.length?R.backups.slice().reverse().map((b,i)=>`<div class="row" style="margin:4px 0"><span>${esc(b)}${i==0?' <span class="tag">mais recente</span>':''}</span><button class="b" onclick="reverter('${esc(b)}')">Restaurar este</button></div>`).join(""):"nenhum (nada foi aplicado ainda)";
-  const sel=$("perfil"),atual=sel.value;sel.innerHTML=`<option value="">padrão do IPED</option>`+R.perfis.map(p=>`<option>${esc(p)}</option>`).join("");
-  if(atual)sel.value=atual;else if(R.perfis.includes("pcba-celular"))sel.value="pcba-celular";
-  $("perfisAjuda").textContent="Perfis PCBA: pcba-celular (extrações de celular), pcba-computador, pcba-telematica (retornos de provedores), pcba-triagem (rápido).";
-  desenharCasos();desenharTarefas();
+  if(!$("perfil").value&&R.perfis.includes("pcba-celular"))$("perfil").value="pcba-celular";
+  desenharPerfis();desenharCasos();desenharTarefas();if(SECAO=="inicio")desenharInicio();
   const t=(R.tarefas||[]).find(x=>x.tipo=="processar"&&x.rodando);if(t&&!procId)seguirProc(t.id,t.titulo);
 }
 async function trocarIped(raiz){await tentar(async()=>{await api("trocar-iped",{raiz});await resumo();aviso("IPED selecionado.")})}
@@ -398,13 +509,13 @@ function desenharCasos(){
   const l=R.casos||[];
   $("listaCasos").innerHTML=l.length?`<table><thead><tr><th>Caso</th><th>Situação</th><th></th></tr></thead><tbody>`+l.map(c=>{
     const ativo=R.caso_ativo&&R.caso_ativo.toLowerCase()==c.pasta.toLowerCase();
-    return `<tr><td><b>${esc(c.nome)}</b><br><span class="muted">${esc(c.pasta)}</span></td><td>${c.existe?'<span class="tag ok">pronto</span>':'<span class="tag bad">pasta não encontrada</span>'} ${ativo?'<span class="tag ok">a IA está usando</span>':''}</td>
-    <td><div class="row" style="margin:0">${c.existe?`<button class="b" onclick="abrirCaso('${esc(js(c.pasta))}')">Abrir no IPED</button><button class="b ${ativo?'':'p'}" onclick="ativarCaso('${esc(js(c.pasta))}')">${ativo?'Caso da IA':'Usar com a IA'}</button><button class="b" onclick="verAud('${esc(js(c.pasta))}')">Auditoria</button><button class="b" onclick="irVisao('${esc(js(c.pasta))}')">Visão</button><button class="b" onclick="irRt('${esc(js(c.pasta))}')">Relatório</button>`:''}<button class="b d" onclick="esquecer('${esc(js(c.pasta))}')">Tirar da lista</button></div></td></tr>`}).join("")+`</tbody></table>`:"nenhum caso ainda. Processe uma evidência ou adicione a pasta de um caso.";
+    return `<tr><td><b>${esc(c.nome)}</b><br><span class="muted">${esc(c.pasta)}</span></td><td>${c.existe?'<span class="tag ok">pronto</span>':'<span class="tag bad">pasta não encontrada</span>'} ${ativo?'<span class="tag ok">em análise</span>':''}</td>
+    <td><div class="row" style="margin:0">${c.existe?`<button class="b" onclick="abrirCaso('${esc(js(c.pasta))}')">Abrir no IPED</button><button class="b ${ativo?'':'p'}" onclick="ativarCaso('${esc(js(c.pasta))}')">${ativo?'Em análise':'Analisar este caso'}</button><button class="b" onclick="verAud('${esc(js(c.pasta))}')">Auditoria</button><button class="b" onclick="irVisao('${esc(js(c.pasta))}')">Visão</button><button class="b" onclick="irRt('${esc(js(c.pasta))}')">Relatório</button>`:''}<button class="b d" onclick="esquecer('${esc(js(c.pasta))}')">Tirar da lista</button></div></td></tr>`}).join("")+`</tbody></table>`:"nenhum caso ainda. Processe uma evidência ou adicione a pasta de um caso.";
 }
 const js=s=>s.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
 async function addCaso(){await tentar(async()=>{await api("caso/adicionar",{pasta:val("casoNovo")});$("casoNovo").value="";await resumo()})}
 async function abrirCaso(p){await tentar(async()=>{await api("caso/abrir",{pasta:p});aviso("Abrindo o caso no IPED…")})}
-async function ativarCaso(p){await tentar(async()=>{await api("caso/ativar",{pasta:p});aviso("A IA agora lê este caso.");await resumo()})}
+async function ativarCaso(p){await trocarCaso(p)}
 async function esquecer(p){await tentar(async()=>{await api("caso/esquecer",{pasta:p});await resumo()})}
 async function verAud(p){await tentar(async()=>{const a=await api("caso/auditoria",{pasta:p});$("audCard").style.display="block";
   $("aud").innerHTML=!a.existe?`<div class="muted">A IA ainda não fez chamadas neste caso.</div>`:`<div class="row">${a.integra?'<span class="tag ok">cadeia íntegra</span>':'<span class="tag bad">cadeia QUEBRADA</span>'} <span>${a.registros} registros</span> <span class="muted">${esc(a.arquivo)}</span></div>`+
@@ -415,14 +526,14 @@ async function verAud(p){await tentar(async()=>{const a=await api("caso/auditori
 async function carregarIa(){
   const m=R.mcp||{};
   $("mcpInfo").innerHTML=`<b>MCP</b><span>${m.instalado?'<span class="tag ok">instalado</span> '+esc(m.lancador):'<span class="tag warn">não instalado</span> aplique a configuração (passo 1) com o pacote completo da página de Releases'}</span>
-  <b>Caso que a IA lê</b><span>${R.caso_ativo?esc(R.caso_ativo):'<span class="tag warn">nenhum</span> escolha em Casos → Usar com a IA'}</span>`;
+  <b>Caso que a IA lê</b><span>${R.caso_ativo?esc(R.caso_ativo):'<span class="tag warn">nenhum</span> escolha o caso em análise no alto da tela'}</span>`;
   $("escrita").checked=!!m.escrita;$("escrita").disabled=!m.instalado;$("btnTestar").disabled=!m.instalado;
-  $("clientes").innerHTML=(R.clientes||[]).map(c=>`<tr><td><b>${esc(c.nome)}</b></td><td>${c.aponta_para_este?'<span class="tag ok">ligado</span>':c.configurado?'<span class="tag warn">ligado a outro IPED</span>':c.instalado?'<span class="tag">não ligado</span>':'<span class="tag">não encontrado</span>'}${c.erro?'<div class="aviso">'+esc(c.erro)+'</div>':''}</td><td class="muted" style="font-size:12px">${esc(c.arquivo)}</td><td><div class="row" style="margin:0"><button class="b ${c.aponta_para_este?'':'p'}" ${m.instalado?'':'disabled'} onclick="ligar('${c.cliente}')">${c.aponta_para_este?'Ligar de novo':'Ligar'}</button>${c.configurado?`<button class="b d" onclick="desligar('${c.cliente}')">Desligar</button>`:''}</div></td></tr>`).join("");
+  $("clientes").innerHTML=(R.clientes||[]).map(c=>`<tr><td><b>${esc(c.nome)}</b>${c.nuvem?' <span class="tag warn">nuvem</span>':' <span class="tag ok">pode ser local</span>'}</td><td>${c.aponta_para_este?'<span class="tag ok">ligado</span>':c.configurado?'<span class="tag warn">ligado a outro IPED</span>':c.instalado?'<span class="tag">não ligado</span>':'<span class="tag">não encontrado</span>'}${c.erro?'<div class="aviso">'+esc(c.erro)+'</div>':''}</td><td class="muted" style="font-size:12px">${esc(c.arquivo)}</td><td><div class="row" style="margin:0"><button class="b ${c.aponta_para_este?'':'p'}" ${m.instalado?'':'disabled'} onclick="ligar('${c.cliente}')">${c.aponta_para_este?'Ligar de novo':'Ligar'}</button>${c.configurado?`<button class="b d" onclick="desligar('${c.cliente}')">Desligar</button>`:''}</div></td></tr>`).join("");
   $("iaLocal").innerHTML='<span class="spin"></span> procurando…';
   await tentar(async()=>{const r=await api("ia");$("iaLocal").innerHTML=r.local.map(s=>`<div class="row"><b style="width:90px">${esc(s.nome)}</b>${s.ativo?`<span class="tag ok">rodando</span> <span class="muted">${esc(s.url)}</span> <span>${s.modelos.length?esc(s.modelos.slice(0,8).join(", ")):"nenhum modelo carregado"}</span>`:'<span class="tag">não está rodando</span>'}</div>`).join("")});
 }
 async function trocarEscrita(v){await tentar(async()=>{const r=await api("ia/escrita",{ativa:v});aviso(r.escrita?"Escrita liberada para as próximas conversas.":"IA em modo somente leitura.");await resumo()})}
-async function ligar(c){await tentar(async()=>{const r=await api("ia/configurar",{cliente:c});aviso("Ligado. Feche e abra o programa de IA."+(r.copia?"\nCópia: "+r.copia:""));await resumo();carregarIa()})}
+async function ligar(c){const cl=(R.clientes||[]).find(x=>x.cliente==c);if(cl&&cl.nuvem&&!confirm(cl.nome+" usa um modelo de IA na nuvem: o que a IA ler do caso sai desta máquina. As regras da PCBATech pedem IA local para dados reais. Ligar mesmo assim?"))return;await tentar(async()=>{const r=await api("ia/configurar",{cliente:c});aviso("Ligado. Feche e abra o programa de IA."+(r.copia?"\nCópia: "+r.copia:""));await resumo();carregarIa()})}
 async function desligar(c){await tentar(async()=>{await api("ia/remover",{cliente:c});await resumo();carregarIa()})}
 async function testarMcp(){
   const b=$("btnTestar");b.disabled=true;$("testeSit").innerHTML='<span class="spin"></span> iniciando o MCP (pode levar um minuto)…';
@@ -442,13 +553,10 @@ async function lerTarefa(){if(!tarefaId)return;const id=tarefaId;try{const r=awa
 // ------------------------------------------------------------------ relatório
 let RT=null, UN=null;
 const UN_CAMPOS=[["orgao","Órgão"],["departamento","Departamento"],["unidade","Unidade (cabeçalho)"],["endereco","Endereço e telefone (cabeçalho)"],["sigla_rt","Sigla após o número do RT"],["nucleo","Núcleo responsável (providências)"],["remetente_da","DA (remetente)"],["origem","ORIGEM"],["logo","Logotipo (JPEG/PNG; vazio = brasão da PCBA)"],["ferramenta_hash","Ferramenta do SHA-256"]];
-function irRt(p){ir("relatorio");$("rtCaso").value=p;carregarRt()}
+async function irRt(p){if(!mesmo(p,CASO()))await trocarCaso(p);ir("relatorio")}
 async function entrarRt(){
-  const s=$("rtCaso"),atual=s.value,l=(R.casos||[]).filter(c=>c.existe);
-  s.innerHTML='<option value="">escolha um caso…</option>'+l.map(c=>`<option value="${esc(c.pasta)}">${esc(c.nome)} — ${esc(c.pasta)}</option>`).join("");
-  if(atual)s.value=atual;else if(R.caso_ativo&&l.some(c=>c.pasta.toLowerCase()==R.caso_ativo.toLowerCase()))s.value=l.find(c=>c.pasta.toLowerCase()==R.caso_ativo.toLowerCase()).pasta;
-  if(!l.length)$("rtSit").textContent="Nenhum caso processado na lista. Adicione um em Casos.";
-  await carregarUnidade();if(s.value)carregarRt();
+  if(!CASO()){$("rtSit").innerHTML='<b>Escolha o caso em análise</b> no alto da tela.';$("rtCorpo").style.display="none";await carregarUnidade();return}
+  await carregarUnidade();carregarRt();
 }
 async function carregarUnidade(){await tentar(async()=>{const r=await api("unidade/ler");UN=r.unidade;$("unArq").textContent=r.arquivo;
   $("unCampos").innerHTML=UN_CAMPOS.map(([k,n])=>`<div><label class="f">${esc(n)}</label><input type="text" style="width:100%" id="un_${k}" value="${esc(UN[k])}"></div>`).join("")+
@@ -459,7 +567,7 @@ function anaLer(t){return t.split("\n").map(x=>x.trim()).filter(Boolean).map(x=>
 const linhas=t=>t.split("\n").map(x=>x.trim()).filter(Boolean);
 async function salvarUnidade(){await tentar(async()=>{const u={};UN_CAMPOS.forEach(([k])=>u[k]=val("un_"+k));u.emails_obrigatorios=linhas($("un_emails").value);u.analistas=anaLer($("un_anal").value);
   await api("unidade/gravar",{unidade:u});aviso("Dados da unidade salvos.");await carregarUnidade();if(RT)carregarRt()})}
-async function carregarRt(){const caso=val("rtCaso");if(!caso){$("rtCorpo").style.display="none";return}
+async function carregarRt(){const caso=CASO();if(!caso){$("rtCorpo").style.display="none";return}
   await tentar(async()=>{const r=await api("rt/ler",{caso});desenharRt(r)})}
 function desenharRt(r){RT=r;const d=r.dados;$("rtCorpo").style.display="block";$("rtSit").textContent="Rascunho: "+r.pasta;
   $("rtCampos").innerHTML=r.campos.map(([k,n,m])=>`<div style="${m?'grid-column:1/-1':''}"><label class="f">${esc(n)}</label>${m?`<textarea id="rt_${k}">${esc(d[k])}</textarea>`:`<input type="text" style="width:100%" id="rt_${k}" value="${esc(d[k])}">`}</div>`).join("");
@@ -486,18 +594,18 @@ function coletarRt(){const d=JSON.parse(JSON.stringify(RT.dados));RT.campos.forE
     if(JSON.stringify([n.texto,n.conclusao,n.tabela,n.titulo])!=JSON.stringify([a.texto,a.conclusao,a.tabela,a.titulo]))delete n.gerado_automaticamente;return n}).filter(Boolean);
   d.pedidos=(d.pedidos||[]).map((p,i)=>$("pe"+i+"_tit")?{titulo:val("pe"+i+"_tit"),texto:$("pe"+i+"_txt").value}:null).filter(Boolean);
   d.hashes=linhas($("rtHashes").value);d.incluir_clausulas=$("rtClaus").checked;d.emails_investigadores=linhas($("rtEmails").value);d.analistas=anaLer($("rtAnal").value);return d}
-async function salvarRt(silencio){return tentar(async()=>{const r=await api("rt/gravar",{caso:val("rtCaso"),dados:coletarRt()});desenharRt(r);if(!silencio)aviso("Rascunho salvo.");return r})}
-async function gerarRt(){await tentar(async()=>{const r=await api("rt/gerar",{caso:val("rtCaso"),dados:coletarRt()});$("rtGer").textContent="Gerado: "+r.docx;aviso("RT gerado.");await carregarRt()})}
-async function abrirRt(o){await tentar(async()=>{await api("rt/abrir",{caso:val("rtCaso"),o})})}
+async function salvarRt(silencio){return tentar(async()=>{const r=await api("rt/gravar",{caso:CASO(),dados:coletarRt()});desenharRt(r);if(!silencio)aviso("Rascunho salvo.");return r})}
+async function gerarRt(){await tentar(async()=>{const r=await api("rt/gerar",{caso:CASO(),dados:coletarRt()});$("rtGer").textContent="Gerado: "+r.docx;aviso("RT gerado.");await carregarRt()})}
+async function abrirRt(o){await tentar(async()=>{await api("rt/abrir",{caso:CASO(),o})})}
 function novaAnalise(){RT.dados=coletarRt();RT.dados.analises.push({provedor:"",titulo:"",tabela:[],texto:"",conclusao:""});desenharRt(RT)}
 function tirarAnalise(i){if(!confirm("Remover esta análise do rascunho?"))return;RT.dados=coletarRt();RT.dados.analises.splice(i,1);desenharRt(RT)}
 function novoPedido(){RT.dados=coletarRt();RT.dados.pedidos.push({titulo:"DO PEDIDO PARA ",texto:""});desenharRt(RT)}
 function tirarPedido(i){RT.dados=coletarRt();RT.dados.pedidos.splice(i,1);desenharRt(RT)}
 async function escolherCsv(){await tentar(async()=>{const r=await api("escolher",{tipo:"arquivo",titulo:"Registros telemáticos (CSV)",filtro:"csv"});if(r.caminhos.length)$("rtCsv").value=r.caminhos[0]})}
 async function importarTel(){await tentar(async()=>{await salvarRt(true);const inv={};linhas($("rtInv").value).forEach(l=>{const i=l.indexOf("=");if(i>0)inv[l.slice(0,i).trim()]=l.slice(i+1).trim()});
-  const r=await api("rt/telematica",{caso:val("rtCaso"),registros:val("rtCsv"),investigados:inv});desenharRt(r);const m=r.importacao;
+  const r=await api("rt/telematica",{caso:CASO(),registros:val("rtCsv"),investigados:inv});desenharRt(r);const m=r.importacao;
   $("rtImp").textContent=`${m.registros} registros, ${m.contas} conta(s), ${m.provedores} provedor(es)`+(m.rejeitadas.length?`; ${m.rejeitadas.length} linha(s) ignoradas (sem data, provedor ou conta)`:"");aviso("Resumo telemático incluído no rascunho.")})}
-async function hashArq(a){await tentar(async()=>{await salvarRt(true);desenharRt(await api("rt/hash",{caso:val("rtCaso"),arquivo:a}));aviso("SHA-256 incluído na metodologia.")})}
+async function hashArq(a){await tentar(async()=>{await salvarRt(true);desenharRt(await api("rt/hash",{caso:CASO(),arquivo:a}));aviso("SHA-256 incluído na metodologia.")})}
 async function hashOutro(){await tentar(async()=>{const r=await api("escolher",{tipo:"arquivo",titulo:"Arquivo para o SHA-256",filtro:"todos"});if(r.caminhos.length)await hashArq(r.caminhos[0])})}
 
 // ---------------------------------------------------------------- visão do caso
@@ -506,17 +614,14 @@ const fmt=n=>Number(n||0).toLocaleString("pt-BR");
 const MESES=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
 const mesBr=m=>{const[a,n]=m.split("-");return MESES[+n-1]+"/"+a};
 const NIVEL={alto:"ALTO",medio:"MÉDIO",info:"INFO"};
-function irVisao(p){ir("visao");$("vCaso").value=p;carregarVisao()}
+async function irVisao(p){if(!mesmo(p,CASO()))await trocarCaso(p);ir("visao")}
 async function entrarVisao(){
-  const s=$("vCaso"),atual=s.value,l=(R.casos||[]).filter(c=>c.existe);
-  s.innerHTML='<option value="">escolha um caso…</option>'+l.map(c=>`<option value="${esc(c.pasta)}">${esc(c.nome)} — ${esc(c.pasta)}</option>`).join("");
-  if(atual)s.value=atual;else if(R.caso_ativo&&l.some(c=>c.pasta.toLowerCase()==R.caso_ativo.toLowerCase()))s.value=l.find(c=>c.pasta.toLowerCase()==R.caso_ativo.toLowerCase()).pasta;
-  if(!l.length)$("vSit").textContent="Nenhum caso processado na lista. Adicione um em Casos.";
-  if(s.value)carregarVisao();
+  if(!CASO()){$("vSit").innerHTML='<b>Escolha o caso em análise</b> no alto da tela.';$("vCorpo").style.display="none";return}
+  carregarVisao();
 }
-async function carregarVisao(){const caso=val("vCaso");if(!caso){$("vCorpo").style.display="none";return}
+async function carregarVisao(){const caso=CASO();if(!caso){$("vCorpo").style.display="none";return}
   await tentar(async()=>{VI=await api("visao/ler",{caso});desenharVisao()})}
-async function atualizarVisao(){await tentar(async()=>{const r=await api("visao/atualizar",{caso:val("vCaso")});visaoTarefa=r.tarefa;
+async function atualizarVisao(){await tentar(async()=>{const r=await api("visao/atualizar",{caso:CASO()});visaoTarefa=r.tarefa;
   $("vAtu").disabled=true;$("vSit").innerHTML='<span class="spin"></span> Lendo o índice do IPED. Em casos grandes isso leva alguns minutos; o log fica em Tarefas.';seguirVisao()})}
 async function seguirVisao(){try{const r=await api("tarefa",{id:visaoTarefa,desde:0});if(r.tarefa.rodando){setTimeout(seguirVisao,2500);return}
   $("vAtu").disabled=false;if(r.tarefa.codigo!==0){$("vSit").textContent="Falhou. Veja o log em Tarefas.";aviso("Não consegui ler o caso. Veja o log em Tarefas.",true);return}
@@ -609,6 +714,109 @@ function desenharRede(id,rede){
   g+=nos.map(n=>`<circle cx="${sx(n.x)}" cy="${sy(n.y)}" r="${r(n)}" fill="${n.is_group?"var(--s3)":"var(--s1)"}" stroke="var(--card)" stroke-width="2" data-tip="${esc((n.label||n.id)+(n.label&&n.label!=n.id?"\n"+n.id:"")+"\n"+fmt(n.total_interactions)+" interações"+(n.is_group?"\ngrupo":""))}"/>`+(top.has(n.id)?`<text x="${sx(n.x)+r(n)+3}" y="${sy(n.y)+4}" class="ink">${esc(String(n.label||n.id).slice(0,22))}</text>`:"")).join("");
   $(id).innerHTML=`<div class="leg"><span><i style="background:var(--s1)"></i>Pessoa ou conta</span><span><i style="background:var(--s3)"></i>Grupo</span></div><svg class="ch" viewBox="0 0 ${W} ${H}" role="img" aria-label="rede de comunicações">${g}</svg>`+
     `<details class="tab"><summary>ver tabela</summary><table><thead><tr><th>De</th><th>Para</th><th style="text-align:right">Interações</th><th>Canais</th></tr></thead><tbody>${ar.map(e=>`<tr><td>${esc(nos[ix[e.source]].label||e.source)}</td><td>${esc(nos[ix[e.target]].label||e.target)}</td><td style="text-align:right">${fmt(e.weight)}</td><td>${esc((e.channels||[]).join(", "))}</td></tr>`).join("")}</tbody></table></details>`}
+
+// ---------------------------------------------------------------- início
+function etapasEstado(){
+  const cs=casosOk(),lig=(R.clientes||[]).some(c=>c.aponta_para_este);
+  return [
+    {s:"config",t:"1. Configurar a máquina",ok:!!R.configurado,txt:R.configurado?"Configurada":"Falta aplicar a configuração"},
+    {s:"proc",t:"2. Processar evidência",ok:cs.length>0,txt:cs.length?cs.length+" caso(s) processado(s)":"Nenhum caso ainda"},
+    {s:"casos",t:"3. Escolher o caso",ok:!!R.caso_ativo,txt:R.caso_ativo?"Em análise: "+R.caso_ativo.split(/[\\/]/).filter(Boolean).pop():"Nenhum caso escolhido"},
+    {s:"assist",t:"Analisar com a IA",ok:!!(R.mcp&&R.mcp.instalado),txt:R.mcp&&R.mcp.instalado?(lig?"MCP ligado a um programa de IA":"Use o Assistente com IA local"):"MCP não instalado"},
+    {s:"relatorio",t:"4. Relatório técnico",ok:false,txt:"Monte e gere o RT do caso"}]}
+function desenharInicio(){
+  if(!R.iped_ok){$("prox").innerHTML=`<div style="flex:1"><div class="t">Encontre o IPED</div><div class="d">O painel não achou o IPED nesta máquina. Indique a pasta onde está o iped.jar.</div></div><button class="b p" onclick="ir('config')">Indicar a pasta</button>`;$("etapas").innerHTML="";return}
+  const e=etapasEstado();let p;
+  if(!R.configurado)p=["Configure esta máquina","O painel lê o hardware e ajusta o IPED (memória, pasta temporária, perfis da PCBA e MCP), com backup.","config","Configurar agora"];
+  else if(!casosOk().length)p=["Processe a primeira evidência","Escolha a evidência, a pasta do caso e o perfil pelo tipo de material.","proc","Processar evidência"];
+  else if(!R.caso_ativo)p=["Escolha o caso em análise","Use a lista no alto da tela; a Visão, o Assistente e o Relatório passam a usar esse caso.","casos","Ver casos"];
+  else p=["Analise o caso","Veja os gráficos, alertas e sugestões, e pergunte à IA pelos agentes prontos.","visao","Abrir a Visão do caso"];
+  $("prox").innerHTML=`<div style="flex:1"><div class="ajuda">Próximo passo</div><div class="t">${esc(p[0])}</div><div class="d">${esc(p[1])}</div></div><button class="b p" onclick="ir('${p[2]}')">${esc(p[3])} →</button>`;
+  $("etapas").innerHTML=e.map(x=>`<button class="etapa" onclick="ir('${x.s}')"><b>${esc(x.t)}</b><div class="s ${x.ok?"ok":"pend"}">${x.ok?"✓ ":"○ "}${esc(x.txt)}</div></button>`).join("");
+  const c=CASO();$("inicioCaso").style.display=c?"block":"none";
+  if(c)$("inicioCaso").innerHTML=`<h3>Caso em análise</h3><div class="muted">${esc(c)}</div><div class="row">
+    <button class="b p" onclick="ir('visao')">Visão do caso</button><button class="b" onclick="ir('assist')">Perguntar à IA</button>
+    <button class="b" onclick="ir('relatorio')">Relatório técnico</button><button class="b" onclick="abrirCaso('${esc(js(c))}')">Abrir no IPED</button>
+    <button class="b" onclick="verAudInicio()">Auditoria da IA</button></div>`;
+}
+async function verAudInicio(){ir("casos");await verAud(CASO())}
+
+// ---------------------------------------------------------------- perfis
+function desenharPerfis(){
+  const aj=R.perfis_ajuda||[],atual=$("perfil").value;
+  const pc=aj.filter(a=>a.pcba),out=aj.filter(a=>!a.pcba);
+  $("perfisCards").innerHTML=pc.length?pc.map(a=>`<button class="perfil ${a.nome==atual?"on":""}" onclick="escolherPerfil('${esc(a.nome)}')">
+    <div class="nm">${esc(a.titulo)}</div><div class="id">${esc(a.nome)}</div><div class="q">${esc(a.quando)}</div>
+    <div class="ajuda">Liga:</div><ul>${a.liga.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
+    <div class="ajuda" style="margin-top:4px">Desliga:</div><ul>${a.desliga.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
+    <div class="tm">⏱ ${esc(a.tempo)}</div></button>`).join(""):'<div class="aviso">Os perfis da PCBA ainda não existem nesta instalação: aplique a configuração (passo 1).</div>';
+  $("perfisOutros").innerHTML=`<div class="cards-perfil">`+[{nome:"",titulo:"Padrão do IPED",descricao:"Configuração da raiz do IPED, sem perfil."}].concat(out).map(a=>`<button class="perfil ${a.nome==atual?"on":""}" onclick="escolherPerfil('${esc(a.nome)}')"><div class="nm">${esc(a.titulo)}</div>${a.nome?`<div class="id">${esc(a.nome)}</div>`:""}<div class="q">${esc(a.descricao)}</div></button>`).join("")+`</div>`;
+}
+function escolherPerfil(n){$("perfil").value=n;desenharPerfis()}
+
+// ---------------------------------------------------------------- assistente
+let AG=null,AGsel=null,CONV=null,convPos=0,convFim=null;
+function irAgente(id){ir("assist");setTimeout(()=>{if(AG)escolherAgente(id);else AGsel=id},300)}
+async function entrarAssist(){
+  if(!CASO()){$("iaSit").innerHTML='<b>Escolha o caso em análise</b> no alto da tela antes de enviar.'}
+  await tentar(async()=>{AG=await api("assist/agentes");
+    $("agentes").innerHTML=AG.agentes.map(a=>`<button class="agente" data-id="${a.id}" onclick="escolherAgente('${a.id}')"><b>${esc(a.nome)}</b>${a.escrita?'<span class="tag warn esc">escreve no caso</span>':''}<div class="d">${esc(a.descricao)}</div></button>`).join("");
+    const op=[];AG.ia_local.forEach(sv=>{if(sv.ativo)sv.modelos.forEach(m=>op.push({tipo:sv.nome=="Ollama"?"ollama":"openai",url:sv.url,modelo:m,rot:sv.nome+": "+m}))});
+    const c=AG.config;if(c.modelo&&!op.some(o=>o.modelo==c.modelo&&o.tipo==c.tipo))op.unshift({tipo:c.tipo,url:c.url,modelo:c.modelo,rot:(c.tipo=="ollama"?"Ollama":"LM Studio")+": "+c.modelo+" (não encontrado agora)"});
+    $("iaModelo").innerHTML=op.length?op.map((o,i)=>`<option value="${i}">${esc(o.rot)}</option>`).join(""):'<option value="">nenhuma IA local rodando</option>';
+    $("iaModelo")._op=op;const k=op.findIndex(o=>o.modelo==c.modelo&&o.tipo==c.tipo);if(k>=0)$("iaModelo").value=k;
+    $("iaModelo").onchange=()=>{const o=op[+$("iaModelo").value];if(o)tentar(()=>api("assist/config",{tipo:o.tipo,url:o.url,modelo:o.modelo}))};
+    if(op.length&&k<0)$("iaModelo").onchange();
+    const avisos=[];if(!AG.mcp_instalado)avisos.push("O MCP não está instalado (passo 1).");
+    if(!op.length)avisos.push("Abra o Ollama ou o LM Studio com um modelo que use ferramentas (ex.: qwen2.5, qwen3, llama3.1) e volte a esta tela. Sem IA local, use o botão Copiar e cole a pergunta no programa ligado ao MCP.");
+    if(!AG.escrita)avisos.push("Escrita no caso desligada: agentes que marcam itens ou escrevem no RT só vão consultar.");
+    if(CASO())$("iaSit").innerHTML=avisos.map(esc).join("<br>")||"Pronto. A IA local roda nesta máquina; sem GPU, cada resposta pode levar alguns minutos.";
+    escolherAgente(AGsel||(AG.agentes[0]||{}).id)})}
+function escolherAgente(id){const a=AG.agentes.find(x=>x.id==id);if(!a)return;AGsel=id;
+  document.querySelectorAll(".agente").forEach(b=>b.classList.toggle("on",b.dataset.id==id));
+  $("agNome").textContent=a.nome;$("agDesc").textContent=a.descricao+" Ferramentas: "+a.ferramentas.join(", ")+".";
+  $("agPergs").innerHTML=a.prompts.map((p,i)=>`<button class="perg" onclick="usarPergunta(${i})">${esc(p.titulo)}</button>`).join("");
+  $("agSist").textContent=a.sistema;if(!$("agPerg").value.trim()||$("agPerg")._auto)usarPergunta(0)}
+function usarPergunta(i){const a=AG.agentes.find(x=>x.id==AGsel);const t=$("agPerg");t.value=a.prompts[i].texto;t._auto=true;t.oninput=()=>t._auto=false;
+  const m=t.value.indexOf("[");if(m>=0){t.focus();t.setSelectionRange(m,t.value.indexOf("]",m)+1)}}
+async function copiarAgente(){const a=AG.agentes.find(x=>x.id==AGsel);const txt=a.sistema+"\n\nPergunta:\n"+$("agPerg").value.trim();
+  try{await navigator.clipboard.writeText(txt);aviso("Instruções e pergunta copiadas. Cole no Claude Desktop, Antigravity ou Hermes ligado ao MCP.")}catch(e){prompt("Copie:",txt)}}
+async function enviarAgente(){const perg=$("agPerg").value.trim();
+  if(/\[[^\]]+\]/.test(perg)&&!confirm("A pergunta ainda tem [COLCHETES] para trocar. Enviar assim mesmo?"))return;
+  await tentar(async()=>{const r=await api("assist/enviar",{caso:CASO(),agente:AGsel,pergunta:perg});CONV=r.id;convPos=0;
+    const a=AG.agentes.find(x=>x.id==AGsel);convFim={agente:a.nome,pergunta:perg,modelo:($("iaModelo")._op[+$("iaModelo").value]||{}).modelo};
+    $("convCard").style.display="block";$("convTit").textContent=a.nome;$("convPassos").innerHTML="";$("convResp").innerHTML='<span class="spin"></span> a IA está trabalhando…';
+    $("convAcoes").style.display="none";$("convSalvo").textContent="";$("convParar").style.display="";$("agEnviar").disabled=true;
+    $("convCard").scrollIntoView({behavior:"smooth"});lerConversa()})}
+const NOMES_FERR={search_documents:"buscou",get_document_text:"leu o item",get_document_metadata:"leu os metadados",get_case_summary:"leu o resumo do caso",get_top_contacts:"listou os contatos",get_communications_graph:"montou a rede",get_timeline:"leu a linha do tempo",get_events_around_time:"leu eventos ao redor",get_report_draft:"leu o rascunho do RT",update_report_field:"escreveu no RT",update_report_analysis:"escreveu análise no RT",bookmark_search_results:"marcou resultados",add_to_bookmark:"marcou itens"};
+async function lerConversa(){if(!CONV)return;const id=CONV;
+  try{const r=await api("assist/ler",{id,desde:convPos});if(id!=CONV)return;convPos=r.pos;
+    r.eventos.forEach(e=>{let h="";
+      if(e.tipo=="pensando")h=`⋯ passo ${e.passo}: a IA está pensando`;
+      else if(e.tipo=="ferramenta")h=`🔎 ${esc(NOMES_FERR[e.nome]||e.nome)} <span style="font-family:Consolas,monospace">${esc(JSON.stringify(e.args).slice(0,160))}</span>`;
+      else if(e.tipo=="resultado")h=`↳ ${esc(e.nome)}: ${fmt(e.tamanho)} caracteres`;
+      else if(e.tipo=="aviso")h=`ℹ ${esc(e.texto)}`;
+      else if(e.tipo=="erro"){h=`<span style="color:var(--bad)">✖ ${esc(e.texto)}</span>`;$("convResp").innerHTML=`<div class="aviso">${esc(e.texto)}</div>`}
+      if(h&&e.tipo!="resposta")$("convPassos").insertAdjacentHTML("beforeend","<div>"+h+"</div>")});
+    $("convPassos").scrollTop=1e9;
+    if(r.rodando){setTimeout(lerConversa,1500);return}
+    $("agEnviar").disabled=false;$("convParar").style.display="none";
+    if(r.resposta!=null){convFim.resposta=r.resposta;$("convResp").innerHTML=`<div class="ajuda" style="margin-bottom:6px">Resposta da IA: confira cada fato no IPED pelo ID do item antes de usar.</div><div class="resposta">${md(r.resposta)}</div>`;$("convAcoes").style.display="flex"}
+  }catch(e){setTimeout(lerConversa,3000)}}
+async function pararConversa(){if(CONV)await tentar(()=>api("assist/parar",{id:CONV}))}
+// Markdown simples da resposta da IA (tabelas, listas, negrito). Escapa tudo antes: nada da IA vira HTML.
+function md(t){const L=esc(t||"").split("\n"),out=[];let i=0;const inl=x=>x.replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/`([^`]+)`/g,"<code>$1</code>");
+  const cel=x=>x.trim().replace(/^\||\|$/g,"").split("|").map(c=>c.trim());
+  while(i<L.length){const l=L[i];
+    if(/^\s*\|.*\|\s*$/.test(l)&&i+1<L.length&&/^\s*\|?\s*:?-{2,}/.test(L[i+1])){const cab=cel(l);i+=2;const rows=[];while(i<L.length&&/^\s*\|.*\|\s*$/.test(L[i]))rows.push(cel(L[i++]));
+      out.push("<table><tr>"+cab.map(c=>"<th>"+inl(c)+"</th>").join("")+"</tr>"+rows.map(r=>"<tr>"+r.map(c=>"<td>"+inl(c)+"</td>").join("")+"</tr>").join("")+"</table>");continue}
+    if(/^\s*[-*] /.test(l)){const it=[];while(i<L.length&&/^\s*[-*] /.test(L[i]))it.push(L[i++].replace(/^\s*[-*] /,""));out.push("<ul>"+it.map(x=>"<li>"+inl(x)+"</li>").join("")+"</ul>");continue}
+    if(/^#{1,4} /.test(l)){out.push("<p><b>"+inl(l.replace(/^#+ /,""))+"</b></p>");i++;continue}
+    if(!l.trim()){i++;continue}
+    const par=[];while(i<L.length&&L[i].trim()&&!/^\s*\|/.test(L[i])&&!/^\s*[-*] /.test(L[i]))par.push(L[i++]);out.push("<p>"+inl(par.join("<br>"))+"</p>")}
+  return out.join("")}
+async function copiarResposta(){try{await navigator.clipboard.writeText(convFim.resposta);aviso("Resposta copiada.")}catch(e){prompt("Copie:",convFim.resposta)}}
+async function salvarConversa(){await tentar(async()=>{const r=await api("assist/salvar",Object.assign({caso:CASO()},convFim));$("convSalvo").textContent="Salvo em "+r.arquivo})}
 
 async function sair(){if(!confirm("Fechar o painel? Processamentos em andamento continuam."))return;await tentar(()=>api("sair"));document.body.innerHTML='<p style="padding:30px">Painel encerrado. Pode fechar esta aba.</p>'}
 

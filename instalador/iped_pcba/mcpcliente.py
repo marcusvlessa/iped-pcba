@@ -76,7 +76,11 @@ class ClienteMcp(object):
         return r
 
     def ferramentas(self):
-        return [t["name"] for t in (self.chamar("tools/list") or {}).get("tools", [])]
+        return [t["name"] for t in self.ferramentas_completas()]
+
+    def ferramentas_completas(self):
+        """Nome, descrição e inputSchema de cada ferramenta (para entregar ao modelo de IA)."""
+        return (self.chamar("tools/list") or {}).get("tools", [])
 
     def ferramenta(self, nome, argumentos=None):
         r = self.chamar("tools/call", {"name": nome, "arguments": argumentos or {}}) or {}
@@ -89,3 +93,8 @@ class ClienteMcp(object):
             self.proc.wait(timeout=10)
         except Exception:
             self.proc.kill()
+        for f in (self.proc.stdout, self.proc.stderr):
+            try:
+                f.close()
+            except Exception:
+                pass
