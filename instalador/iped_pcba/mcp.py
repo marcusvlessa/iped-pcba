@@ -13,6 +13,7 @@ o runtime do pacote, depois JAVA_HOME, depois as pastas comuns de JDK e o PATH.
 
 import datetime
 import glob
+import hashlib
 import json
 import os
 import re
@@ -162,6 +163,28 @@ def definir_escrita(raiz, ativa):
     elif os.path.isfile(arq):
         os.remove(arq)
     return escrita_ativa(raiz)
+
+
+def _resumo(arq):
+    h = hashlib.sha256()
+    with open(arq, "rb") as f:
+        for bloco in iter(lambda: f.read(1 << 20), b""):
+            h.update(bloco)
+    return h.hexdigest()
+
+
+def atualizar_se_preciso(raiz, repo):
+    """Troca o .jar do MCP já instalado no IPED quando o pacote traz outro (versão nova do pacote
+    sem rodar a configuração de novo). Guarda o anterior ao lado. Devolve aviso ou None."""
+    if not raiz:
+        return None
+    instalado = os.path.join(raiz, PASTA_MCP, JAR)
+    pacote = localizar_pacote(repo)
+    if not pacote or not os.path.isfile(instalado) or _resumo(instalado) == _resumo(pacote["jar"]):
+        return None
+    shutil.copy2(instalado, instalado + ".anterior")
+    shutil.copy2(pacote["jar"], instalado)
+    return "MCP do IPED atualizado para a versão deste pacote (anterior guardado em {}.anterior).".format(JAR)
 
 
 def instalar_mcp(raiz, so, repo, backup, simular=False, java=None, pacote=None, escrita=True):
