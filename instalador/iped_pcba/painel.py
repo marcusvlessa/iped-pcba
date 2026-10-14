@@ -24,7 +24,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, assistente, auditoria, clientesia, processar
+from . import __version__, assistente, auditoria, clientesia, contexto, perfis, processar
 from .configurar import PASTA_PCBA, gravar_texto, ler_chaves, ler_texto, listar_backups
 from .configurar import reverter as reverter_backup
 from .mcp import (CASO_ATIVO, PASTA_MCP, achar_java, definir_escrita, escrita_ativa,
@@ -91,6 +91,8 @@ FILTROS = {
     "csv": "Planilhas CSV|*.csv;*.txt|Todos os arquivos|*.*",
     "imagem": "Imagens|*.jpg;*.jpeg;*.png",
     "todos": "Todos os arquivos|*.*",
+    "contexto": "Documentos|*.txt;*.md;*.csv;*.tsv;*.json;*.xml;*.html;*.htm;*.log;*.eml;*.rtf;*.docx;*.odt;*.ods;"
+                "*.xlsx;*.pptx;*.pdf|Todos os arquivos|*.*",
 }
 
 
@@ -219,6 +221,7 @@ class Estado(object):
         extras = ["--continue"] if d.get("continuar") else []
         if d.get("portavel"):
             extras.append("--portable")
+        aviso_perfil = perfis.atualizar_se_preciso(self.raiz, d.get("perfil") or "")
         cmd = processar.comando_processar(self.raiz, evid, saida, perfil=d.get("perfil") or None,
                                           adicionar=bool(d.get("adicionar")) or bool(d.get("continuar")),
                                           fuso=d.get("fuso") or "GMT-3", extras=extras)
@@ -228,7 +231,7 @@ class Estado(object):
                 processar.registrar_caso(saida, "processado no painel", evid)
         tid = self.tarefas.iniciar("processar", "Processar " + os.path.basename(saida.rstrip("\\/")),
                                    cmd, cwd=self.raiz, ao_terminar=fim)
-        return {"tarefa": tid, "comando": cmd}
+        return {"tarefa": tid, "comando": cmd, "aviso": aviso_perfil}
 
     def whisper(self, d):
         cmd = [_python_iped(self.raiz)] + _boot("componentes", "whisper")
@@ -299,8 +302,9 @@ class Estado(object):
         if not r["mcp"]["instalado"]:
             raise ValueError("O MCP não está instalado: aplique a configuração com o pacote completo (passo 1).")
         caso = _caso_valido(d)
+        itens = contexto.ler_lista(caso) if d.get("usar_contexto", True) else []
         cid = self.conversas.iniciar(r["mcp"]["lancador"], caso, d.get("agente"), d.get("pergunta"),
-                                     assistente.ler_config(), bool(r["mcp"]["escrita"]))
+                                     assistente.ler_config(), bool(r["mcp"]["escrita"]), itens)
         return {"id": cid}
 
     # ------------------------------------------------------------ IA
@@ -486,7 +490,15 @@ def _rotear(e, rota, d):
         return {"ok": True}
     if rota == "/api/assist/salvar":
         return {"arquivo": assistente.salvar(_caso_valido(d), d.get("agente") or "Assistente", d.get("pergunta") or "",
-                                             d.get("resposta") or "", d.get("modelo") or "")}
+                                             d.get("resposta") or "", d.get("modelo") or "", d.get("contexto"))}
+    if rota == "/api/contexto/ler":
+        return contexto.situacao(_caso_valido(d))
+    if rota == "/api/contexto/adicionar":
+        contexto.adicionar(_caso_valido(d), d.get("caminhos") or [])
+        return contexto.situacao(_caso_valido(d))
+    if rota == "/api/contexto/remover":
+        contexto.remover(_caso_valido(d), d.get("caminho") or "")
+        return contexto.situacao(_caso_valido(d))
     if rota == "/api/visao/ler":
         return e.visao_ler(_caso_valido(d))
     if rota == "/api/visao/atualizar":

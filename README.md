@@ -53,6 +53,14 @@ e o painel mostra cada passo; toda chamada fica no log de auditoria do caso. A r
 copiada ou salva em `<caso>\iped-pcba-ia\conversas\`. O modelo precisa aceitar ferramentas
 (por exemplo qwen2.5, qwen3, llama3.1 ou mistral-nemo).
 
+**Arquivos de contexto**: na mesma tela, anexe arquivos ou pastas de fora do IPED (BO, portaria,
+ofícios, depoimentos, relatórios anteriores, planilhas) para a IA entender o caso e cruzar com o
+que acha no IPED. Lê `.txt`, `.md`, `.csv`, `.json`, `.html`, `.xml`, `.eml`, `.rtf`, `.docx`,
+`.odt`, `.ods`, `.xlsx`, `.pptx` e, com o `pdftotext` instalado, `.pdf`. A lista fica em
+`<caso>\iped-pcba-ia\contexto.json` (só os caminhos; nada é copiado). Se o texto é curto, vai junto
+com a pergunta; se é longo, a IA busca e lê por ferramentas do próprio painel. A conversa salva
+registra o SHA-256 de cada arquivo lido.
+
 **Copiar para Claude/Antigravity/Hermes** copia as instruções do agente e a pergunta para colar
 no programa ligado ao MCP. Claude Desktop e Antigravity usam modelos na nuvem: o painel avisa
 antes de ligá-los, e dados reais devem ficar na IA local.

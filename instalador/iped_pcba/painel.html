@@ -300,6 +300,16 @@ nav .n.ok::after{content:"✓"}
         <div class="ajuda" id="iaSit"></div>
         <details class="tab"><summary>Instruções do agente (o que a IA recebe antes da pergunta)</summary><pre class="log" id="agSist" style="height:auto;max-height:260px;background:var(--bg);color:var(--ink)"></pre></details>
       </div>
+      <div class="card" id="ctxCard">
+        <h3>Arquivos de contexto <span class="muted">documentos de fora do IPED que a IA lê junto com o caso</span></h3>
+        <div class="ajuda">BO, portaria, ofícios, depoimentos, relatórios anteriores, planilhas. A IA local lê o texto e cruza com o que acha no IPED. Os arquivos ficam onde estão e não saem desta máquina; a conversa salva registra o SHA-256 de cada um.</div>
+        <div id="ctxLista" style="margin:8px 0"></div>
+        <div class="row">
+          <button class="b" onclick="addContexto('arquivo')">Adicionar arquivos…</button>
+          <button class="b" onclick="addContexto('pasta')">Adicionar pasta…</button>
+          <label class="ajuda" style="margin-left:auto"><input type="checkbox" id="ctxUsar" checked> usar na próxima pergunta</label>
+        </div>
+      </div>
       <div class="card" id="convCard" style="display:none">
         <h3 id="convTit">Conversa</h3>
         <div class="passos" id="convPassos"></div>
@@ -492,7 +502,7 @@ async function instalarWhisper(){await tentar(async()=>{const r=await api("whisp
 async function processarEvid(){
   await tentar(async()=>{
     const r=await api("processar",{evidencias:$("evid").value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),saida:val("saida"),perfil:$("perfil").value,fuso:val("fuso"),adicionar:$("adicionar").checked,continuar:$("continuar").checked,portavel:$("portavel").checked});
-    seguirProc(r.tarefa,"Processar "+val("saida"));
+    if(r.aviso)aviso(r.aviso);seguirProc(r.tarefa,"Processar "+val("saida"));
   });
 }
 function seguirProc(id,titulo){procId=id;procPos=0;$("procLog").textContent="";$("procLogCard").style.display="block";$("procTitulo").textContent=titulo;$("procParar").onclick=()=>tentar(()=>api("parar",{id}));lerProc()}
@@ -644,7 +654,7 @@ function desenharVisao(){
   if(cats.length)barrasH("gCat",cats.slice(0,12).map(c=>({r:c.nome,v:[c.total]})),[{n:"Itens",c:"var(--s1)"}]);
   const con=v&&v.contatos||[];mostrar("gConC",con.length);
   if(con.length)barrasH("gCon",con.slice(0,12).map(c=>({r:c.name||c.identifier,v:[c.messages_count||0,c.calls_count||0],x:(c.channels||[]).join(", ")})),[{n:"Mensagens",c:"var(--s1)"},{n:"Chamadas",c:"var(--s2)"}]);
-  const rede=v&&v.rede||{};mostrar("gRedeC",(rede.edges||[]).length);if((rede.edges||[]).length)desenharRede("gRede",rede);
+  const rede=v&&v.rede||{};mostrar("gRedeC",(rede.edges||[]).length);REDE_FOCO=null;if((rede.edges||[]).length)desenharRede("gRede",rede);
   const ia=(v&&v.ia_filtros||[]).filter(f=>f.total>0);mostrar("gIaC",ia.length);
   if(ia.length)barrasH("gIa",ia.map(f=>({r:f.nome,v:[f.total]})),[{n:"Itens",c:"var(--s3)"}]);
   const disp=v&&v.dispositivos||[];mostrar("gDispC",disp.length);
@@ -700,20 +710,45 @@ function colunas(id,itens,series,o){o=o||{};
     if(j%cada==0)g+=`<text x="${cx}" y="${H-8}" text-anchor="middle">${esc(it.r)}</text>`});
   g+=`<line class="eixo" x1="${ml}" x2="${W-8}" y1="${y(0)}" y2="${y(0)}"/>`;
   $(id).innerHTML=legenda(series)+`<svg class="ch" viewBox="0 0 ${W} ${H}" role="img" aria-label="gráfico de colunas">${g}</svg>`+tabela(itens,series)}
+// as ida e volta (A→B e B→A) viram uma ligação só, para a rede mostrar mais contatos
+function juntarLigacoes(edges){
+  const m={};edges.forEach(e=>{const k=[e.source,e.target].sort().join("\u0000");
+    const t=m[k]||(m[k]={source:e.source,target:e.target,weight:0,messages_count:0,calls_count:0,channels:[]});
+    t.weight+=e.weight||0;t.messages_count+=e.messages_count||0;t.calls_count+=e.calls_count||0;
+    (e.channels||[]).forEach(c=>{if(!t.channels.includes(c))t.channels.push(c)})});
+  return Object.values(m).sort((a,b)=>b.weight-a.weight)}
+let REDE_QTD=50,REDE_FOCO=null;
 function desenharRede(id,rede){
-  const nos=rede.nodes.slice(0,60),ix={};nos.forEach((n,i)=>{ix[n.id]=i;n.x=Math.cos(i*2.4)*(50+i*4);n.y=Math.sin(i*2.4)*(50+i*4);n.vx=0;n.vy=0});
-  const ar=rede.edges.filter(e=>e.source in ix&&e.target in ix),W=Math.max(320,$(id).clientWidth||900),H=Math.min(440,Math.max(300,W*.55)),maxw=Math.max(...ar.map(e=>e.weight)),maxn=Math.max(...nos.map(n=>n.total_interactions||1));
+  const todas=juntarLigacoes(rede.edges||[]),qtd=REDE_QTD&&REDE_QTD<todas.length?REDE_QTD:0,ar=qtd?todas.slice(0,qtd):todas;
+  const porId={};(rede.nodes||[]).forEach(n=>porId[n.id]=n);
+  const peso={};ar.forEach(e=>{peso[e.source]=(peso[e.source]||0)+e.weight;peso[e.target]=(peso[e.target]||0)+e.weight});
+  const nos=Object.keys(peso).map(k=>Object.assign({label:k},porId[k]||{id:k},{id:k,total:peso[k]})),ix={};
+  nos.sort((a,b)=>b.total-a.total);nos.forEach((n,i)=>{ix[n.id]=i;n.x=Math.cos(i*2.4)*(50+i*4);n.y=Math.sin(i*2.4)*(50+i*4);n.vx=0;n.vy=0});
+  const W=Math.max(320,$(id).clientWidth||900),H=Math.min(680,Math.max(360,W*.6)),maxw=Math.max(...ar.map(e=>e.weight)),maxn=Math.max(...nos.map(n=>n.total));
   for(let it=0;it<400;it++){const a=1-it/400;
     for(let i=0;i<nos.length;i++)for(let j=i+1;j<nos.length;j++){const p=nos[i],q=nos[j];let dx=p.x-q.x,dy=p.y-q.y,d2=dx*dx+dy*dy+.01,f=1800/d2;p.vx+=dx*f;p.vy+=dy*f;q.vx-=dx*f;q.vy-=dy*f}
     ar.forEach(e=>{const p=nos[ix[e.source]],q=nos[ix[e.target]];const dx=q.x-p.x,dy=q.y-p.y,d=Math.sqrt(dx*dx+dy*dy)+.01,f=(d-90)*.02;p.vx+=dx/d*f*d*.05;p.vy+=dy/d*f*d*.05;q.vx-=dx/d*f*d*.05;q.vy-=dy/d*f*d*.05});
     nos.forEach(n=>{n.vx-=n.x*.01;n.vy-=n.y*.01;n.x+=Math.max(-20,Math.min(20,n.vx))*a;n.y+=Math.max(-20,Math.min(20,n.vy))*a;n.vx*=.5;n.vy*=.5})}
   const xs=nos.map(n=>n.x),ys=nos.map(n=>n.y),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys),
-    sx=v=>20+(v-x0)/Math.max(1,x1-x0)*(W-150),sy=v=>24+(v-y0)/Math.max(1,y1-y0)*(H-48),r=n=>4+10*Math.sqrt((n.total_interactions||1)/maxn);
-  const top=new Set(nos.slice().sort((a,b)=>(b.total_interactions||0)-(a.total_interactions||0)).slice(0,16).map(n=>n.id));
-  let g=ar.map(e=>{const p=nos[ix[e.source]],q=nos[ix[e.target]];return `<line x1="${sx(p.x)}" y1="${sy(p.y)}" x2="${sx(q.x)}" y2="${sy(q.y)}" stroke="var(--quiet)" stroke-opacity=".45" stroke-width="${1+4*e.weight/maxw}" data-tip="${esc((p.label||p.id)+" ↔ "+(q.label||q.id)+"\n"+fmt(e.weight)+" interações ("+fmt(e.messages_count)+" mensagens, "+fmt(e.calls_count)+" chamadas)\n"+(e.channels||[]).join(", "))}"/>`}).join("");
-  g+=nos.map(n=>`<circle cx="${sx(n.x)}" cy="${sy(n.y)}" r="${r(n)}" fill="${n.is_group?"var(--s3)":"var(--s1)"}" stroke="var(--card)" stroke-width="2" data-tip="${esc((n.label||n.id)+(n.label&&n.label!=n.id?"\n"+n.id:"")+"\n"+fmt(n.total_interactions)+" interações"+(n.is_group?"\ngrupo":""))}"/>`+(top.has(n.id)?`<text x="${sx(n.x)+r(n)+3}" y="${sy(n.y)+4}" class="ink">${esc(String(n.label||n.id).slice(0,22))}</text>`:"")).join("");
-  $(id).innerHTML=`<div class="leg"><span><i style="background:var(--s1)"></i>Pessoa ou conta</span><span><i style="background:var(--s3)"></i>Grupo</span></div><svg class="ch" viewBox="0 0 ${W} ${H}" role="img" aria-label="rede de comunicações">${g}</svg>`+
-    `<details class="tab"><summary>ver tabela</summary><table><thead><tr><th>De</th><th>Para</th><th style="text-align:right">Interações</th><th>Canais</th></tr></thead><tbody>${ar.map(e=>`<tr><td>${esc(nos[ix[e.source]].label||e.source)}</td><td>${esc(nos[ix[e.target]].label||e.target)}</td><td style="text-align:right">${fmt(e.weight)}</td><td>${esc((e.channels||[]).join(", "))}</td></tr>`).join("")}</tbody></table></details>`}
+    sx=v=>24+(v-x0)/Math.max(1,x1-x0)*(W-220),sy=v=>24+(v-y0)/Math.max(1,y1-y0)*(H-48),r=n=>4+10*Math.sqrt(n.total/maxn),
+    nome=n=>String(n.label||n.id),curto=t=>t.length>30?t.slice(0,29)+"…":t;
+  const foco=REDE_FOCO in ix?REDE_FOCO:null,liga=e=>!foco||e.source==foco||e.target==foco,
+    viz=new Set(ar.filter(e=>foco&&liga(e)).flatMap(e=>[e.source,e.target]));
+  const top=new Set(nos.slice(0,30).map(n=>n.id));
+  let g=ar.map(e=>{const p=nos[ix[e.source]],q=nos[ix[e.target]];return `<line x1="${sx(p.x)}" y1="${sy(p.y)}" x2="${sx(q.x)}" y2="${sy(q.y)}" stroke="${foco&&liga(e)?"var(--s1)":"var(--quiet)"}" stroke-opacity="${liga(e)?.55:.08}" stroke-width="${1+4*e.weight/maxw}" data-tip="${esc(nome(p)+" ↔ "+nome(q)+"\n"+fmt(e.weight)+" interações ("+fmt(e.messages_count)+" mensagens, "+fmt(e.calls_count)+" chamadas)\n"+e.channels.join(", "))}"/>`}).join("");
+  g+=nos.map(n=>{const apaga=foco&&n.id!=foco&&!viz.has(n.id),rot=foco?(n.id==foco||viz.has(n.id)):top.has(n.id);
+    return `<g class="no" data-no="${esc(n.id)}" style="cursor:pointer" opacity="${apaga?.2:1}"><circle cx="${sx(n.x)}" cy="${sy(n.y)}" r="${r(n)}" fill="${n.is_group?"var(--s3)":"var(--s1)"}" stroke="${n.id==foco?"var(--ink)":"var(--card)"}" stroke-width="2" data-tip="${esc(nome(n)+(nome(n)!=n.id?"\n"+n.id:"")+"\n"+fmt(n.total)+" interações"+(n.is_group?"\ngrupo":"")+"\nclique para destacar as ligações")}"/>`+
+      (rot?`<text x="${sx(n.x)+r(n)+3}" y="${sy(n.y)+4}" class="ink">${esc(curto(nome(n)))}</text>`:"")+"</g>"}).join("");
+  const exp=rede.edges_before_limit>(rede.edges||[]).length?` O caso tem ${fmt(rede.edges_before_limit)} ligações com 2 ou mais interações; o painel recebeu as ${fmt((rede.edges||[]).length)} mais fortes.`:"";
+  const opc=[25,50,100,0].filter(q=>!q||q<todas.length).map(q=>`<option value="${q}"${q==qtd?" selected":""}>${q?q+" mais fortes":"todas ("+todas.length+")"}</option>`).join("");
+  $(id).innerHTML=`<div class="leg"><span><i style="background:var(--s1)"></i>Pessoa ou conta</span><span><i style="background:var(--s3)"></i>Grupo</span>`+
+    (todas.length>25?`<label>Ligações: <select id="redeQtd">${opc}</select></label>`:"")+(foco?`<button class="sec" id="redeLimpar">Mostrar toda a rede</button>`:"")+`</div>`+
+    `<p class="muted">Mostrando ${fmt(ar.length)} de ${fmt(todas.length)} ligações entre ${fmt(nos.length)} contatos. Clique num contato para destacar só as ligações dele.${exp}</p>`+
+    `<svg class="ch" viewBox="0 0 ${W} ${H}" role="img" aria-label="rede de comunicações">${g}</svg>`+
+    `<details class="tab"><summary>ver tabela (${fmt(todas.length)} ligações)</summary><table><thead><tr><th>Entre</th><th>e</th><th style="text-align:right">Interações</th><th style="text-align:right">Mensagens</th><th style="text-align:right">Chamadas</th><th>Canais</th></tr></thead><tbody>${todas.map(e=>`<tr><td>${esc((porId[e.source]||{}).label||e.source)}</td><td>${esc((porId[e.target]||{}).label||e.target)}</td><td style="text-align:right">${fmt(e.weight)}</td><td style="text-align:right">${fmt(e.messages_count)}</td><td style="text-align:right">${fmt(e.calls_count)}</td><td>${esc(e.channels.join(", "))}</td></tr>`).join("")}</tbody></table></details>`;
+  const q=$("redeQtd");if(q)q.onchange=()=>{REDE_QTD=+q.value;desenharRede(id,rede)};
+  const l=$("redeLimpar");if(l)l.onclick=()=>{REDE_FOCO=null;desenharRede(id,rede)};
+  $(id).querySelectorAll("g.no").forEach(el=>el.onclick=()=>{const k=el.getAttribute("data-no");REDE_FOCO=REDE_FOCO==k?null:k;desenharRede(id,rede)})}
 
 // ---------------------------------------------------------------- início
 function etapasEstado(){
@@ -748,7 +783,7 @@ function desenharPerfis(){
   $("perfisCards").innerHTML=pc.length?pc.map(a=>`<button class="perfil ${a.nome==atual?"on":""}" onclick="escolherPerfil('${esc(a.nome)}')">
     <div class="nm">${esc(a.titulo)}</div><div class="id">${esc(a.nome)}</div><div class="q">${esc(a.quando)}</div>
     <div class="ajuda">Liga:</div><ul>${a.liga.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
-    <div class="ajuda" style="margin-top:4px">Desliga:</div><ul>${a.desliga.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
+    ${a.desliga.length?`<div class="ajuda" style="margin-top:4px">Desliga:</div><ul>${a.desliga.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
     <div class="tm">⏱ ${esc(a.tempo)}</div></button>`).join(""):'<div class="aviso">Os perfis da PCBA ainda não existem nesta instalação: aplique a configuração (passo 1).</div>';
   $("perfisOutros").innerHTML=`<div class="cards-perfil">`+[{nome:"",titulo:"Padrão do IPED",descricao:"Configuração da raiz do IPED, sem perfil."}].concat(out).map(a=>`<button class="perfil ${a.nome==atual?"on":""}" onclick="escolherPerfil('${esc(a.nome)}')"><div class="nm">${esc(a.titulo)}</div>${a.nome?`<div class="id">${esc(a.nome)}</div>`:""}<div class="q">${esc(a.descricao)}</div></button>`).join("")+`</div>`;
 }
@@ -771,7 +806,19 @@ async function entrarAssist(){
     if(!op.length)avisos.push("Abra o Ollama ou o LM Studio com um modelo que use ferramentas (ex.: qwen2.5, qwen3, llama3.1) e volte a esta tela. Sem IA local, use o botão Copiar e cole a pergunta no programa ligado ao MCP.");
     if(!AG.escrita)avisos.push("Escrita no caso desligada: agentes que marcam itens ou escrevem no RT só vão consultar.");
     if(CASO())$("iaSit").innerHTML=avisos.map(esc).join("<br>")||"Pronto. A IA local roda nesta máquina; sem GPU, cada resposta pode levar alguns minutos.";
-    escolherAgente(AGsel||(AG.agentes[0]||{}).id)})}
+    escolherAgente(AGsel||(AG.agentes[0]||{}).id)});carregarContexto()}
+async function carregarContexto(r){
+  if(!CASO()){$("ctxLista").innerHTML='<span class="muted">Escolha o caso em análise para anexar arquivos.</span>';return}
+  await tentar(async()=>{r=r||await api("contexto/ler",{caso:CASO()});
+    $("ctxLista").innerHTML=r.itens.length?"<table>"+r.itens.map(i=>`<tr><td>${i.tipo=="pasta"?"📁":"📄"} ${esc(i.caminho)}${i.existe?"":' <span class="tag warn">não existe mais</span>'}</td>`+
+      `<td class="muted" style="white-space:nowrap">${i.lidos} lido${i.lidos==1?"":"s"}${i.n_ignorados?`, <span title="${esc(i.ignorados.map(x=>x.arquivo+": "+x.motivo).join("\n"))}" style="text-decoration:underline dotted">${i.n_ignorados} fora</span>`:""}</td>`+
+      `<td><button class="b d" onclick='remContexto(${JSON.stringify(i.caminho).replace(/'/g,"&#39;")})'>Remover</button></td></tr>`).join("")+"</table>"+
+      (r.pdf?"":'<div class="ajuda">PDF só é lido com o pdftotext instalado (Xpdf ou Poppler); sem ele, salve o PDF como texto.</div>')
+      :'<span class="muted">Nenhum arquivo anexado a este caso.</span>'})}
+async function addContexto(tipo){await tentar(async()=>{if(!CASO())throw new Error("Escolha o caso em análise primeiro.");
+  const e=await api("escolher",{tipo,titulo:"Arquivos de contexto",multiplos:tipo=="arquivo",filtro:"contexto"});
+  if(e.caminhos.length)carregarContexto(await api("contexto/adicionar",{caso:CASO(),caminhos:e.caminhos}))})}
+async function remContexto(c){await tentar(async()=>carregarContexto(await api("contexto/remover",{caso:CASO(),caminho:c})))}
 function escolherAgente(id){const a=AG.agentes.find(x=>x.id==id);if(!a)return;AGsel=id;
   document.querySelectorAll(".agente").forEach(b=>b.classList.toggle("on",b.dataset.id==id));
   $("agNome").textContent=a.nome;$("agDesc").textContent=a.descricao+" Ferramentas: "+a.ferramentas.join(", ")+".";
@@ -783,12 +830,12 @@ async function copiarAgente(){const a=AG.agentes.find(x=>x.id==AGsel);const txt=
   try{await navigator.clipboard.writeText(txt);aviso("Instruções e pergunta copiadas. Cole no Claude Desktop, Antigravity ou Hermes ligado ao MCP.")}catch(e){prompt("Copie:",txt)}}
 async function enviarAgente(){const perg=$("agPerg").value.trim();
   if(/\[[^\]]+\]/.test(perg)&&!confirm("A pergunta ainda tem [COLCHETES] para trocar. Enviar assim mesmo?"))return;
-  await tentar(async()=>{const r=await api("assist/enviar",{caso:CASO(),agente:AGsel,pergunta:perg});CONV=r.id;convPos=0;
+  await tentar(async()=>{const r=await api("assist/enviar",{caso:CASO(),agente:AGsel,pergunta:perg,usar_contexto:$("ctxUsar").checked});CONV=r.id;convPos=0;
     const a=AG.agentes.find(x=>x.id==AGsel);convFim={agente:a.nome,pergunta:perg,modelo:($("iaModelo")._op[+$("iaModelo").value]||{}).modelo};
     $("convCard").style.display="block";$("convTit").textContent=a.nome;$("convPassos").innerHTML="";$("convResp").innerHTML='<span class="spin"></span> a IA está trabalhando…';
     $("convAcoes").style.display="none";$("convSalvo").textContent="";$("convParar").style.display="";$("agEnviar").disabled=true;
     $("convCard").scrollIntoView({behavior:"smooth"});lerConversa()})}
-const NOMES_FERR={search_documents:"buscou",get_document_text:"leu o item",get_document_metadata:"leu os metadados",get_case_summary:"leu o resumo do caso",get_top_contacts:"listou os contatos",get_communications_graph:"montou a rede",get_timeline:"leu a linha do tempo",get_events_around_time:"leu eventos ao redor",get_report_draft:"leu o rascunho do RT",update_report_field:"escreveu no RT",update_report_analysis:"escreveu análise no RT",bookmark_search_results:"marcou resultados",add_to_bookmark:"marcou itens"};
+const NOMES_FERR={search_documents:"buscou",get_document_text:"leu o item",get_document_metadata:"leu os metadados",get_case_summary:"leu o resumo do caso",get_top_contacts:"listou os contatos",get_communications_graph:"montou a rede",get_timeline:"leu a linha do tempo",get_events_around_time:"leu eventos ao redor",get_report_draft:"leu o rascunho do RT",update_report_field:"escreveu no RT",update_report_analysis:"escreveu análise no RT",contexto_listar:"listou os arquivos de contexto",contexto_buscar:"buscou nos arquivos de contexto",contexto_ler:"leu arquivo de contexto",bookmark_search_results:"marcou resultados",add_to_bookmark:"marcou itens"};
 async function lerConversa(){if(!CONV)return;const id=CONV;
   try{const r=await api("assist/ler",{id,desde:convPos});if(id!=CONV)return;convPos=r.pos;
     r.eventos.forEach(e=>{let h="";
@@ -801,7 +848,7 @@ async function lerConversa(){if(!CONV)return;const id=CONV;
     $("convPassos").scrollTop=1e9;
     if(r.rodando){setTimeout(lerConversa,1500);return}
     $("agEnviar").disabled=false;$("convParar").style.display="none";
-    if(r.resposta!=null){convFim.resposta=r.resposta;$("convResp").innerHTML=`<div class="ajuda" style="margin-bottom:6px">Resposta da IA: confira cada fato no IPED pelo ID do item antes de usar.</div><div class="resposta">${md(r.resposta)}</div>`;$("convAcoes").style.display="flex"}
+    if(r.resposta!=null){convFim.resposta=r.resposta;convFim.contexto=r.contexto;$("convResp").innerHTML=`<div class="ajuda" style="margin-bottom:6px">Resposta da IA: confira cada fato no IPED pelo ID do item antes de usar.</div><div class="resposta">${md(r.resposta)}</div>`;$("convAcoes").style.display="flex"}
   }catch(e){setTimeout(lerConversa,3000)}}
 async function pararConversa(){if(CONV)await tentar(()=>api("assist/parar",{id:CONV}))}
 // Markdown simples da resposta da IA (tabelas, listas, negrito). Escapa tudo antes: nada da IA vira HTML.

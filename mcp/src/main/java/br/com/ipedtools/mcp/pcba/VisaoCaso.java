@@ -83,7 +83,7 @@ public class VisaoCaso {
             v.put("linha_do_tempo", lt);
         });
         parte(erros, "contatos", () -> v.put("contatos", s.getTopContacts(15).get("contacts")));
-        parte(erros, "rede", () -> v.put("rede", s.getCommunicationsGraph("", 2, 60)));
+        parte(erros, "rede", () -> v.put("rede", s.getCommunicationsGraph("", 2, 200)));
         parte(erros, "dispositivos", () -> v.put("dispositivos", dispositivos(s.getDeviceAndOwnerInfo())));
         parte(erros, "ia_filtros", () -> {
             Object fs = s.listAiFilters().get("filters");

@@ -2330,15 +2330,16 @@ public class IpedCoreService {
         // Focal contact filtering
         final String focalClean = (focalContact != null && !focalContact.isBlank()) ? focalContact.trim().toLowerCase() : null;
 
-        List<EdgeAggregator> eligibleEdges = edgesMap.values().stream()
+        List<EdgeAggregator> allEligible = edgesMap.values().stream()
                 .filter(e -> {
                     if (focalClean == null) return true;
                     return ContactIdentity.matchesFocal(e.source, focalClean) || ContactIdentity.matchesFocal(e.target, focalClean);
                 })
                 .filter(e -> e.weight >= safeMinInteractions)
                 .sorted((a, b) -> Integer.compare(b.weight, a.weight))
-                .limit(maxLimitEdges)
                 .toList();
+        // PCBA: quantas ligações havia antes do corte, para o painel avisar que mostra só as mais fortes
+        List<EdgeAggregator> eligibleEdges = allEligible.subList(0, Math.min(maxLimitEdges, allEligible.size()));
 
         // Extract nodes connected by retained edges
         Map<String, Map<String, Object>> connectedNodes = new LinkedHashMap<>();
@@ -2403,6 +2404,7 @@ public class IpedCoreService {
         response.put("limit_edges", maxLimitEdges);
         response.put("total_nodes", nodesList.size());
         response.put("total_edges", edgesList.size());
+        response.put("edges_before_limit", allEligible.size());
         response.put("nodes", nodesList);
         response.put("edges", edgesList);
 
