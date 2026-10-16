@@ -4,13 +4,30 @@ Instalação, autoconfiguração e extensões do [IPED](https://github.com/sepin
 Polícia Civil da Bahia. O núcleo do IPED não é alterado: tudo aqui atua sobre os arquivos de
 configuração, perfis e scripts que o próprio IPED já prevê.
 
-Este repositório segue o plano "Plano IPED + IA para a PCBA". Fases prontas: **1, instalador**,
-**2, MCP com auditoria** (pasta [`mcp/`](mcp/README.md)) e o **Painel IPED-PCBA**, que conduz o
-analista por todo o fluxo no navegador.
+**Baixe a versão mais recente em [Releases](https://github.com/marcusvlessa/iped-pcba/releases/latest)**
+(`iped-pcba-windows.zip` para as estações, `iped-pcba-linux.tar.gz` para o servidor) e dê dois
+cliques em `instalar.bat`.
+
+O que já funciona:
+
+- **Instalação automática**: se a máquina não tem IPED, o instalador baixa o oficial e confere o
+  SHA-256; o painel instala o que faltar (plugins de transcrição e faces, Visual C++, CUDA,
+  Ollama, modelo de IA local, leitor de PDF e MCP).
+- **Painel IPED-PCBA** no navegador, que conduz o analista por todo o fluxo: configurar a máquina,
+  processar evidências (com fila de vários casos e progresso da indexação ao vivo), casos,
+  visão do caso, assistente de IA e relatório técnico.
+- **Rede de vínculos** completa, com arrasto, zoom e formatos força, circular, hierarquia,
+  radial e grade.
+- **Multicasos**: abre vários casos juntos no IPED e cruza os contatos entre eles.
+- **IA com auditoria**: MCP do IPED (pasta [`mcp/`](mcp/README.md)) com log encadeado por hash,
+  IA local por padrão (Ollama ou LM Studio) e ligação opcional ao Claude, Antigravity e Hermes.
+- **Skills de análise**: financeira, imagens, áudio, geolocalização, mídias x logs e a análise
+  forense completa, instaláveis no Claude Code, no Hermes, no Claude Desktop e na IA local.
+- **Relatório técnico** no modelo da PCBA, gerado em `.docx`.
 
 ## Para quem é
 
-Qualquer policial da PCBA com o IPED instalado, em qualquer pasta e em qualquer máquina. O
+Qualquer policial da PCBA, em qualquer máquina, com ou sem o IPED já instalado. O
 instalador não traz nada fixo de um computador: ele descobre onde está o IPED, que hardware a
 máquina tem e o que já está instalado, e configura a partir disso.
 
@@ -24,6 +41,25 @@ máquina tem e o que já está instalado, e configura a partir disso.
 Não precisa instalar Python nem nada: o painel usa o Python que vem dentro do IPED. A janela
 preta do `instalar.bat` precisa ficar aberta enquanto o painel estiver em uso.
 
+Se a máquina não tem IPED, o `instalar.bat` oferece baixar o IPED 4.3.1 oficial (cerca de 700 MB)
+da página de Releases do projeto IPED, confere o SHA-256 informado pelo GitHub e instala em
+`C:\Tools\IPED` (ou no disco com mais espaço). Depois, no passo 1 do painel, o cartão
+**O que esta máquina precisa** mostra o que falta e instala com um clique ou com
+**Instalar tudo que falta**:
+
+| Item | Como instala |
+|---|---|
+| IPED 4.3.1 | baixa o pacote oficial com Java e Python, confere tamanho e SHA-256 |
+| Transcrição (Whisper) e reconhecimento facial | pacote oficial de plugins do IPED; guarda cópia da pasta `conf` antes e mantém a configuração de transcrição |
+| Visual C++ 2015-2022 | instalador da Microsoft em modo silencioso (pede confirmação do Windows) |
+| CUDA para o Whisper | só aparece com placa NVIDIA; usa o `whisper_gpu.ps1` |
+| Ollama e modelo de IA local | instalador oficial do Ollama e `ollama pull` do modelo indicado pela memória da máquina |
+| Leitor de PDF (Poppler) | baixa o `pdftotext` para `%USERPROFILE%\.iped-pcba\poppler` |
+| MCP do IPED | copia do pacote da última versão deste projeto |
+
+Pelo console: `python -m iped_pcba.dependencias situacao` e
+`python -m iped_pcba.dependencias instalar tudo`.
+
 ## Painel IPED-PCBA
 
 Página local (só em `127.0.0.1`, com código de acesso aleatório na URL). O topo mostra o
@@ -33,10 +69,11 @@ próximo passo e mostra o andamento. O menu segue o trabalho:
 | Grupo | Tela | O que faz |
 |---|---|---|
 | Preparar | 1. Configurar a máquina | Mostra o hardware e a configuração proposta, com o valor atual e o motivo de cada item. Dá para desmarcar ou editar qualquer valor antes de aplicar. Aplica com backup, restaura qualquer backup, instala o `faster-whisper` com um clique e cria um atalho do painel na Área de Trabalho. |
-| Preparar | 2. Processar evidência | Escolhe evidências, pasta do caso e perfil (em cartões que explicam quando usar cada perfil, o que liga, o que desliga e quanto demora) e roda o IPED mostrando o log. |
+| Preparar | 2. Processar evidência | Escolhe evidências, pasta do caso e perfil (em cartões que explicam quando usar cada perfil, o que liga, o que desliga e quanto demora) e roda o IPED. Durante a indexação mostra percentual, itens processados, velocidade, tempo restante, hora prevista de término, as tarefas que cada processo está executando, avisos e erros. A **fila** processa vários casos em sequência e pode salvar o grupo para a análise multicasos. |
 | Analisar | 3. Casos | Lista os casos, abre no IPED, escolhe o caso em análise e mostra o log de auditoria da IA com a conferência da cadeia de hashes. |
 | Analisar | Visão do caso | Gráficos, alertas e sugestões do caso (veja abaixo). |
 | Analisar | Assistente de IA | Agentes prontos que mandam a pergunta à IA local pelo próprio painel (veja abaixo). |
+| Analisar | Multicasos | Seleciona dois ou mais casos (ou um grupo salvo), abre todos juntos no IPED (`-multicases`) e cruza os contatos: quem aparece em mais de um caso, se é titular em algum, e uma rede única colorida por caso. O relatório do cruzamento é salvo em Markdown. |
 | Concluir | 4. Relatório técnico | Monta o RT do caso no modelo da PCBA e gera o `.docx` (veja abaixo). |
 | Sistema | Conexões de IA (MCP) | Liga e desliga a escrita da IA no caso, liga o MCP ao Claude Desktop, ao Antigravity, ao LM Studio e ao Hermes Agent (com cópia do arquivo antes de alterar), procura Ollama e LM Studio na máquina e testa o MCP com o caso ativo. |
 
@@ -52,6 +89,27 @@ recusa qualquer endereço que não seja `127.0.0.1` ou `localhost`). A IA consul
 e o painel mostra cada passo; toda chamada fica no log de auditoria do caso. A resposta pode ser
 copiada ou salva em `<caso>\iped-pcba-ia\conversas\`. O modelo precisa aceitar ferramentas
 (por exemplo qwen2.5, qwen3, llama3.1 ou mistral-nemo).
+
+**Arquivos de contexto**: na mesma tela, anexe arquivos ou pastas de fora do IPED (BO, portaria,
+ofícios, depoimentos, relatórios anteriores, planilhas) para a IA entender o caso e cruzar com o
+que acha no IPED. Lê `.txt`, `.md`, `.csv`, `.json`, `.html`, `.xml`, `.eml`, `.rtf`, `.docx`,
+`.odt`, `.ods`, `.xlsx`, `.pptx` e, com o `pdftotext` instalado, `.pdf`. A lista fica em
+`<caso>\iped-pcba-ia\contexto.json` (só os caminhos; nada é copiado). Se o texto é curto, vai junto
+com a pergunta; se é longo, a IA busca e lê por ferramentas do próprio painel. A conversa salva
+registra o SHA-256 de cada arquivo lido.
+
+**Preparar para Claude e outras IAs** junta o texto dos arquivos de contexto em
+`<caso>\iped-pcba-ia\contexto-para-ia.md` para anexar ou colar no Claude (ou outra IA) e em
+`contexto-texto.json`, que a ferramenta `case_context_files` do MCP lê. Assim o Claude Desktop
+ligado ao MCP busca e lê os mesmos documentos que a IA local. O painel avisa antes que o texto
+vai para a nuvem e registra cada preparação e cópia em `contexto-preparado.log`.
+
+**Skills de análise**: seis skills no formato Agent Skills (`skills/`): análise financeira
+(PDFs, extratos, SIMBA, RIF), imagens, áudio, geolocalização, mídias x logs de uso do telefone e
+a análise forense completa, que orquestra as demais. O cartão **Skills de análise** instala em
+`~/.claude/skills` (Claude Code), em `~/.hermes/skills` (Hermes Agent) e gera os `.zip` para
+enviar no Claude Desktop ou claude.ai. Cada skill também aparece como agente no painel, para a IA
+local. Pelo console: `python -m iped_pcba skills --instalar`.
 
 **Copiar para Claude/Antigravity/Hermes** copia as instruções do agente e a pergunta para colar
 no programa ligado ao MCP. Claude Desktop e Antigravity usam modelos na nuvem: o painel avisa
@@ -85,6 +143,11 @@ Alertas e sugestões são regras fixas, cada uma com a fonte do número; não s�
 | Madrugada | 25% ou mais dos registros telemáticos entre 0h e 6h |
 | Conta em vários dispositivos | a mesma conta com mais de um dispositivo nos registros |
 | RT escrito pela IA | campos marcados para revisão no rascunho |
+
+A **rede de vínculos** mostra todos os vínculos do caso (não só os primeiros). Dá para arrastar
+os contatos, mover e dar zoom na tela, escolher o formato (força, circular, hierarquia, radial ou
+grade), a quantidade de vínculos, os nomes visíveis e a cor por tipo ou por grupo, buscar um
+contato, abrir em tela cheia e baixar a imagem em SVG.
 
 As sugestões apontam o próximo passo (criar marcadores, transcrever áudios, ativar faces,
 importar telemática, pedir cadastro de IPs, completar o RT, ligar a IA) e várias trazem uma
@@ -187,6 +250,7 @@ Depois de aplicado, para processar:
 ## Instalar no servidor Linux central
 
 ```bash
+bash scripts/instalar.sh baixar /opt/iped                   # só se ainda não houver IPED
 bash scripts/instalar.sh <pasta do IPED> diagnosticar --papel servidor
 bash scripts/instalar.sh <pasta do IPED> aplicar      --papel servidor
 <pasta do IPED>/pcba/transcricao-servidor.sh 11111 11112   # descoberta + serviço de transcrição

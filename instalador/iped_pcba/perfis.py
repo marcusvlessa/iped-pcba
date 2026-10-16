@@ -10,13 +10,13 @@ chaves da PCBA aplicadas por cima.
 import os
 import shutil
 
-from .configurar import definir_chave, gravar_texto, ler_texto
+from .configurar import Backup, definir_chave, gravar_texto, ler_chaves, ler_texto
 
 # Cada perfil: base do IPED, chaves do IPEDConfig.txt e chaves de arquivos em conf/.
 PERFIS = {
     "pcba-celular": {
         "descricao": "Extrações de celular (UFDR, Cellebrite, Oxygen, backups). "
-                     "Transcreve áudios de WhatsApp e gera grafo de contatos.",
+                     "Transcreve áudios de WhatsApp, gera grafo de contatos, lê prints (OCR) e QR codes.",
         "base": None,
         "ipedconfig": {
             "enableAudioTranscription": "true",
@@ -24,26 +24,29 @@ PERFIS = {
             "enableQRCode": "true",
             "enableImageSimilarity": "true",
             "enableHTMLReport": "true",
-            "enableOCR": "false",
+            "enableOCR": "true",
             "enableCarving": "false",
         },
         "conf": {},
     },
     "pcba-computador": {
-        "descricao": "Imagens de disco de computador. Recupera apagados (carving) e "
-                     "transcreve áudios.",
+        "descricao": "Imagens de disco de computador. Recupera apagados (carving), "
+                     "transcreve áudios, lê imagens (OCR) e QR codes.",
         "base": "forensic",
         "ipedconfig": {
             "enableAudioTranscription": "true",
             "enableGraphGeneration": "true",
             "enableHTMLReport": "true",
-            "enableOCR": "false",
+            "enableOCR": "true",
+            "enableQRCode": "true",
+            "enableImageSimilarity": "true",
         },
         "conf": {},
     },
     "pcba-telematica": {
         "descricao": "Retornos de provedores (Google, Meta/WhatsApp, Apple, operadoras). "
-                     "Expande os pacotes, indexa conteúdo e regex; sem carving nem thumbs de vídeo.",
+                     "Expande os pacotes, indexa conteúdo e regex, lê imagens (OCR) e QR codes; "
+                     "sem carving nem thumbs de vídeo.",
         "base": None,
         "ipedconfig": {
             "expandContainers": "true",
@@ -54,8 +57,9 @@ PERFIS = {
             "enableAudioTranscription": "true",
             "enableCarving": "false",
             "enableVideoThumbs": "false",
-            "enableImageSimilarity": "false",
-            "enableOCR": "false",
+            "enableImageSimilarity": "true",
+            "enableOCR": "true",
+            "enableQRCode": "true",
             "enableHTMLReport": "true",
         },
         "conf": {},
@@ -78,26 +82,30 @@ AJUDA = {
         "titulo": "Celular",
         "quando": "Extração de celular: UFDR do Cellebrite, Oxygen, XRY, backup de iPhone ou Android.",
         "liga": ["Transcrição de áudios (WhatsApp, Telegram)", "Grafo de contatos e comunicações",
-                 "Leitura de QR Code", "Busca de imagens semelhantes", "Relatório HTML"],
-        "desliga": ["OCR (lento; ligue à mão se precisar ler prints)", "Carving (a extração já vem organizada)"],
-        "tempo": "Médio. A transcrição é o que mais pesa; sem GPU, conte várias horas para muitos áudios.",
+                 "Leitura de QR Code", "Busca de imagens semelhantes", "OCR: texto de prints, fotos de "
+                 "documentos e PDFs escaneados", "Relatório HTML"],
+        "desliga": ["Carving (a extração já vem organizada)"],
+        "tempo": "Médio a lento. Transcrição e OCR são o que mais pesa; sem GPU, conte várias horas "
+                 "para muitos áudios e imagens.",
     },
     "pcba-computador": {
         "titulo": "Computador",
         "quando": "Imagem de disco (E01, DD, AD1) ou pendrive/HD de computador.",
         "liga": ["Tudo do perfil forense do IPED", "Recuperação de apagados (carving)",
-                 "Transcrição de áudios", "Grafo de comunicações", "Relatório HTML"],
-        "desliga": ["OCR"],
-        "tempo": "Lento. Carving e hashes leem o disco inteiro; use SSD como pasta temporária.",
+                 "Transcrição de áudios", "Grafo de comunicações", "OCR de imagens e PDFs escaneados",
+                 "Leitura de QR Code", "Busca de imagens semelhantes", "Relatório HTML"],
+        "desliga": [],
+        "tempo": "Lento. Carving, hashes e OCR leem o disco inteiro; use SSD como pasta temporária.",
     },
     "pcba-telematica": {
         "titulo": "Retorno de provedor",
         "quando": "Pacotes devolvidos por Google, Meta/WhatsApp, Apple, Microsoft e operadoras após quebra de sigilo.",
         "liga": ["Abre os pacotes (ZIP, MBOX, HTML, JSON)", "Indexa o conteúdo e expressões regulares "
                  "(telefones, e-mails, CPFs, chaves PIX)", "Grafo de comunicações", "Transcrição de áudios",
+                 "OCR das imagens e PDFs do retorno", "Leitura de QR Code", "Busca de imagens semelhantes",
                  "Relatório HTML"],
-        "desliga": ["Carving", "Miniaturas de vídeo", "Imagens semelhantes", "OCR", "Detecção de idioma"],
-        "tempo": "Rápido a médio, conforme o volume do retorno.",
+        "desliga": ["Carving", "Miniaturas de vídeo", "Detecção de idioma"],
+        "tempo": "Médio, conforme o volume do retorno; o OCR pesa quando há muitas imagens.",
     },
     "pcba-triagem": {
         "titulo": "Triagem rápida",
@@ -184,3 +192,19 @@ def criar_perfis(raiz, backup, simular=False, nomes=None):
     for nome in sorted(nomes or PERFIS):
         resultado[nome] = criar_perfil(raiz, nome, PERFIS[nome], backup, simular)
     return resultado
+
+
+def atualizar_se_preciso(raiz, nome):
+    """Regera um perfil da PCBA já instalado quando o pacote mudou as chaves dele (por exemplo OCR
+    ligado numa versão nova), com backup. Devolve aviso ou None."""
+    spec = PERFIS.get(nome)
+    arq = os.path.join(raiz, "profiles", nome, "IPEDConfig.txt")
+    if not spec or not os.path.isfile(arq):
+        return None
+    atuais = ler_chaves(ler_texto(arq))
+    if all(atuais.get(k) == v for k, v in spec["ipedconfig"].items()):
+        return None
+    backup = Backup(raiz)
+    criar_perfil(raiz, nome, spec, backup)
+    backup.fechar({"motivo": "perfil {} atualizado pelo painel".format(nome)})
+    return "Perfil {} atualizado para esta versão do pacote (backup em {}).".format(nome, backup.nome)

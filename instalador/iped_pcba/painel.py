@@ -24,11 +24,11 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, assistente, auditoria, clientesia, processar
+from . import __version__, assistente, auditoria, clientesia, contexto, multicasos, perfis, processar, skills
 from .configurar import PASTA_PCBA, gravar_texto, ler_chaves, ler_texto, listar_backups
 from .configurar import reverter as reverter_backup
-from .mcp import (CASO_ATIVO, PASTA_MCP, achar_java, definir_escrita, escrita_ativa,
-                  localizar_pacote)
+from .mcp import (CASO_ATIVO, PASTA_MCP, achar_java, atualizar_se_preciso, definir_escrita,
+                  escrita_ativa, localizar_pacote)
 from .recomendar import Alteracao
 
 PACOTE = os.path.dirname(os.path.abspath(__file__))
@@ -91,6 +91,8 @@ FILTROS = {
     "csv": "Planilhas CSV|*.csv;*.txt|Todos os arquivos|*.*",
     "imagem": "Imagens|*.jpg;*.jpeg;*.png",
     "todos": "Todos os arquivos|*.*",
+    "contexto": "Documentos|*.txt;*.md;*.csv;*.tsv;*.json;*.xml;*.html;*.htm;*.log;*.eml;*.rtf;*.docx;*.odt;*.ods;"
+                "*.xlsx;*.pptx;*.pdf|Todos os arquivos|*.*",
 }
 
 
@@ -140,6 +142,8 @@ class Estado(object):
         self.ultimo = None  # (maquina, plano) do último diagnóstico
         self.lock = threading.Lock()
         self.conversas = assistente.Conversas()
+        self.fila = []          # indexação de vários casos, um depois do outro
+        self.fila_grupo = None
 
     # ------------------------------------------------------------ visão geral
     def resumo(self):
@@ -213,7 +217,7 @@ class Estado(object):
         return {"backup": nome, "restaurados": arquivos}
 
     # ------------------------------------------------------------ processamento
-    def processar(self, d):
+    def _comando(self, d):
         evid = [e for e in (d.get("evidencias") or []) if e.strip()]
         saida = (d.get("saida") or "").strip()
         extras = ["--continue"] if d.get("continuar") else []
@@ -222,13 +226,114 @@ class Estado(object):
         cmd = processar.comando_processar(self.raiz, evid, saida, perfil=d.get("perfil") or None,
                                           adicionar=bool(d.get("adicionar")) or bool(d.get("continuar")),
                                           fuso=d.get("fuso") or "GMT-3", extras=extras)
+        return evid, saida, cmd
+
+    def processar(self, d, depois=None):
+        evid, saida, cmd = self._comando(d)
+        aviso_perfil = perfis.atualizar_se_preciso(self.raiz, d.get("perfil") or "")
 
         def fim(codigo):
             if codigo == 0 or processar.eh_caso(saida):
                 processar.registrar_caso(saida, "processado no painel", evid)
+            if depois:
+                depois(codigo)
         tid = self.tarefas.iniciar("processar", "Processar " + os.path.basename(saida.rstrip("\\/")),
                                    cmd, cwd=self.raiz, ao_terminar=fim)
-        return {"tarefa": tid, "comando": cmd}
+        return {"tarefa": tid, "comando": cmd, "aviso": aviso_perfil}
+
+    # ------------------------------------------------------------ fila (indexação multicase)
+    def fila_adicionar(self, d):
+        _, saida, _ = self._comando(d)       # valida evidências e pasta já ao pôr na fila
+        with self.lock:
+            if any(os.path.normcase(os.path.abspath(j["saida"])) == os.path.normcase(os.path.abspath(saida))
+                   and j["estado"] in ("aguardando", "rodando") for j in self.fila):
+                raise ValueError("Esta pasta de caso já está na fila.")
+            self.fila.append({"id": "{}".format(len(self.fila) + 1), "saida": saida, "estado": "aguardando",
+                              "tarefa": None, "pedido": {k: d.get(k) for k in
+                                                         ("evidencias", "saida", "perfil", "fuso", "portavel")}})
+        return self.fila_ler()
+
+    def fila_remover(self, d):
+        with self.lock:
+            self.fila = [j for j in self.fila if not (j["id"] == d.get("id") and j["estado"] != "rodando")]
+        return self.fila_ler()
+
+    def fila_iniciar(self, d):
+        self.fila_grupo = (d.get("grupo") or "").strip() or None
+        self._fila_proxima()
+        return self.fila_ler()
+
+    def _fila_proxima(self):
+        with self.lock:
+            if any(j["estado"] == "rodando" for j in self.fila):
+                return
+            prox = next((j for j in self.fila if j["estado"] == "aguardando"), None)
+            if prox:
+                prox["estado"] = "rodando"
+        if not prox:
+            ok = [j["saida"] for j in self.fila if j["estado"] == "ok"]
+            if self.fila_grupo and len(ok) >= 2:
+                from . import multicasos
+                multicasos.salvar_grupo(self.fila_grupo, ok)
+                self.fila_grupo = None
+            return
+
+        def depois(codigo, j=prox):
+            j["estado"] = "ok" if codigo == 0 else "erro"
+            self._fila_proxima()
+        try:
+            prox["tarefa"] = self.processar(prox["pedido"], depois)["tarefa"]
+        except Exception as e:  # pasta ocupada desde que entrou na fila, evidência sumiu...
+            prox["estado"], prox["erro"] = "erro", str(e)
+            self._fila_proxima()
+
+    def fila_ler(self):
+        out = []
+        for j in self.fila:
+            x = {k: j.get(k) for k in ("id", "saida", "estado", "tarefa", "erro")}
+            x["evidencias"] = j["pedido"].get("evidencias")
+            x["perfil"] = j["pedido"].get("perfil")
+            if j["tarefa"] and j["estado"] == "rodando":
+                try:
+                    p = self.tarefas.progresso(j["tarefa"])
+                    x["percentual"], x["restante_s"], x["fase"] = p["percentual"], p["restante_s"], p["fase"]
+                except Exception:
+                    pass
+            out.append(x)
+        return {"fila": out, "grupo": self.fila_grupo}
+
+    # ------------------------------------------------------------ dependências (instalação automática)
+    def deps_ler(self):
+        from . import dependencias
+        r = dependencias.situacao(self.raiz)
+        r["pasta_iped"] = dependencias.pasta_padrao_iped()
+        return r
+
+    def deps_instalar(self, d):
+        from . import dependencias
+        itens = d.get("itens") or ["tudo"]
+        if any(i not in dependencias.ITENS + ["tudo"] for i in itens):
+            raise ValueError("Item desconhecido.")
+        py = _python_iped(self.raiz) if self.raiz else sys.executable
+        cmd = [py] + _boot("dependencias", "instalar", *itens)
+        if self.raiz:
+            cmd += ["--iped", self.raiz]
+        if d.get("destino"):
+            cmd += ["--destino", d["destino"]]
+        tid = None
+
+        def fim(codigo):
+            # IPED recém-instalado: o painel passa a usá-lo
+            try:
+                with open(self.tarefas.ler_log(tid, 0, 50 * 1024 * 1024)["tarefa"]["log"], encoding="utf-8",
+                          errors="replace") as f:
+                    for linha in f:
+                        if linha.startswith("IPED_RAIZ="):
+                            self.raiz, self.ultimo = linha.split("=", 1)[1].strip(), None
+            except Exception:
+                pass
+        tid = self.tarefas.iniciar("dependencias", "Instalar " + ", ".join(itens), cmd, ao_terminar=fim)
+        return {"tarefa": tid}
 
     def whisper(self, d):
         cmd = [_python_iped(self.raiz)] + _boot("componentes", "whisper")
@@ -299,8 +404,9 @@ class Estado(object):
         if not r["mcp"]["instalado"]:
             raise ValueError("O MCP não está instalado: aplique a configuração com o pacote completo (passo 1).")
         caso = _caso_valido(d)
+        itens = contexto.ler_lista(caso) if d.get("usar_contexto", True) else []
         cid = self.conversas.iniciar(r["mcp"]["lancador"], caso, d.get("agente"), d.get("pergunta"),
-                                     assistente.ler_config(), bool(r["mcp"]["escrita"]))
+                                     assistente.ler_config(), bool(r["mcp"]["escrita"]), itens)
         return {"id": cid}
 
     # ------------------------------------------------------------ IA
@@ -445,10 +551,40 @@ def _rotear(e, rota, d):
                                      bool(d.get("multiplos")), d.get("filtro"))}
     if rota == "/api/processar":
         return e.processar(d)
+    if rota == "/api/fila/ler":
+        return e.fila_ler()
+    if rota == "/api/fila/adicionar":
+        return e.fila_adicionar(d)
+    if rota == "/api/fila/remover":
+        return e.fila_remover(d)
+    if rota == "/api/fila/iniciar":
+        return e.fila_iniciar(d)
+    if rota == "/api/multi/grupos":
+        return {"grupos": multicasos.grupos()}
+    if rota == "/api/multi/salvar":
+        return {"grupos": multicasos.salvar_grupo(d.get("nome"), [_caso_valido({"caso": c}) for c in d.get("casos") or []])}
+    if rota == "/api/multi/remover":
+        return {"grupos": multicasos.remover_grupo(d.get("nome"))}
+    if rota == "/api/multi/abrir":
+        return multicasos.abrir_no_iped(d.get("casos") or [])
+    if rota == "/api/multi/cruzar":
+        r = multicasos.cruzar([_caso_valido({"caso": c}) for c in d.get("casos") or []])
+        r["relatorio"] = multicasos.salvar_relatorio(r)
+        r["texto"] = multicasos.relatorio_md(r)
+        return r
+    if rota == "/api/multi/abrir-pasta":
+        os.makedirs(multicasos.PASTA_SAIDA, exist_ok=True)
+        return {"aberto": _abrir_local(multicasos.PASTA_SAIDA)}
+    if rota == "/api/deps/ler":
+        return e.deps_ler()
+    if rota == "/api/deps/instalar":
+        return e.deps_instalar(d)
     if rota == "/api/whisper":
         return e.whisper(d)
     if rota == "/api/tarefa":
         return e.tarefas.ler_log(d["id"], int(d.get("desde") or 0))
+    if rota == "/api/tarefa/progresso":
+        return e.tarefas.progresso(d["id"])
     if rota == "/api/parar":
         return {"parado": e.tarefas.parar(d["id"])}
     if rota == "/api/caso/adicionar":
@@ -486,7 +622,29 @@ def _rotear(e, rota, d):
         return {"ok": True}
     if rota == "/api/assist/salvar":
         return {"arquivo": assistente.salvar(_caso_valido(d), d.get("agente") or "Assistente", d.get("pergunta") or "",
-                                             d.get("resposta") or "", d.get("modelo") or "")}
+                                             d.get("resposta") or "", d.get("modelo") or "", d.get("contexto"))}
+    if rota == "/api/contexto/ler":
+        return contexto.situacao(_caso_valido(d))
+    if rota == "/api/contexto/adicionar":
+        contexto.adicionar(_caso_valido(d), d.get("caminhos") or [])
+        return contexto.situacao(_caso_valido(d))
+    if rota == "/api/contexto/remover":
+        contexto.remover(_caso_valido(d), d.get("caminho") or "")
+        return contexto.situacao(_caso_valido(d))
+    if rota == "/api/skills/ler":
+        return skills.situacao()
+    if rota == "/api/skills/instalar":
+        return {"feito": skills.instalar(d.get("destinos"))}
+    if rota == "/api/skills/abrir":
+        os.makedirs(skills.ZIPS, exist_ok=True)
+        return {"aberto": _abrir_local(skills.ZIPS)}
+    if rota == "/api/contexto/preparar":
+        return contexto.preparar(_caso_valido(d))
+    if rota == "/api/contexto/abrir":
+        return {"aberto": _abrir_local(os.path.join(_caso_valido(d), "iped-pcba-ia"))}
+    if rota == "/api/contexto/copiado":
+        contexto.registrar_copia(_caso_valido(d), str(d.get("destino") or "IA na nuvem")[:80])
+        return {"ok": True}
     if rota == "/api/visao/ler":
         return e.visao_ler(_caso_valido(d))
     if rota == "/api/visao/atualizar":
@@ -559,16 +717,28 @@ def _rotear_rt(rota, d):
         alvo = os.path.join(caso, rt.PASTA_CASO, "RT.docx" if d.get("o") == "docx" else "")
         if not os.path.exists(alvo):
             raise ValueError("Ainda não existe: " + alvo)
-        if WIN:
-            os.startfile(alvo)  # noqa
-        elif shutil.which("xdg-open"):
-            subprocess.Popen(["xdg-open", alvo])
-        return {"aberto": alvo}
+        return {"aberto": _abrir_local(alvo)}
     raise KeyError(rota)
+
+
+def _abrir_local(alvo):
+    """Abre arquivo ou pasta no programa padrão desta máquina."""
+    if WIN:
+        os.startfile(alvo)  # noqa
+    elif shutil.which("xdg-open"):
+        subprocess.Popen(["xdg-open", alvo])
+    return alvo
 
 
 def servir(raiz, porta=0, navegador=True):
     estado = Estado(raiz)
+    try:
+        aviso = atualizar_se_preciso(estado.raiz, os.path.dirname(os.path.dirname(PACOTE)))
+        if aviso:
+            print(aviso, flush=True)
+    except OSError as e:  # MCP em uso por uma IA aberta: segue com o instalado
+        print("Não consegui atualizar o MCP do IPED ({}). Feche a IA e abra o painel de novo.".format(e),
+              flush=True)
     html = ler_texto(os.path.join(PACOTE, "painel.html"))
     srv = ThreadingHTTPServer(("127.0.0.1", porta), _handler(estado, html))
     estado.servidor = srv

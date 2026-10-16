@@ -67,6 +67,11 @@ def _args(argv):
                     help="nome do investigado de uma conta (pode repetir)")
     rl.add_argument("--unidade", help="JSON da unidade (padrão: ~/.iped-pcba/unidade.json)")
 
+    sk = sub.add_parser("skills", help="skills de análise para Claude Code, Hermes e Claude Desktop")
+    sk.add_argument("--instalar", action="store_true", help="instala nos programas encontrados e gera os .zip")
+    sk.add_argument("--destino", action="append", choices=["claude-code", "hermes", "zip"],
+                    help="instala só neste destino (pode repetir)")
+
     sub.add_parser("localizar", help="lista as instalações do IPED encontradas")
     r = sub.add_parser("reverter", help="restaura um backup")
     comum(r)
@@ -219,6 +224,16 @@ def _main(argv=None):
         return 2
     if args.comando == "relatorio":
         return _relatorio(args)
+    if args.comando == "skills":
+        from . import skills
+        if args.instalar or args.destino:
+            for f in skills.instalar(args.destino):
+                print("{}\t{}\t{}".format(f["destino"], f["skill"], f["acao"]))
+            return 0
+        for d in skills.situacao()["destinos"]:
+            print("{} ({}): {}".format(d["nome"], d["pasta"], ", ".join(
+                "{}={}".format(i["skill"], i["estado"]) for i in d["itens"])))
+        return 0
     if args.comando == "localizar":
         for i in localizar_iped():
             print("{}\t{}".format(i["versao"] or "?", i["raiz"]))

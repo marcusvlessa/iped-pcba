@@ -332,6 +332,28 @@ class TestPerfis(unittest.TestCase):
             self.assertTrue(nome.startswith("pcba-"))
             self.assertTrue(spec["descricao"])
 
+    def test_ocr_qrcode_e_semelhantes_nos_perfis_de_analise(self):
+        for nome in ("pcba-celular", "pcba-computador", "pcba-telematica"):
+            for chave in ("enableOCR", "enableQRCode", "enableImageSimilarity"):
+                self.assertEqual(perfis.PERFIS[nome]["ipedconfig"].get(chave), "true", (nome, chave))
+
+    def test_perfil_antigo_e_regerado(self):
+        tmp = tempfile.mkdtemp()
+        try:
+            raiz = os.path.join(tmp, "iped")
+            shutil.copytree(FIXTURE, raiz)
+            perfis.criar_perfis(raiz, configurar.Backup(raiz))
+            self.assertIsNone(perfis.atualizar_se_preciso(raiz, "pcba-celular"))
+            arq = os.path.join(raiz, "profiles", "pcba-celular", "IPEDConfig.txt")
+            texto = configurar.definir_chave(configurar.ler_texto(arq), "enableOCR", "false")
+            configurar.gravar_texto(arq, texto)  # como ficou instalado pela versão anterior
+            self.assertIn("atualizado", perfis.atualizar_se_preciso(raiz, "pcba-celular"))
+            self.assertEqual(configurar.ler_chaves(configurar.ler_texto(arq))["enableOCR"], "true")
+            self.assertIsNone(perfis.atualizar_se_preciso(raiz, "forensic"))
+            self.assertIsNone(perfis.atualizar_se_preciso(raiz, ""))
+        finally:
+            shutil.rmtree(tmp)
+
 
 if __name__ == "__main__":
     unittest.main()

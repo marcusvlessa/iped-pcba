@@ -33,6 +33,8 @@ public class VisaoCaso {
     public static final String PASTA = "iped-pcba-painel";
     public static final String ARQUIVO = "visao.json";
     static final int ANO_INICIAL = 1990;
+    /** Ligações da rede enviadas ao painel: a rede inteira de casos grandes cabe aqui (milhares de ligações). */
+    static final int REDE_MAX = 20000;
 
     /** Quantos itens do caso atendem a uma consulta do IPED. */
     public interface Contador {
@@ -83,7 +85,7 @@ public class VisaoCaso {
             v.put("linha_do_tempo", lt);
         });
         parte(erros, "contatos", () -> v.put("contatos", s.getTopContacts(15).get("contacts")));
-        parte(erros, "rede", () -> v.put("rede", s.getCommunicationsGraph("", 2, 60)));
+        parte(erros, "rede", () -> v.put("rede", s.getCommunicationsGraph("", 2, REDE_MAX, REDE_MAX)));
         parte(erros, "dispositivos", () -> v.put("dispositivos", dispositivos(s.getDeviceAndOwnerInfo())));
         parte(erros, "ia_filtros", () -> {
             Object fs = s.listAiFilters().get("filters");

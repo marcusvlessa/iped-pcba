@@ -18,7 +18,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from . import agentes
+from . import agentes, contexto as ctx
 from .configurar import gravar_texto, ler_texto
 from .mcpcliente import ClienteMcp, ErroMcp
 
@@ -149,20 +149,28 @@ def modelo_de(config):
 
 # ------------------------------------------------------------------ conversa
 
-def executar(modelo, mcp, agente, pergunta, ao_evento, escrita=False, parar=lambda: False):
+def executar(modelo, mcp, agente, pergunta, ao_evento, escrita=False, parar=lambda: False, contexto=None):
     """Laço da conversa: modelo pede ferramentas, MCP responde, até o modelo dar a resposta final.
+
+    contexto (ctx.Contexto): arquivos que o analista anexou; vão na pergunta ou viram ferramentas locais.
 
     ao_evento(dict) recebe cada passo: tipo = pensando | ferramenta | resultado | resposta | erro.
     Devolve o texto final.
     """
-    permitidas = set(agente["ferramentas"])
     todas = mcp.ferramentas_completas()
+    permitidas = {f["name"] for f in todas} if agente["ferramentas"] == "todas" else set(agente["ferramentas"])
     ferramentas = [f for f in todas if f["name"] in permitidas]
     if agente.get("escrita") and not escrita:
         ao_evento({"tipo": "aviso", "texto": "A escrita no caso está desligada (passo IA/MCP). Este agente só vai "
                                              "consultar; marcar ou escrever no RT não vai funcionar."})
+    locais = set()
+    if contexto is not None and not contexto.vazio():
+        pergunta = pergunta + "\n\n" + contexto.apresentacao()
+        if contexto.total() > ctx.JUNTO_NA_PERGUNTA:
+            ferramentas = ferramentas + ctx.FERRAMENTAS
+            locais = set(ctx.NOMES)
     mensagens = [{"role": "system", "content": agentes.sistema(agente)}, {"role": "user", "content": pergunta}]
-    for passo in range(MAX_PASSOS):
+    for passo in range(agente.get("passos") or MAX_PASSOS):
         if parar():
             raise RuntimeError("Conversa interrompida.")
         ao_evento({"tipo": "pensando", "passo": passo + 1})
@@ -173,7 +181,9 @@ def executar(modelo, mcp, agente, pergunta, ao_evento, escrita=False, parar=lamb
             return texto
         for c in chamadas:
             ao_evento({"tipo": "ferramenta", "nome": c["nome"], "args": c["args"]})
-            if c["nome"] not in permitidas:
+            if c["nome"] in locais:
+                saida = contexto.ferramenta(c["nome"], c["args"])
+            elif c["nome"] not in permitidas:
                 saida = "Ferramenta não permitida para este agente: {}".format(c["nome"])
             else:
                 try:
@@ -201,7 +211,7 @@ class Conversas(object):
         self._lock = threading.Lock()
         self._n = 0
 
-    def iniciar(self, lancador, caso, agente_id, pergunta, config, escrita):
+    def iniciar(self, lancador, caso, agente_id, pergunta, config, escrita, contexto_itens=None):
         agente = agentes.por_id(agente_id)
         if not (pergunta or "").strip():
             raise ValueError("Escreva a pergunta.")
@@ -211,7 +221,7 @@ class Conversas(object):
             cid = "c{}".format(self._n)
             conv = {"id": cid, "agente": agente["nome"], "pergunta": pergunta, "caso": caso,
                     "modelo": config["modelo"], "inicio": datetime.datetime.now().isoformat(timespec="seconds"),
-                    "eventos": [], "rodando": True, "resposta": None, "parar": False}
+                    "eventos": [], "rodando": True, "resposta": None, "parar": False, "contexto": []}
             self._c[cid] = conv
 
         def evento(e):
@@ -222,11 +232,20 @@ class Conversas(object):
         def rodar():
             mcp = None
             try:
+                c = None
+                if contexto_itens:
+                    evento({"tipo": "aviso", "texto": "Lendo os arquivos de contexto…"})
+                    c = ctx.Contexto(contexto_itens)
+                    conv["contexto"] = c.para_registro()
+                    evento({"tipo": "aviso", "texto": "{} arquivo(s) de contexto lidos ({} caracteres).".format(
+                        len(c.textos), c.total())})
+                    for arq, motivo in c.problemas[:10]:
+                        evento({"tipo": "aviso", "texto": "Contexto não lido: {} ({})".format(arq, motivo)})
                 evento({"tipo": "aviso", "texto": "Abrindo o caso no MCP…"})
                 mcp = ClienteMcp([lancador, "--case", caso], timeout=600)
                 mcp.iniciar()
                 conv["resposta"] = executar(modelo, mcp, agente, pergunta, evento, escrita,
-                                            parar=lambda: conv["parar"])
+                                            parar=lambda: conv["parar"], contexto=c)
             except Exception as ex:  # mostra no painel
                 evento({"tipo": "erro", "texto": str(ex)})
             finally:
@@ -242,7 +261,7 @@ class Conversas(object):
             if not c:
                 raise ValueError("Conversa não encontrada.")
             return {"eventos": c["eventos"][desde:], "pos": len(c["eventos"]), "rodando": c["rodando"],
-                    "resposta": c["resposta"]}
+                    "resposta": c["resposta"], "contexto": c["contexto"]}
 
     def parar(self, cid):
         with self._lock:
@@ -250,7 +269,7 @@ class Conversas(object):
                 self._c[cid]["parar"] = True
 
 
-def salvar(caso, agente_nome, pergunta, resposta, modelo):
+def salvar(caso, agente_nome, pergunta, resposta, modelo, contexto=None):
     """Grava a conversa em <caso>/iped-pcba-ia/conversas/<data>-<agente>.md e devolve o caminho."""
     agora = datetime.datetime.now()
     pasta = os.path.join(caso, PASTA_CONVERSAS)
@@ -258,7 +277,10 @@ def salvar(caso, agente_nome, pergunta, resposta, modelo):
     nome = "{}-{}.md".format(agora.strftime("%Y%m%d-%H%M%S"),
                              "".join(ch if ch.isalnum() else "-" for ch in agente_nome.lower()).strip("-"))
     caminho = os.path.join(pasta, nome)
+    anexos = "".join("- {}\n".format(x) for x in (contexto or []))
     gravar_texto(caminho, "# {}\n\nData: {}  \nModelo: {} (IA local)  \nCaso: {}\n\n## Pergunta\n\n{}\n\n"
-                          "## Resposta da IA (revisar antes de usar)\n\n{}\n".format(
-                              agente_nome, agora.strftime("%d/%m/%Y %H:%M"), modelo, caso, pergunta, resposta or ""))
+                          "{}## Resposta da IA (revisar antes de usar)\n\n{}\n".format(
+                              agente_nome, agora.strftime("%d/%m/%Y %H:%M"), modelo, caso, pergunta,
+                              "## Arquivos de contexto lidos pela IA\n\n" + anexos + "\n" if anexos else "",
+                              resposta or ""))
     return caminho

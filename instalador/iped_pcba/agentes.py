@@ -160,8 +160,14 @@ AGENTES = [
 ]
 
 
+def todos():
+    """Agentes fixos e, depois deles, as skills de análise da pasta skills/ (cada uma vira um agente)."""
+    from . import skills
+    return AGENTES + [skills.como_agente(s) for s in skills.listar()]
+
+
 def por_id(agente_id):
-    for a in AGENTES:
+    for a in todos():
         if a["id"] == agente_id:
             return a
     raise ValueError("Agente desconhecido: {}".format(agente_id))
@@ -177,4 +183,4 @@ def texto_para_copiar(agente, pergunta):
 
 
 def para_painel():
-    return [dict(a, sistema=sistema(a)) for a in AGENTES]
+    return [dict(a, sistema=sistema(a)) for a in todos()]
