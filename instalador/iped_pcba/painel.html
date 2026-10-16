@@ -162,6 +162,7 @@ nav .n.ok::after{content:"✓"}
 <header>
   <h1>Painel IPED-PCBA</h1>
   <div class="caso"><label for="casoSel">Caso em análise</label><select id="casoSel" onchange="trocarCaso(this.value)"></select></div>
+  <button class="b p" id="chipIped" style="display:none" onclick="ir('config')" title="Há uma versão mais nova do IPED">Atualizar IPED</button>
   <span class="chip" id="chipIa" title="Situação da IA">IA</span>
   <button class="b" onclick="sair()">Sair</button>
 </header>
@@ -198,6 +199,10 @@ nav .n.ok::after{content:"✓"}
 <section id="config">
   <h2>1. Configurar a máquina</h2>
   <p class="sub">O painel lê o hardware e propõe a configuração do IPED. Você pode desmarcar ou editar cada item antes de aplicar. Tudo tem backup.</p>
+  <div class="card" id="ipedVelho" style="display:none;border-color:#d97706">
+    <h3>IPED desatualizado</h3><p id="ipedVelhoTxt" class="sub"></p>
+    <div class="row"><button class="b p" onclick="instalarDeps(['iped'])">Atualizar o IPED</button><span class="ajuda">Depois, aplique de novo a configuração abaixo para levar os ajustes da PCBA ao IPED novo.</span></div>
+  </div>
   <div class="card" id="semIped" style="display:none">
     <h3>IPED não encontrado</h3>
     <div class="row"><input type="text" class="grow" id="raizManual" placeholder="Pasta do IPED (onde está o iped.jar)">
@@ -644,8 +649,10 @@ async function lerTarefa(){if(!tarefaId)return;const id=tarefaId;try{const r=awa
 async function carregarDeps(){await tentar(async()=>{const r=await api("deps/ler");if(!$("destIped").value)$("destIped").value=r.pasta_iped;
   const l=r.itens.filter(i=>i.aplica!==false);
   $("deps").innerHTML="<table>"+l.map(i=>`<tr><td><b>${esc(i.nome)}</b><div class="muted" style="font-size:12px">${esc(i.detalhe||"")}${i.tamanho&&!i.ok?" · "+esc(i.tamanho):""}</div></td>`+
-    `<td>${i.ok?'<span class="tag ok">pronto</span>':'<span class="tag warn">falta</span>'}</td><td>${i.ok?"":i.auto?`<button class="b" onclick="instalarDeps(['${i.id}'])">Instalar</button>${i.admin?' <span class="ajuda">pede administrador</span>':""}`:i.manual?`<span class="ajuda">rode no terminal: <code>${esc(i.manual)}</code></span>`:`<span class="ajuda">${esc(i.requer||"instale o IPED primeiro")}</span>`}</td></tr>`).join("")+"</table>";
-  $("depsTudo").disabled=!l.some(i=>!i.ok&&i.auto)})}
+    `<td>${i.ok?'<span class="tag ok">pronto</span>':i.desatualizado?'<span class="tag warn">desatualizado</span>':'<span class="tag warn">falta</span>'}</td><td>${i.ok?"":i.auto?`<button class="b${i.desatualizado?" p":""}" onclick="instalarDeps(['${i.id}'])">${i.desatualizado?"Atualizar para "+esc(i.mais_nova):"Instalar"}</button>${i.admin?' <span class="ajuda">pede administrador</span>':""}`:i.manual?`<span class="ajuda">rode no terminal: <code>${esc(i.manual)}</code></span>`:`<span class="ajuda">${esc(i.requer||"instale o IPED primeiro")}</span>`}</td></tr>`).join("")+"</table>";
+  $("depsTudo").disabled=!l.some(i=>!i.ok&&i.auto);
+  const v=l.find(i=>i.desatualizado);$("ipedVelho").style.display=v?"block":"none";$("chipIped").style.display=v?"":"none";
+  if(v)$("ipedVelhoTxt").textContent=`O IPED desta máquina é o ${v.versao} e a versão atual é a ${v.mais_nova}. A atualização instala o novo ao lado, sem mexer no antigo nem nos casos, e o painel passa a usar o novo.`})}
 let depsId=null,depsPos=0;
 async function instalarDeps(itens,destino){await tentar(async()=>{const r=await api("deps/instalar",{itens,destino:destino||""});depsId=r.tarefa;depsPos=0;
   $("depsLogCard").style.display="block";$("depsLog").textContent="";lerDeps()})}
@@ -1135,7 +1142,8 @@ async function salvarConversa(){await tentar(async()=>{const r=await api("assist
 
 async function sair(){if(!confirm("Fechar o painel? Processamentos em andamento continuam."))return;await tentar(()=>api("sair"));document.body.innerHTML='<p style="padding:30px">Painel encerrado. Pode fechar esta aba.</p>'}
 
-resumo().then(()=>{if(R.iped_ok&&!R.configurado)diagnosticar()}).catch(e=>aviso(e.message,true));
+resumo().then(()=>{if(R.iped_ok&&!R.configurado)diagnosticar();verificarIped()}).catch(e=>aviso(e.message,true));
+async function verificarIped(){try{const r=await api("deps/ler");const v=r.itens.find(i=>i.desatualizado);$("chipIped").style.display=v?"":"none";if(v)$("chipIped").textContent="Atualizar IPED "+v.versao+" → "+v.mais_nova}catch(e){}}
 setInterval(()=>{if(document.visibilityState=="visible")api("resumo").then(r=>{R=r;desenharTarefas();}).catch(()=>{})},15000);
 </script>
 </body>

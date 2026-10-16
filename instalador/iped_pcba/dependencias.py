@@ -27,8 +27,8 @@ import zipfile
 WIN = os.name == "nt"
 IPED_VERSAO = "4.3.1"
 IPED_REPO = "sepinf-inc/IPED"
-IPED_ZIP = "IPED-{v}_and_java_plugins.zip"
-IPED_PLUGINS_WIN = "IPED-4.3.x_plugins_Whisper_FaceRecognition_AgeClassifier_Win64_CPU.zip"
+IPED_ZIP_FIM = "_and_java_plugins.zip"
+IPED_PLUGINS_FIM = "_plugins_Whisper_FaceRecognition_AgeClassifier_Win64_CPU.zip"
 PCBA_REPO = "marcusvlessa/iped-pcba"
 OLLAMA_WIN = "https://ollama.com/download/OllamaSetup.exe"
 VCREDIST = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
@@ -48,6 +48,34 @@ def _json(url):
     req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": "iped-pcba"})
     with urllib.request.urlopen(req, timeout=60) as r:
         return json.loads(r.read().decode("utf-8"))
+
+
+_MAIS_NOVA = []
+
+
+def versao_iped_mais_nova():
+    """Versão da última release do IPED no GitHub; sem internet, a versão que este pacote conhece."""
+    if not _MAIS_NOVA:
+        try:
+            req = urllib.request.Request("https://api.github.com/repos/{}/releases/latest".format(IPED_REPO),
+                                         headers={"Accept": "application/vnd.github+json", "User-Agent": "iped-pcba"})
+            with urllib.request.urlopen(req, timeout=5) as r:
+                tag = json.loads(r.read().decode("utf-8")).get("tag_name") or ""
+            v = tag.lstrip("vV")
+            _MAIS_NOVA.append(v if _chave(v) > _chave(IPED_VERSAO) else IPED_VERSAO)
+        except Exception:
+            _MAIS_NOVA.append(IPED_VERSAO)
+    return _MAIS_NOVA[0]
+
+
+def _chave(v):
+    import re
+    return tuple(int(x) for x in re.findall(r"\d+", v or "")) or (0,)
+
+
+def versao_instalada(raiz):
+    from .localizar import versao_de
+    return versao_de(raiz) if raiz else ""
 
 
 def asset_github(repo, nome=None, tag=None, termina=None):
@@ -251,13 +279,25 @@ def tem_mcp(raiz):
         os.path.isfile(os.path.join(REPO, "mcp-dist", "iped-pcba-mcp.jar"))
 
 
+def _item_iped(raiz):
+    nova = versao_iped_mais_nova()
+    tem = bool(raiz and os.path.isfile(os.path.join(raiz, "iped.jar")))
+    atual = versao_instalada(raiz) if tem else ""
+    velho = bool(tem and atual and _chave(atual) < _chave(nova))
+    item = {"id": "iped", "nome": "IPED " + (atual or nova), "ok": tem and not velho,
+            "detalhe": raiz or "não encontrado", "auto": True, "tamanho": "714 MB", "versao": atual, "mais_nova": nova}
+    if velho:
+        item.update(desatualizado=True, nome="IPED " + atual,
+                    detalhe="{} · a versão atual é a {}; a nova é instalada ao lado e a antiga fica intacta".format(raiz, nova))
+    return item
+
+
 def situacao(raiz=None):
     """Lista o que existe e o que falta. 'auto' diz se o painel instala sozinho nesta máquina."""
     gpu = gpu_nvidia()
     mods = modelos_ollama()
     itens = [
-        {"id": "iped", "nome": "IPED " + IPED_VERSAO, "ok": bool(raiz and os.path.isfile(os.path.join(raiz, "iped.jar"))),
-         "detalhe": raiz or "não encontrado", "auto": True, "tamanho": "714 MB"},
+        _item_iped(raiz),
         {"id": "plugins", "nome": "Transcrição (Whisper) e reconhecimento facial do IPED", "ok": tem_plugins(raiz),
          "detalhe": "bibliotecas Python do IPED", "auto": bool(raiz), "tamanho": "528 MB" if WIN else "pip"},
         {"id": "vcredist", "nome": "Microsoft Visual C++ 2015-2022", "ok": tem_vcredist(),
@@ -302,18 +342,24 @@ def pasta_padrao_iped():
     return os.path.join(melhor, "Tools", "IPED")
 
 
-def instalar_iped(destino=None):
+def instalar_iped(destino=None, atual=None):
+    """Instala a última versão do IPED. Atualizando, a nova vai ao lado da antiga, que fica intacta."""
+    versao = versao_iped_mais_nova()
+    if atual:
+        destino = destino or os.path.dirname(os.path.normpath(atual))
+        log("IPED instalado:", versao_instalada(atual) or "versão desconhecida", "em", atual)
+        log("Instalando o IPED", versao, "ao lado; a pasta antiga não é alterada.")
     destino = destino or pasta_padrao_iped()
-    a = asset_github(IPED_REPO, nome=IPED_ZIP.format(v=IPED_VERSAO), tag=IPED_VERSAO)
+    a = asset_github(IPED_REPO, termina=IPED_ZIP_FIM, tag=versao)
     livre = shutil.disk_usage(os.path.splitdrive(os.path.abspath(destino))[0] + os.sep if WIN else "/").free
     if livre < 3 * 1024 ** 3:
         raise RuntimeError("Pouco espaço livre para o IPED (precisa de uns 3 GB).")
     z = baixar(a["url"], os.path.join(_downloads(), a["nome"]), a["tamanho"], a["sha256"])
     os.makedirs(destino, exist_ok=True)
     extrair(z, destino)
-    raiz = os.path.join(destino, "iped-" + IPED_VERSAO)
+    raiz = os.path.join(destino, "iped-" + versao)
     if not os.path.isfile(os.path.join(raiz, "iped.jar")):
-        raise RuntimeError("O zip não trouxe iped-{}/iped.jar".format(IPED_VERSAO))
+        raise RuntimeError("O zip não trouxe iped-{}/iped.jar".format(versao))
     if not WIN:
         for sub in ("jre/bin", "tools"):
             for r, _, fs in os.walk(os.path.join(raiz, sub)):
@@ -321,6 +367,8 @@ def instalar_iped(destino=None):
                     p = os.path.join(r, f)
                     os.chmod(p, os.stat(p).st_mode | 0o111)
     log("IPED instalado em", raiz)
+    if atual:
+        log("Abra \"1. Configurar a máquina\" e aplique a configuração para levar os ajustes da PCBA ao IPED novo.")
     log("IPED_RAIZ=" + raiz)
     return raiz
 
@@ -332,7 +380,7 @@ def instalar_plugins(raiz):
         py = _python_iped(raiz) or shutil.which("python3")
         log("Linux: instalando faster-whisper no Python", py)
         return subprocess.check_call([py, "-m", "pip", "install", "--user", "faster-whisper", "numpy<2"])
-    a = asset_github(IPED_REPO, nome=IPED_PLUGINS_WIN, tag=IPED_VERSAO)
+    a = asset_github(IPED_REPO, termina=IPED_PLUGINS_FIM, tag=versao_instalada(raiz) or IPED_VERSAO)
     z = baixar(a["url"], os.path.join(_downloads(), a["nome"]), a["tamanho"], a["sha256"])
     copia = os.path.join(raiz, "conf.antes-plugins-" + time.strftime("%Y%m%d-%H%M%S"))
     shutil.copytree(os.path.join(raiz, "conf"), copia)
@@ -436,7 +484,7 @@ def instalar(itens, raiz=None, destino=None):
         log("== " + sit[item]["nome"])
         try:
             if item == "iped":
-                raiz = instalar_iped(destino)
+                raiz = instalar_iped(destino, atual=raiz if sit["iped"].get("desatualizado") else None)
             elif item == "plugins":
                 instalar_plugins(raiz)
             elif item == "vcredist":

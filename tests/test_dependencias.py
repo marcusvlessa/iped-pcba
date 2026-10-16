@@ -58,7 +58,35 @@ class TestDependencias(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             dep.extrair(z, os.path.join(self.tmp, "alvo"))
 
+    def test_iped_desatualizado(self):
+        dep._MAIS_NOVA[:] = ["4.3.1"]
+        velho = os.path.join(self.tmp, "Tools", "iped-4.2.2")
+        os.makedirs(os.path.join(velho, "lib"))
+        open(os.path.join(velho, "iped.jar"), "w").close()
+        open(os.path.join(velho, "lib", "iped-engine-4.2.2.jar"), "w").close()
+        i = {x["id"]: x for x in dep.situacao(velho)["itens"]}["iped"]
+        self.assertFalse(i["ok"])
+        self.assertTrue(i["desatualizado"])
+        self.assertEqual((i["versao"], i["mais_nova"]), ("4.2.2", "4.3.1"))
+        self.assertIn("instalada ao lado", i["detalhe"])
+        # a atualização vai para a pasta ao lado e não mexe na antiga
+        chamadas = []
+        with mock.patch.object(dep, "instalar_iped", lambda destino=None, atual=None: chamadas.append((destino, atual)) or "x"):
+            dep.instalar(["iped"], velho)
+        self.assertEqual(chamadas, [(None, velho)])
+        os.rename(os.path.join(velho, "lib", "iped-engine-4.2.2.jar"), os.path.join(velho, "lib", "iped-engine-4.3.1.jar"))
+        i = {x["id"]: x for x in dep.situacao(velho)["itens"]}["iped"]
+        self.assertTrue(i["ok"])
+        self.assertFalse(i.get("desatualizado", False))
+
+    def test_versao_mais_nova_sem_internet(self):
+        dep._MAIS_NOVA[:] = []
+        with mock.patch.object(dep.urllib.request, "urlopen", side_effect=OSError("sem rede")):
+            self.assertEqual(dep.versao_iped_mais_nova(), dep.IPED_VERSAO)
+        dep._MAIS_NOVA[:] = []
+
     def test_situacao(self):
+        dep._MAIS_NOVA[:] = ["4.3.1"]
         raiz = os.path.join(self.tmp, "iped")
         os.makedirs(os.path.join(raiz, "python", "Lib", "site-packages", "faster_whisper"))
         open(os.path.join(raiz, "iped.jar"), "w").close()
