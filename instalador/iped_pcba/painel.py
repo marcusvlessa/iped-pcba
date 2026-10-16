@@ -24,7 +24,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, assistente, auditoria, clientesia, contexto, perfis, processar, skills
+from . import __version__, assistente, auditoria, clientesia, contexto, multicasos, perfis, processar, skills
 from .configurar import PASTA_PCBA, gravar_texto, ler_chaves, ler_texto, listar_backups
 from .configurar import reverter as reverter_backup
 from .mcp import (CASO_ATIVO, PASTA_MCP, achar_java, definir_escrita, escrita_ativa,
@@ -142,6 +142,8 @@ class Estado(object):
         self.ultimo = None  # (maquina, plano) do último diagnóstico
         self.lock = threading.Lock()
         self.conversas = assistente.Conversas()
+        self.fila = []          # indexação de vários casos, um depois do outro
+        self.fila_grupo = None
 
     # ------------------------------------------------------------ visão geral
     def resumo(self):
@@ -215,23 +217,90 @@ class Estado(object):
         return {"backup": nome, "restaurados": arquivos}
 
     # ------------------------------------------------------------ processamento
-    def processar(self, d):
+    def _comando(self, d):
         evid = [e for e in (d.get("evidencias") or []) if e.strip()]
         saida = (d.get("saida") or "").strip()
         extras = ["--continue"] if d.get("continuar") else []
         if d.get("portavel"):
             extras.append("--portable")
-        aviso_perfil = perfis.atualizar_se_preciso(self.raiz, d.get("perfil") or "")
         cmd = processar.comando_processar(self.raiz, evid, saida, perfil=d.get("perfil") or None,
                                           adicionar=bool(d.get("adicionar")) or bool(d.get("continuar")),
                                           fuso=d.get("fuso") or "GMT-3", extras=extras)
+        return evid, saida, cmd
+
+    def processar(self, d, depois=None):
+        evid, saida, cmd = self._comando(d)
+        aviso_perfil = perfis.atualizar_se_preciso(self.raiz, d.get("perfil") or "")
 
         def fim(codigo):
             if codigo == 0 or processar.eh_caso(saida):
                 processar.registrar_caso(saida, "processado no painel", evid)
+            if depois:
+                depois(codigo)
         tid = self.tarefas.iniciar("processar", "Processar " + os.path.basename(saida.rstrip("\\/")),
                                    cmd, cwd=self.raiz, ao_terminar=fim)
         return {"tarefa": tid, "comando": cmd, "aviso": aviso_perfil}
+
+    # ------------------------------------------------------------ fila (indexação multicase)
+    def fila_adicionar(self, d):
+        _, saida, _ = self._comando(d)       # valida evidências e pasta já ao pôr na fila
+        with self.lock:
+            if any(os.path.normcase(os.path.abspath(j["saida"])) == os.path.normcase(os.path.abspath(saida))
+                   and j["estado"] in ("aguardando", "rodando") for j in self.fila):
+                raise ValueError("Esta pasta de caso já está na fila.")
+            self.fila.append({"id": "{}".format(len(self.fila) + 1), "saida": saida, "estado": "aguardando",
+                              "tarefa": None, "pedido": {k: d.get(k) for k in
+                                                         ("evidencias", "saida", "perfil", "fuso", "portavel")}})
+        return self.fila_ler()
+
+    def fila_remover(self, d):
+        with self.lock:
+            self.fila = [j for j in self.fila if not (j["id"] == d.get("id") and j["estado"] != "rodando")]
+        return self.fila_ler()
+
+    def fila_iniciar(self, d):
+        self.fila_grupo = (d.get("grupo") or "").strip() or None
+        self._fila_proxima()
+        return self.fila_ler()
+
+    def _fila_proxima(self):
+        with self.lock:
+            if any(j["estado"] == "rodando" for j in self.fila):
+                return
+            prox = next((j for j in self.fila if j["estado"] == "aguardando"), None)
+            if prox:
+                prox["estado"] = "rodando"
+        if not prox:
+            ok = [j["saida"] for j in self.fila if j["estado"] == "ok"]
+            if self.fila_grupo and len(ok) >= 2:
+                from . import multicasos
+                multicasos.salvar_grupo(self.fila_grupo, ok)
+                self.fila_grupo = None
+            return
+
+        def depois(codigo, j=prox):
+            j["estado"] = "ok" if codigo == 0 else "erro"
+            self._fila_proxima()
+        try:
+            prox["tarefa"] = self.processar(prox["pedido"], depois)["tarefa"]
+        except Exception as e:  # pasta ocupada desde que entrou na fila, evidência sumiu...
+            prox["estado"], prox["erro"] = "erro", str(e)
+            self._fila_proxima()
+
+    def fila_ler(self):
+        out = []
+        for j in self.fila:
+            x = {k: j.get(k) for k in ("id", "saida", "estado", "tarefa", "erro")}
+            x["evidencias"] = j["pedido"].get("evidencias")
+            x["perfil"] = j["pedido"].get("perfil")
+            if j["tarefa"] and j["estado"] == "rodando":
+                try:
+                    p = self.tarefas.progresso(j["tarefa"])
+                    x["percentual"], x["restante_s"], x["fase"] = p["percentual"], p["restante_s"], p["fase"]
+                except Exception:
+                    pass
+            out.append(x)
+        return {"fila": out, "grupo": self.fila_grupo}
 
     def whisper(self, d):
         cmd = [_python_iped(self.raiz)] + _boot("componentes", "whisper")
@@ -449,6 +518,30 @@ def _rotear(e, rota, d):
                                      bool(d.get("multiplos")), d.get("filtro"))}
     if rota == "/api/processar":
         return e.processar(d)
+    if rota == "/api/fila/ler":
+        return e.fila_ler()
+    if rota == "/api/fila/adicionar":
+        return e.fila_adicionar(d)
+    if rota == "/api/fila/remover":
+        return e.fila_remover(d)
+    if rota == "/api/fila/iniciar":
+        return e.fila_iniciar(d)
+    if rota == "/api/multi/grupos":
+        return {"grupos": multicasos.grupos()}
+    if rota == "/api/multi/salvar":
+        return {"grupos": multicasos.salvar_grupo(d.get("nome"), [_caso_valido({"caso": c}) for c in d.get("casos") or []])}
+    if rota == "/api/multi/remover":
+        return {"grupos": multicasos.remover_grupo(d.get("nome"))}
+    if rota == "/api/multi/abrir":
+        return multicasos.abrir_no_iped(d.get("casos") or [])
+    if rota == "/api/multi/cruzar":
+        r = multicasos.cruzar([_caso_valido({"caso": c}) for c in d.get("casos") or []])
+        r["relatorio"] = multicasos.salvar_relatorio(r)
+        r["texto"] = multicasos.relatorio_md(r)
+        return r
+    if rota == "/api/multi/abrir-pasta":
+        os.makedirs(multicasos.PASTA_SAIDA, exist_ok=True)
+        return {"aberto": _abrir_local(multicasos.PASTA_SAIDA)}
     if rota == "/api/whisper":
         return e.whisper(d)
     if rota == "/api/tarefa":
