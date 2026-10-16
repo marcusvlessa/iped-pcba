@@ -312,13 +312,15 @@ nav .n.ok::after{content:"✓"}
       </div>
       <div class="card" id="ctxCard">
         <h3>Arquivos de contexto <span class="muted">documentos de fora do IPED que a IA lê junto com o caso</span></h3>
-        <div class="ajuda">BO, portaria, ofícios, depoimentos, relatórios anteriores, planilhas. A IA local lê o texto e cruza com o que acha no IPED. Os arquivos ficam onde estão e não saem desta máquina; a conversa salva registra o SHA-256 de cada um.</div>
+        <div class="ajuda">BO, portaria, ofícios, depoimentos, relatórios anteriores, planilhas. A IA local lê o texto e cruza com o que acha no IPED. Os arquivos ficam onde estão e só saem desta máquina se você usar "Preparar para Claude", que registra o envio no caso; a conversa salva registra o SHA-256 de cada um.</div>
         <div id="ctxLista" style="margin:8px 0"></div>
         <div class="row">
           <button class="b" onclick="addContexto('arquivo')">Adicionar arquivos…</button>
           <button class="b" onclick="addContexto('pasta')">Adicionar pasta…</button>
+          <button class="b" onclick="prepararContexto()" title="Grava o texto dos arquivos na pasta do caso para o Claude Desktop (pelo MCP) ou para anexar numa conversa">Preparar para Claude e outras IAs…</button>
           <label class="ajuda" style="margin-left:auto"><input type="checkbox" id="ctxUsar" checked> usar na próxima pergunta</label>
         </div>
+        <div id="ctxNuvem" class="ajuda" style="display:none;margin-top:8px"></div>
       </div>
       <div class="card" id="convCard" style="display:none">
         <h3 id="convTit">Conversa</h3>
@@ -940,6 +942,19 @@ async function carregarContexto(r){
 async function addContexto(tipo){await tentar(async()=>{if(!CASO())throw new Error("Escolha o caso em análise primeiro.");
   const e=await api("escolher",{tipo,titulo:"Arquivos de contexto",multiplos:tipo=="arquivo",filtro:"contexto"});
   if(e.caminhos.length)carregarContexto(await api("contexto/adicionar",{caso:CASO(),caminhos:e.caminhos}))})}
+const AVISO_NUVEM="O Claude, o Antigravity e outras IAs na nuvem rodam fora da PCBA. As regras da PCBATech pedem IA local para dados de investigação: só continue com autorização e com material que possa sair desta máquina. Continuar?";
+async function prepararContexto(){if(!CASO())return aviso("Escolha o caso em análise primeiro.");if(!confirm(AVISO_NUVEM))return;
+  await tentar(async()=>{const r=await api("contexto/preparar",{caso:CASO()});CTXP=r;
+    $("ctxNuvem").style.display="block";
+    $("ctxNuvem").innerHTML=`<b>Pronto: ${r.arquivos} arquivo(s), ${fmt(r.caracteres)} caracteres.</b> Três formas de levar ao Claude:<br>`+
+      `1. <b>Claude Desktop ligado ao MCP do IPED</b>: ele já lê os arquivos pela ferramenta <code>case_context_files</code>. Peça "leia os arquivos de contexto do caso".<br>`+
+      `2. <b>Anexar o arquivo</b> numa conversa ou projeto do Claude: <code>${esc(r.md)}</code> <button class="b" onclick="abrirPastaCtx()">Abrir a pasta</button><br>`+
+      `3. <b>Colar</b>: ${r.texto?`<button class="b" onclick="copiarContexto()">Copiar contexto</button>`:"grande demais para copiar; use o arquivo."}`+
+      (r.cortados.length?`<br>Não couberam no .md (o MCP lê todos): ${esc(r.cortados.join(", "))}`:"")})}
+let CTXP=null;
+async function copiarContexto(){if(!CTXP||!CTXP.texto)return;try{await navigator.clipboard.writeText(CTXP.texto)}catch(e){prompt("Copie:",CTXP.texto.slice(0,100000))}
+  api("contexto/copiado",{caso:CASO(),destino:"área de transferência (IA na nuvem)"}).catch(()=>{});aviso("Contexto copiado. Cole na conversa do Claude.")}
+async function abrirPastaCtx(){await tentar(()=>api("contexto/abrir",{caso:CASO()}))}
 async function remContexto(c){await tentar(async()=>carregarContexto(await api("contexto/remover",{caso:CASO(),caminho:c})))}
 function escolherAgente(id){const a=AG.agentes.find(x=>x.id==id);if(!a)return;AGsel=id;
   document.querySelectorAll(".agente").forEach(b=>b.classList.toggle("on",b.dataset.id==id));
@@ -948,7 +963,9 @@ function escolherAgente(id){const a=AG.agentes.find(x=>x.id==id);if(!a)return;AG
   $("agSist").textContent=a.sistema;if(!$("agPerg").value.trim()||$("agPerg")._auto)usarPergunta(0)}
 function usarPergunta(i){const a=AG.agentes.find(x=>x.id==AGsel);const t=$("agPerg");t.value=a.prompts[i].texto;t._auto=true;t.oninput=()=>t._auto=false;
   const m=t.value.indexOf("[");if(m>=0){t.focus();t.setSelectionRange(m,t.value.indexOf("]",m)+1)}}
-async function copiarAgente(){const a=AG.agentes.find(x=>x.id==AGsel);const txt=a.sistema+"\n\nPergunta:\n"+$("agPerg").value.trim();
+async function copiarAgente(){const a=AG.agentes.find(x=>x.id==AGsel);let txt=a.sistema+"\n\nPergunta:\n"+$("agPerg").value.trim();
+  if($("ctxUsar").checked&&$("ctxLista").querySelector("table")){
+    txt+="\n\nArquivos de contexto: use a ferramenta case_context_files do MCP do IPED (listar, buscar, ler) antes de responder; se ela não existir, peça que eu anexe o arquivo contexto-para-ia.md da pasta do caso."}
   try{await navigator.clipboard.writeText(txt);aviso("Instruções e pergunta copiadas. Cole no Claude Desktop, Antigravity ou Hermes ligado ao MCP.")}catch(e){prompt("Copie:",txt)}}
 async function enviarAgente(){const perg=$("agPerg").value.trim();
   if(/\[[^\]]+\]/.test(perg)&&!confirm("A pergunta ainda tem [COLCHETES] para trocar. Enviar assim mesmo?"))return;

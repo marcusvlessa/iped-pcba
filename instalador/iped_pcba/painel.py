@@ -499,6 +499,13 @@ def _rotear(e, rota, d):
     if rota == "/api/contexto/remover":
         contexto.remover(_caso_valido(d), d.get("caminho") or "")
         return contexto.situacao(_caso_valido(d))
+    if rota == "/api/contexto/preparar":
+        return contexto.preparar(_caso_valido(d))
+    if rota == "/api/contexto/abrir":
+        return {"aberto": _abrir_local(os.path.join(_caso_valido(d), "iped-pcba-ia"))}
+    if rota == "/api/contexto/copiado":
+        contexto.registrar_copia(_caso_valido(d), str(d.get("destino") or "IA na nuvem")[:80])
+        return {"ok": True}
     if rota == "/api/visao/ler":
         return e.visao_ler(_caso_valido(d))
     if rota == "/api/visao/atualizar":
@@ -571,12 +578,17 @@ def _rotear_rt(rota, d):
         alvo = os.path.join(caso, rt.PASTA_CASO, "RT.docx" if d.get("o") == "docx" else "")
         if not os.path.exists(alvo):
             raise ValueError("Ainda não existe: " + alvo)
-        if WIN:
-            os.startfile(alvo)  # noqa
-        elif shutil.which("xdg-open"):
-            subprocess.Popen(["xdg-open", alvo])
-        return {"aberto": alvo}
+        return {"aberto": _abrir_local(alvo)}
     raise KeyError(rota)
+
+
+def _abrir_local(alvo):
+    """Abre arquivo ou pasta no programa padrão desta máquina."""
+    if WIN:
+        os.startfile(alvo)  # noqa
+    elif shutil.which("xdg-open"):
+        subprocess.Popen(["xdg-open", alvo])
+    return alvo
 
 
 def servir(raiz, porta=0, navegador=True):

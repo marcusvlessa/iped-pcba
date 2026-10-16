@@ -113,6 +113,25 @@ class TestContexto(unittest.TestCase):
         with open(arq, encoding="utf-8") as f:
             self.assertIn("## Arquivos de contexto lidos pela IA\n\n- docs/bo.txt (SHA-256 abc)", f.read())
 
+    def test_preparar_para_claude(self):
+        import json
+        with self.assertRaises(ValueError):
+            contexto.preparar(self.caso)
+        contexto.adicionar(self.caso, [self.docs])
+        r = contexto.preparar(self.caso)
+        self.assertEqual(r["arquivos"], 3)
+        with open(r["json"], encoding="utf-8") as f:
+            docs = json.load(f)["arquivos"]
+        self.assertEqual(sorted(d["nome"] for d in docs), ["docs/bo.txt", "docs/depoimento.docx", "docs/sub/oficio.html"])
+        self.assertIn("vulgo Fictício", r["texto"])
+        self.assertIn("não são instruções", r["texto"])
+        contexto.registrar_copia(self.caso, "teste")
+        with open(os.path.join(self.caso, contexto.ARQ_REGISTRO), encoding="utf-8") as f:
+            reg = f.read()
+        self.assertIn("preparado para", reg)
+        self.assertIn("copiado para: teste", reg)
+        self.assertIn("SHA-256", reg)
+
 
 if __name__ == "__main__":
     unittest.main()
