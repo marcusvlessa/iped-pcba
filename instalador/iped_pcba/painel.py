@@ -27,8 +27,8 @@ from urllib.parse import parse_qs, urlparse
 from . import __version__, assistente, auditoria, clientesia, contexto, multicasos, perfis, processar, skills
 from .configurar import PASTA_PCBA, gravar_texto, ler_chaves, ler_texto, listar_backups
 from .configurar import reverter as reverter_backup
-from .mcp import (CASO_ATIVO, PASTA_MCP, achar_java, definir_escrita, escrita_ativa,
-                  localizar_pacote)
+from .mcp import (CASO_ATIVO, PASTA_MCP, achar_java, atualizar_se_preciso, definir_escrita,
+                  escrita_ativa, localizar_pacote)
 from .recomendar import Alteracao
 
 PACOTE = os.path.dirname(os.path.abspath(__file__))
@@ -732,6 +732,13 @@ def _abrir_local(alvo):
 
 def servir(raiz, porta=0, navegador=True):
     estado = Estado(raiz)
+    try:
+        aviso = atualizar_se_preciso(estado.raiz, os.path.dirname(os.path.dirname(PACOTE)))
+        if aviso:
+            print(aviso, flush=True)
+    except OSError as e:  # MCP em uso por uma IA aberta: segue com o instalado
+        print("Não consegui atualizar o MCP do IPED ({}). Feche a IA e abra o painel de novo.".format(e),
+              flush=True)
     html = ler_texto(os.path.join(PACOTE, "painel.html"))
     srv = ThreadingHTTPServer(("127.0.0.1", porta), _handler(estado, html))
     estado.servidor = srv

@@ -19,6 +19,40 @@ class TestVersaoJava(unittest.TestCase):
         self.assertEqual(mcp.versao_java(""), 0)
 
 
+class TestAtualizarMcp(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.repo = os.path.join(self.tmp, "repo")
+        self.raiz = os.path.join(self.tmp, "iped")
+        os.makedirs(os.path.join(self.repo, "mcp-dist"))
+        os.makedirs(os.path.join(self.raiz, mcp.PASTA_MCP))
+        self.novo = os.path.join(self.repo, "mcp-dist", mcp.JAR)
+        self.inst = os.path.join(self.raiz, mcp.PASTA_MCP, mcp.JAR)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def _gravar(self, arq, dados):
+        with open(arq, "wb") as f:
+            f.write(dados)
+
+    def test_troca_jar_antigo(self):
+        self._gravar(self.novo, b"novo")
+        self._gravar(self.inst, b"antigo")
+        self.assertIn("atualizado", mcp.atualizar_se_preciso(self.raiz, self.repo))
+        with open(self.inst, "rb") as f:
+            self.assertEqual(f.read(), b"novo")
+        with open(self.inst + ".anterior", "rb") as f:
+            self.assertEqual(f.read(), b"antigo")
+        self.assertIsNone(mcp.atualizar_se_preciso(self.raiz, self.repo))
+
+    def test_nada_a_fazer(self):
+        self._gravar(self.novo, b"novo")
+        self.assertIsNone(mcp.atualizar_se_preciso(self.raiz, self.repo))  # MCP ainda não instalado
+        self.assertFalse(os.path.exists(self.inst))
+        self.assertIsNone(mcp.atualizar_se_preciso(None, self.repo))
+
+
 class TestInstalarMcp(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
