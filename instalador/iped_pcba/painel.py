@@ -24,7 +24,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, assistente, auditoria, clientesia, contexto, perfis, processar
+from . import __version__, assistente, auditoria, clientesia, contexto, perfis, processar, skills
 from .configurar import PASTA_PCBA, gravar_texto, ler_chaves, ler_texto, listar_backups
 from .configurar import reverter as reverter_backup
 from .mcp import (CASO_ATIVO, PASTA_MCP, achar_java, definir_escrita, escrita_ativa,
@@ -499,6 +499,13 @@ def _rotear(e, rota, d):
     if rota == "/api/contexto/remover":
         contexto.remover(_caso_valido(d), d.get("caminho") or "")
         return contexto.situacao(_caso_valido(d))
+    if rota == "/api/skills/ler":
+        return skills.situacao()
+    if rota == "/api/skills/instalar":
+        return {"feito": skills.instalar(d.get("destinos"))}
+    if rota == "/api/skills/abrir":
+        os.makedirs(skills.ZIPS, exist_ok=True)
+        return {"aberto": _abrir_local(skills.ZIPS)}
     if rota == "/api/contexto/preparar":
         return contexto.preparar(_caso_valido(d))
     if rota == "/api/contexto/abrir":

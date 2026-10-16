@@ -358,6 +358,12 @@ nav .n.ok::after{content:"✓"}
     <div class="muted" style="font-size:12px;margin-top:8px">Depois de ligar, feche e abra o programa de IA. Antes de alterar, uma cópia do arquivo fica ao lado (.bak-pcba-…). Claude Desktop e Antigravity usam modelos na nuvem: o conteúdo que a IA lê do caso sai da máquina. Para dados reais, use IA local (Assistente de IA com Ollama ou LM Studio, ou Hermes com modelo local).</div>
   </div>
   <div class="card">
+    <h3>Skills de análise <span class="muted">roteiros prontos que a IA segue</span></h3>
+    <div class="ajuda">Financeira (PDFs, extratos, PIX, SIMBA, RIF), imagens, áudios, geolocalização, mídias x logs do aparelho e a análise completa, que usa todas. Na IA local elas já aparecem como agentes no Assistente de IA. Para Claude Code e Hermes o painel copia as pastas; para Claude Desktop e claude.ai gera um .zip por skill para enviar em Configurações &gt; Capacidades &gt; Skills.</div>
+    <div id="skillsSit" style="margin:8px 0"></div>
+    <div class="row"><button class="b p" onclick="instalarSkills()">Instalar e atualizar as skills</button><button class="b" onclick="abrirZips()">Abrir a pasta dos .zip</button><span id="skillsMsg" class="ajuda"></span></div>
+  </div>
+  <div class="card">
     <h3>IA local nesta máquina</h3>
     <div id="iaLocal" class="muted">procurando…</div>
     <div class="muted" style="font-size:12px;margin-top:8px">As regras da PCBATech pedem IA local em produção. Com LM Studio, ligue o MCP acima e escolha um modelo com suporte a ferramentas (tool use).</div>
@@ -551,9 +557,16 @@ async function carregarIa(){
   <b>Caso que a IA lê</b><span>${R.caso_ativo?esc(R.caso_ativo):'<span class="tag warn">nenhum</span> escolha o caso em análise no alto da tela'}</span>`;
   $("escrita").checked=!!m.escrita;$("escrita").disabled=!m.instalado;$("btnTestar").disabled=!m.instalado;
   $("clientes").innerHTML=(R.clientes||[]).map(c=>`<tr><td><b>${esc(c.nome)}</b>${c.nuvem?' <span class="tag warn">nuvem</span>':' <span class="tag ok">pode ser local</span>'}</td><td>${c.aponta_para_este?'<span class="tag ok">ligado</span>':c.configurado?'<span class="tag warn">ligado a outro IPED</span>':c.instalado?'<span class="tag">não ligado</span>':'<span class="tag">não encontrado</span>'}${c.erro?'<div class="aviso">'+esc(c.erro)+'</div>':''}</td><td class="muted" style="font-size:12px">${esc(c.arquivo)}</td><td><div class="row" style="margin:0"><button class="b ${c.aponta_para_este?'':'p'}" ${m.instalado?'':'disabled'} onclick="ligar('${c.cliente}')">${c.aponta_para_este?'Ligar de novo':'Ligar'}</button>${c.configurado?`<button class="b d" onclick="desligar('${c.cliente}')">Desligar</button>`:''}</div></td></tr>`).join("");
+  carregarSkills();
   $("iaLocal").innerHTML='<span class="spin"></span> procurando…';
   await tentar(async()=>{const r=await api("ia");$("iaLocal").innerHTML=r.local.map(s=>`<div class="row"><b style="width:90px">${esc(s.nome)}</b>${s.ativo?`<span class="tag ok">rodando</span> <span class="muted">${esc(s.url)}</span> <span>${s.modelos.length?esc(s.modelos.slice(0,8).join(", ")):"nenhum modelo carregado"}</span>`:'<span class="tag">não está rodando</span>'}</div>`).join("")});
 }
+async function carregarSkills(){await tentar(async()=>{const r=await api("skills/ler");const rot={instalada:"ok",gerado:"ok",desatualizada:"warn",falta:""};
+  $("skillsSit").innerHTML="<table><thead><tr><th>Skill</th>"+r.destinos.map(d=>`<th>${esc(d.nome)}${d.detectado?"":' <span class="tag">não encontrado</span>'}</th>`).join("")+"</tr></thead><tbody>"+
+    r.skills.map((k,i)=>`<tr><td><b>${esc(k.nome)}</b><div class="muted" style="font-size:12px">${esc(k.descricao)}</div></td>`+r.destinos.map(d=>{const e=d.itens[i].estado;return `<td><span class="tag ${rot[e]}">${e}</span></td>`}).join("")+"</tr>").join("")+"</tbody></table>"})}
+async function instalarSkills(){await tentar(async()=>{const r=await api("skills/instalar",{});
+  const n=r.feito.filter(x=>x.acao!="já estava").length;$("skillsMsg").textContent=n?`${n} item(ns) instalados ou gerados.`:"Tudo já estava atualizado.";carregarSkills()})}
+async function abrirZips(){await tentar(()=>api("skills/abrir",{}))}
 async function trocarEscrita(v){await tentar(async()=>{const r=await api("ia/escrita",{ativa:v});aviso(r.escrita?"Escrita liberada para as próximas conversas.":"IA em modo somente leitura.");await resumo()})}
 async function ligar(c){const cl=(R.clientes||[]).find(x=>x.cliente==c);if(cl&&cl.nuvem&&!confirm(cl.nome+" usa um modelo de IA na nuvem: o que a IA ler do caso sai desta máquina. As regras da PCBATech pedem IA local para dados reais. Ligar mesmo assim?"))return;await tentar(async()=>{const r=await api("ia/configurar",{cliente:c});aviso("Ligado. Feche e abra o programa de IA."+(r.copia?"\nCópia: "+r.copia:""));await resumo();carregarIa()})}
 async function desligar(c){await tentar(async()=>{await api("ia/remover",{cliente:c});await resumo();carregarIa()})}
@@ -919,7 +932,7 @@ function irAgente(id){ir("assist");setTimeout(()=>{if(AG)escolherAgente(id);else
 async function entrarAssist(){
   if(!CASO()){$("iaSit").innerHTML='<b>Escolha o caso em análise</b> no alto da tela antes de enviar.'}
   await tentar(async()=>{AG=await api("assist/agentes");
-    $("agentes").innerHTML=AG.agentes.map(a=>`<button class="agente" data-id="${a.id}" onclick="escolherAgente('${a.id}')"><b>${esc(a.nome)}</b>${a.escrita?'<span class="tag warn esc">escreve no caso</span>':''}<div class="d">${esc(a.descricao)}</div></button>`).join("");
+    $("agentes").innerHTML=AG.agentes.map(a=>`<button class="agente" data-id="${a.id}" onclick="escolherAgente('${a.id}')"><b>${esc(a.nome)}</b>${a.skill?'<span class="tag esc">skill</span>':''}${a.escrita?'<span class="tag warn esc">escreve no caso</span>':''}<div class="d">${esc(a.descricao)}</div></button>`).join("");
     const op=[];AG.ia_local.forEach(sv=>{if(sv.ativo)sv.modelos.forEach(m=>op.push({tipo:sv.nome=="Ollama"?"ollama":"openai",url:sv.url,modelo:m,rot:sv.nome+": "+m}))});
     const c=AG.config;if(c.modelo&&!op.some(o=>o.modelo==c.modelo&&o.tipo==c.tipo))op.unshift({tipo:c.tipo,url:c.url,modelo:c.modelo,rot:(c.tipo=="ollama"?"Ollama":"LM Studio")+": "+c.modelo+" (não encontrado agora)"});
     $("iaModelo").innerHTML=op.length?op.map((o,i)=>`<option value="${i}">${esc(o.rot)}</option>`).join(""):'<option value="">nenhuma IA local rodando</option>';
@@ -958,7 +971,7 @@ async function abrirPastaCtx(){await tentar(()=>api("contexto/abrir",{caso:CASO(
 async function remContexto(c){await tentar(async()=>carregarContexto(await api("contexto/remover",{caso:CASO(),caminho:c})))}
 function escolherAgente(id){const a=AG.agentes.find(x=>x.id==id);if(!a)return;AGsel=id;
   document.querySelectorAll(".agente").forEach(b=>b.classList.toggle("on",b.dataset.id==id));
-  $("agNome").textContent=a.nome;$("agDesc").textContent=a.descricao+" Ferramentas: "+a.ferramentas.join(", ")+".";
+  $("agNome").textContent=a.nome;$("agDesc").textContent=a.descricao+" Ferramentas: "+(a.ferramentas=="todas"?"todas as do MCP":a.ferramentas.join(", "))+".";
   $("agPergs").innerHTML=a.prompts.map((p,i)=>`<button class="perg" onclick="usarPergunta(${i})">${esc(p.titulo)}</button>`).join("");
   $("agSist").textContent=a.sistema;if(!$("agPerg").value.trim()||$("agPerg")._auto)usarPergunta(0)}
 function usarPergunta(i){const a=AG.agentes.find(x=>x.id==AGsel);const t=$("agPerg");t.value=a.prompts[i].texto;t._auto=true;t.oninput=()=>t._auto=false;

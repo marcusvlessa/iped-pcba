@@ -157,8 +157,8 @@ def executar(modelo, mcp, agente, pergunta, ao_evento, escrita=False, parar=lamb
     ao_evento(dict) recebe cada passo: tipo = pensando | ferramenta | resultado | resposta | erro.
     Devolve o texto final.
     """
-    permitidas = set(agente["ferramentas"])
     todas = mcp.ferramentas_completas()
+    permitidas = {f["name"] for f in todas} if agente["ferramentas"] == "todas" else set(agente["ferramentas"])
     ferramentas = [f for f in todas if f["name"] in permitidas]
     if agente.get("escrita") and not escrita:
         ao_evento({"tipo": "aviso", "texto": "A escrita no caso está desligada (passo IA/MCP). Este agente só vai "
@@ -170,7 +170,7 @@ def executar(modelo, mcp, agente, pergunta, ao_evento, escrita=False, parar=lamb
             ferramentas = ferramentas + ctx.FERRAMENTAS
             locais = set(ctx.NOMES)
     mensagens = [{"role": "system", "content": agentes.sistema(agente)}, {"role": "user", "content": pergunta}]
-    for passo in range(MAX_PASSOS):
+    for passo in range(agente.get("passos") or MAX_PASSOS):
         if parar():
             raise RuntimeError("Conversa interrompida.")
         ao_evento({"tipo": "pensando", "passo": passo + 1})
