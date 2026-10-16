@@ -4,13 +4,30 @@ Instalação, autoconfiguração e extensões do [IPED](https://github.com/sepin
 Polícia Civil da Bahia. O núcleo do IPED não é alterado: tudo aqui atua sobre os arquivos de
 configuração, perfis e scripts que o próprio IPED já prevê.
 
-Este repositório segue o plano "Plano IPED + IA para a PCBA". Fases prontas: **1, instalador**,
-**2, MCP com auditoria** (pasta [`mcp/`](mcp/README.md)) e o **Painel IPED-PCBA**, que conduz o
-analista por todo o fluxo no navegador.
+**Baixe a versão mais recente em [Releases](https://github.com/marcusvlessa/iped-pcba/releases/latest)**
+(`iped-pcba-windows.zip` para as estações, `iped-pcba-linux.tar.gz` para o servidor) e dê dois
+cliques em `instalar.bat`.
+
+O que já funciona:
+
+- **Instalação automática**: se a máquina não tem IPED, o instalador baixa o oficial e confere o
+  SHA-256; o painel instala o que faltar (plugins de transcrição e faces, Visual C++, CUDA,
+  Ollama, modelo de IA local, leitor de PDF e MCP).
+- **Painel IPED-PCBA** no navegador, que conduz o analista por todo o fluxo: configurar a máquina,
+  processar evidências (com fila de vários casos e progresso da indexação ao vivo), casos,
+  visão do caso, assistente de IA e relatório técnico.
+- **Rede de vínculos** completa, com arrasto, zoom e formatos força, circular, hierarquia,
+  radial e grade.
+- **Multicasos**: abre vários casos juntos no IPED e cruza os contatos entre eles.
+- **IA com auditoria**: MCP do IPED (pasta [`mcp/`](mcp/README.md)) com log encadeado por hash,
+  IA local por padrão (Ollama ou LM Studio) e ligação opcional ao Claude, Antigravity e Hermes.
+- **Skills de análise**: financeira, imagens, áudio, geolocalização, mídias x logs e a análise
+  forense completa, instaláveis no Claude Code, no Hermes, no Claude Desktop e na IA local.
+- **Relatório técnico** no modelo da PCBA, gerado em `.docx`.
 
 ## Para quem é
 
-Qualquer policial da PCBA com o IPED instalado, em qualquer pasta e em qualquer máquina. O
+Qualquer policial da PCBA, em qualquer máquina, com ou sem o IPED já instalado. O
 instalador não traz nada fixo de um computador: ele descobre onde está o IPED, que hardware a
 máquina tem e o que já está instalado, e configura a partir disso.
 
