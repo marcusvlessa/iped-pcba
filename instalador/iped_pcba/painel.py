@@ -302,6 +302,39 @@ class Estado(object):
             out.append(x)
         return {"fila": out, "grupo": self.fila_grupo}
 
+    # ------------------------------------------------------------ dependências (instalação automática)
+    def deps_ler(self):
+        from . import dependencias
+        r = dependencias.situacao(self.raiz)
+        r["pasta_iped"] = dependencias.pasta_padrao_iped()
+        return r
+
+    def deps_instalar(self, d):
+        from . import dependencias
+        itens = d.get("itens") or ["tudo"]
+        if any(i not in dependencias.ITENS + ["tudo"] for i in itens):
+            raise ValueError("Item desconhecido.")
+        py = _python_iped(self.raiz) if self.raiz else sys.executable
+        cmd = [py] + _boot("dependencias", "instalar", *itens)
+        if self.raiz:
+            cmd += ["--iped", self.raiz]
+        if d.get("destino"):
+            cmd += ["--destino", d["destino"]]
+        tid = None
+
+        def fim(codigo):
+            # IPED recém-instalado: o painel passa a usá-lo
+            try:
+                with open(self.tarefas.ler_log(tid, 0, 50 * 1024 * 1024)["tarefa"]["log"], encoding="utf-8",
+                          errors="replace") as f:
+                    for linha in f:
+                        if linha.startswith("IPED_RAIZ="):
+                            self.raiz, self.ultimo = linha.split("=", 1)[1].strip(), None
+            except Exception:
+                pass
+        tid = self.tarefas.iniciar("dependencias", "Instalar " + ", ".join(itens), cmd, ao_terminar=fim)
+        return {"tarefa": tid}
+
     def whisper(self, d):
         cmd = [_python_iped(self.raiz)] + _boot("componentes", "whisper")
         return {"tarefa": self.tarefas.iniciar("componente", "Instalar faster-whisper", cmd)}
@@ -542,6 +575,10 @@ def _rotear(e, rota, d):
     if rota == "/api/multi/abrir-pasta":
         os.makedirs(multicasos.PASTA_SAIDA, exist_ok=True)
         return {"aberto": _abrir_local(multicasos.PASTA_SAIDA)}
+    if rota == "/api/deps/ler":
+        return e.deps_ler()
+    if rota == "/api/deps/instalar":
+        return e.deps_instalar(d)
     if rota == "/api/whisper":
         return e.whisper(d)
     if rota == "/api/tarefa":

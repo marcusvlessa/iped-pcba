@@ -203,6 +203,14 @@ nav .n.ok::after{content:"✓"}
     <div class="row"><input type="text" class="grow" id="raizManual" placeholder="Pasta do IPED (onde está o iped.jar)">
       <button class="b" onclick="escolherPara('raizManual','pasta','Pasta do IPED')">Procurar…</button>
       <button class="b p" onclick="trocarIped(val('raizManual'))">Usar esta pasta</button></div>
+    <div class="ajuda" style="margin-top:8px">Não tem o IPED? O painel baixa a versão oficial do GitHub do IPED, confere o SHA-256 e instala sozinho (uns 700 MB).</div>
+    <div class="row"><input type="text" class="grow" id="destIped" placeholder="Pasta onde instalar"><button class="b p" onclick="instalarDeps(['iped','plugins','vcredist','mcp'],val('destIped'))">Baixar e instalar o IPED</button></div>
+  </div>
+  <div class="card" id="depsCard">
+    <h3>O que esta máquina precisa <span class="muted">instalação automática do que faltar</span></h3>
+    <div id="deps" class="muted">verificando…</div>
+    <div class="row"><button class="b p" id="depsTudo" onclick="instalarDeps(['tudo'])">Instalar tudo que falta</button><span class="ajuda">Baixa só de fontes oficiais e confere o SHA-256 quando o GitHub informa. O Visual C++ pede confirmação do Windows.</span></div>
+    <div id="depsLogCard" style="display:none"><pre class="log" id="depsLog" style="height:180px"></pre></div>
   </div>
   <div class="card">
     <h3>Opções</h3>
@@ -474,7 +482,7 @@ async function tentar(f){try{return await f()}catch(e){aviso(e.message,true)}}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>ir(b.dataset.s));
 let SECAO="inicio";
 function ir(s){SECAO=s;document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x.dataset.s==s));document.querySelectorAll("section").forEach(x=>x.classList.toggle("on",x.id==s));window.scrollTo(0,0);atualizarSecao()}
-function atualizarSecao(){const s=SECAO;if(s=="inicio")desenharInicio();if(s=="ia")carregarIa();if(s=="tarefas")desenharTarefas();if(s=="relatorio")entrarRt();if(s=="visao")entrarVisao();if(s=="assist")entrarAssist();if(s=="multi")entrarMulti();if(s=="proc")lerFila()}
+function atualizarSecao(){const s=SECAO;if(s=="inicio")desenharInicio();if(s=="ia")carregarIa();if(s=="tarefas")desenharTarefas();if(s=="relatorio")entrarRt();if(s=="visao")entrarVisao();if(s=="assist")entrarAssist();if(s=="multi")entrarMulti();if(s=="config")carregarDeps();if(s=="proc")lerFila()}
 const CASO=()=>R.caso_ativo||"";
 const mesmo=(a,b)=>(a||"").toLowerCase()==(b||"").toLowerCase();
 const casosOk=()=>(R.casos||[]).filter(c=>c.existe);
@@ -631,6 +639,18 @@ function desenharTarefas(){
 }
 function abrirTarefa(id,titulo){tarefaId=id;tarefaPos=0;$("tarefaLog").textContent="";$("tarefaProg").innerHTML="";$("tarefaCard").style.display="block";$("tarefaTitulo").textContent=titulo;lerTarefa()}
 async function lerTarefa(){if(!tarefaId)return;const id=tarefaId;try{const r=await api("tarefa",{id,desde:tarefaPos});if(id!=tarefaId)return;tarefaPos=r.pos;if(r.tarefa.tipo=="processar")lerProgresso(id,"tarefaProg");$("tarefaLog").textContent+=r.texto;$("tarefaLog").scrollTop=1e9;if(r.tarefa.rodando)setTimeout(lerTarefa,2000);else resumo()}catch(e){}}
+
+// ------------------------------------------------------------------ dependências
+async function carregarDeps(){await tentar(async()=>{const r=await api("deps/ler");if(!$("destIped").value)$("destIped").value=r.pasta_iped;
+  const l=r.itens.filter(i=>i.aplica!==false);
+  $("deps").innerHTML="<table>"+l.map(i=>`<tr><td><b>${esc(i.nome)}</b><div class="muted" style="font-size:12px">${esc(i.detalhe||"")}${i.tamanho&&!i.ok?" · "+esc(i.tamanho):""}</div></td>`+
+    `<td>${i.ok?'<span class="tag ok">pronto</span>':'<span class="tag warn">falta</span>'}</td><td>${i.ok?"":i.auto?`<button class="b" onclick="instalarDeps(['${i.id}'])">Instalar</button>${i.admin?' <span class="ajuda">pede administrador</span>':""}`:i.manual?`<span class="ajuda">rode no terminal: <code>${esc(i.manual)}</code></span>`:`<span class="ajuda">${esc(i.requer||"instale o IPED primeiro")}</span>`}</td></tr>`).join("")+"</table>";
+  $("depsTudo").disabled=!l.some(i=>!i.ok&&i.auto)})}
+let depsId=null,depsPos=0;
+async function instalarDeps(itens,destino){await tentar(async()=>{const r=await api("deps/instalar",{itens,destino:destino||""});depsId=r.tarefa;depsPos=0;
+  $("depsLogCard").style.display="block";$("depsLog").textContent="";lerDeps()})}
+async function lerDeps(){if(!depsId)return;try{const r=await api("tarefa",{id:depsId,desde:depsPos});depsPos=r.pos;const pre=$("depsLog");pre.textContent+=r.texto;pre.scrollTop=pre.scrollHeight;
+  if(r.tarefa.rodando)setTimeout(lerDeps,1500);else{depsId=null;await resumo();carregarDeps();aviso(r.tarefa.codigo==0?"Instalação concluída.":"A instalação terminou com falhas; veja o log.",r.tarefa.codigo!=0)}}catch(e){setTimeout(lerDeps,3000)}}
 
 // ------------------------------------------------------------------ multicasos
 let MG=[],MR=null;
@@ -993,7 +1013,7 @@ function etapasEstado(){
     {s:"assist",t:"Analisar com a IA",ok:!!(R.mcp&&R.mcp.instalado),txt:R.mcp&&R.mcp.instalado?(lig?"MCP ligado a um programa de IA":"Use o Assistente com IA local"):"MCP não instalado"},
     {s:"relatorio",t:"4. Relatório técnico",ok:false,txt:"Monte e gere o RT do caso"}]}
 function desenharInicio(){
-  if(!R.iped_ok){$("prox").innerHTML=`<div style="flex:1"><div class="t">Encontre o IPED</div><div class="d">O painel não achou o IPED nesta máquina. Indique a pasta onde está o iped.jar.</div></div><button class="b p" onclick="ir('config')">Indicar a pasta</button>`;$("etapas").innerHTML="";return}
+  if(!R.iped_ok){$("prox").innerHTML=`<div style="flex:1"><div class="t">Encontre o IPED</div><div class="d">O painel não achou o IPED nesta máquina. Indique a pasta onde está o iped.jar, ou deixe o painel baixar e instalar o IPED sozinho.</div></div><button class="b p" onclick="ir('config')">Indicar a pasta ou instalar o IPED</button>`;$("etapas").innerHTML="";return}
   const e=etapasEstado();let p;
   if(!R.configurado)p=["Configure esta máquina","O painel lê o hardware e ajusta o IPED (memória, pasta temporária, perfis da PCBA e MCP), com backup.","config","Configurar agora"];
   else if(!casosOk().length)p=["Processe a primeira evidência","Escolha a evidência, a pasta do caso e o perfil pelo tipo de material.","proc","Processar evidência"];

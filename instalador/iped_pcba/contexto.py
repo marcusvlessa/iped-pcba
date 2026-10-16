@@ -13,7 +13,6 @@ import html
 import json
 import os
 import re
-import shutil
 import subprocess
 import time
 import zipfile
@@ -151,7 +150,8 @@ def _rtf(x):
 
 
 def _pdf(c):
-    exe = shutil.which("pdftotext")
+    from .dependencias import pdftotext
+    exe = pdftotext()
     if not exe:
         raise ValueError("PDF sem leitor nesta máquina: salve como .txt ou instale o pdftotext (Xpdf ou Poppler)")
     r = subprocess.run([exe, "-enc", "UTF-8", "-layout", c, "-"], capture_output=True, timeout=300,
@@ -280,6 +280,11 @@ class Contexto(object):
         return ["{} (SHA-256 {})".format(n, self.hashes[n]) for n in self.textos]
 
 
+def _tem_pdftotext():
+    from .dependencias import pdftotext
+    return pdftotext()
+
+
 def situacao(caso):
     """Para o painel: itens anexados e o que será lido de cada um."""
     itens = ler_lista(caso)
@@ -291,7 +296,7 @@ def situacao(caso):
         ign = [{"arquivo": x, "motivo": m} for x, m in fora
                if x == c or os.path.normcase(x).startswith(os.path.normcase(c) + os.sep)]
         out.append(dict(i, existe=os.path.exists(c), lidos=len(dentro), ignorados=ign[:20], n_ignorados=len(ign)))
-    return {"itens": out, "pdf": bool(shutil.which("pdftotext"))}
+    return {"itens": out, "pdf": bool(_tem_pdftotext())}
 
 
 ARQ_TEXTO = os.path.join("iped-pcba-ia", "contexto-texto.json")      # lido pela ferramenta case_context_files do MCP

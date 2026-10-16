@@ -76,13 +76,57 @@ function Find-Iped {
   return $achados | Sort-Object Raiz -Unique | Sort-Object @{e={$_.Versao};Descending=$true}, @{e={$_.EmUso};Descending=$true}
 }
 
+# Baixa o IPED oficial do GitHub, confere o SHA-256 informado pelo GitHub e extrai. Devolve a raiz.
+function Install-Iped {
+  $versao = "4.3.1"
+  $nome = "IPED-${versao}_and_java_plugins.zip"
+  $destino = "C:\Tools\IPED"
+  $livre = (Get-PSDrive C).Free
+  if ($livre -lt 3GB) {
+    $d = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Free -gt 3GB } | Sort-Object Free -Descending | Select-Object -First 1
+    if (-not $d) { throw "Nenhum disco com 3 GB livres para o IPED." }
+    $destino = Join-Path $d.Root "Tools\IPED"
+  }
+  $rel = Invoke-RestMethod "https://api.github.com/repos/sepinf-inc/IPED/releases/tags/$versao" -Headers @{ "User-Agent" = "iped-pcba" }
+  $a = $rel.assets | Where-Object { $_.name -eq $nome } | Select-Object -First 1
+  if (-not $a) { throw "Arquivo $nome não encontrado na página do IPED." }
+  $pasta = Join-Path $env:USERPROFILE ".iped-pcba\downloads"
+  New-Item -ItemType Directory -Force -Path $pasta, $destino | Out-Null
+  $zip = Join-Path $pasta $nome
+  if (-not ((Test-Path $zip) -and (Get-Item $zip).Length -eq $a.size)) {
+    Write-Host ("Baixando {0} ({1} MB)..." -f $nome, [int]($a.size / 1MB)) -ForegroundColor Cyan
+    try { Start-BitsTransfer -Source $a.browser_download_url -Destination $zip -DisplayName "IPED $versao" }
+    catch { Invoke-WebRequest $a.browser_download_url -OutFile $zip -UseBasicParsing }
+  }
+  if ($a.digest -like "sha256:*") {
+    Write-Host "Conferindo SHA-256..." -ForegroundColor Cyan
+    $h = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+    if ($h -ne $a.digest.Substring(7).ToLower()) { Remove-Item $zip; throw "SHA-256 não confere; o arquivo foi apagado. Rode de novo." }
+    Write-Host "SHA-256 confere: $h" -ForegroundColor Green
+  }
+  Write-Host "Extraindo em $destino (alguns minutos)..." -ForegroundColor Cyan
+  $tar = Join-Path $env:SystemRoot "System32\tar.exe"
+  if (Test-Path $tar) { & $tar -xf $zip -C $destino } else { Expand-Archive $zip -DestinationPath $destino -Force }
+  $raiz = Join-Path $destino "iped-$versao"
+  if (-not (Test-Path (Join-Path $raiz "iped.jar"))) { throw "A extração não trouxe $raiz\iped.jar." }
+  Write-Host "IPED $versao instalado em $raiz" -ForegroundColor Green
+  return $raiz
+}
+
 $modoPainel = -not ($Texto -or $Aplicar -or $Simular -or $Reverter -or $Json)
 if (-not $IpedRoot) {
   Write-Host "Procurando o IPED nesta máquina (pode levar até um minuto)..." -ForegroundColor Cyan
   $lista = @(Find-Iped)
   if ($lista.Count -eq 0) {
-    Write-Host "Nenhuma instalação do IPED encontrada. Rode de novo com -IpedRoot <pasta do IPED>." -ForegroundColor Red
-    exit 1
+    Write-Host "Nenhuma instalação do IPED encontrada." -ForegroundColor Yellow
+    $resp = Read-Host "Baixar e instalar o IPED 4.3.1 oficial agora (uns 700 MB)? (S/N)"
+    if ($resp -notmatch '^[sS]') {
+      Write-Host "Rode de novo com -IpedRoot <pasta do IPED> se ele estiver em outro lugar." -ForegroundColor Red
+      exit 1
+    }
+    try { $novo = Install-Iped } catch { Write-Host ("Não consegui instalar o IPED: " + $_) -ForegroundColor Red; exit 1 }
+    $lista = @([pscustomobject]@{ Raiz = $novo; Versao = "4.3.1"; EmUso = $true })
+    Write-Host "No painel, em Configurar a máquina, use Instalar tudo que falta para a transcrição, a IA local e o resto." -ForegroundColor Cyan
   }
   $IpedRoot = $lista[0].Raiz
   Write-Host ("IPED {0} em {1}" -f $lista[0].Versao, $IpedRoot) -ForegroundColor Green
