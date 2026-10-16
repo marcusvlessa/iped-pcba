@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Painel IPED-PCBA</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' aria-hidden='true'%3E%3Cdefs%3E%3ClinearGradient id='lgE' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23e2b93b'/%3E%3Cstop offset='1' stop-color='%23b8891a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M24 3 41 9v13c0 11-7.3 19.3-17 23C14.3 41.3 7 33 7 22V9z' fill='%230d2f57' stroke='url(%23lgE)' stroke-width='2.5'/%3E%3Ccircle cx='22' cy='21' r='7.5' fill='none' stroke='%23fff' stroke-width='3'/%3E%3Cpath d='m27.5 26.5 6.5 6.5' stroke='url(%23lgE)' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M18.5 21h7M22 17.5v7' stroke='%237fb3ea' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
 :root{--bg:#f4f6f8;--card:#fff;--ink:#1d2733;--quiet:#5d6b7a;--line:#dfe4ea;--accent:#0b5cad;--ok:#1d7a3e;--warn:#9a6200;--bad:#b42318;--chip:#eef2f6}
 @media (prefers-color-scheme:dark){:root{--bg:#12161b;--card:#1b2128;--ink:#e6ebf0;--quiet:#9aa7b4;--line:#2c343d;--accent:#5aa2f0;--ok:#4fbf74;--warn:#e0a63a;--bad:#f0726a;--chip:#252d36}}
@@ -120,7 +121,7 @@ header .caso label{color:var(--quiet);font-size:12px;white-space:nowrap}
 .chip.warn{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
 nav .grupo{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--quiet);margin:14px 10px 4px}
 nav .grupo:first-child{margin-top:0}
-nav .n.ok::after{content:"✓"}
+nav .n.ok{font-size:0}nav .n.ok::after{content:"✓";font-size:12px}
 .prox{display:flex;gap:16px;align-items:center;background:color-mix(in srgb,var(--accent) 9%,var(--card));border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));border-radius:12px;padding:18px 20px;margin-bottom:14px}
 .prox .t{font-size:18px;font-weight:650;margin-bottom:2px}
 .prox .d{color:var(--quiet)}
@@ -140,7 +141,7 @@ nav .n.ok::after{content:"✓"}
 .ast{display:grid;grid-template-columns:260px 1fr;gap:14px;align-items:start}
 @media (max-width:900px){.ast{grid-template-columns:1fr}}
 .perfil,.agente{display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch}
-@media (max-width:760px){header{flex-wrap:wrap;gap:8px 12px;padding:10px 12px}header h1{flex:1}header .caso{order:3;flex-basis:100%}
+@media (max-width:760px){header{flex-wrap:wrap;gap:8px 12px;padding:10px 12px}header .marca{flex:1}header .caso{order:3;flex-basis:100%}
  nav{align-items:center;padding:6px 8px}nav .grupo,nav #topo{display:none}nav button{width:auto;padding:8px 10px}
  .ast>div{min-width:0}#agentes{display:flex;overflow-x:auto;gap:8px;padding-bottom:4px}#agentes .agente{flex:0 0 170px}#agentes .agente .d{display:none}}
 .agente{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:9px 11px;margin-bottom:8px;cursor:pointer;font:inherit;color:var(--ink)}
@@ -156,11 +157,55 @@ nav .n.ok::after{content:"✓"}
 .resposta p{margin:0 0 8px}.resposta ul{margin:0 0 8px;padding-left:20px}
 .resposta{overflow-x:auto;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;line-height:1.5}
 .ajuda{font-size:12px;color:var(--quiet)}
+
+/* ---- visual 0.3.1 ---- */
+:root{--bg:#f1f4f8;--line:#dde3ea;--accent:#0f4c8a;--marca:#0d2f57;--ouro:#c9a227;--sombra:0 1px 2px rgba(16,32,56,.06),0 4px 14px rgba(16,32,56,.05)}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1318;--line:#29313b;--accent:#5aa2f0;--marca:#0b1f38;--ouro:#d8b44a;--sombra:none}}
+body{font-size:14px}
+header{background:linear-gradient(90deg,var(--marca),#14467d);border-bottom:3px solid var(--ouro);color:#fff;padding:10px 20px;position:sticky;top:0;z-index:20}
+header .marca{display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none;flex:none}
+header .marca span{display:flex;flex-direction:column;line-height:1.15}
+header .marca b{font-size:17px;letter-spacing:.02em}
+header .marca small{font-size:11px;opacity:.75}
+svg.logo{width:38px;height:38px;flex:none}
+svg.logo.grande{width:84px;height:84px}
+header .caso label{color:#c8d6e6}
+header .caso select{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.25)}
+header .caso select option{color:#1d2733}
+header .chip{background:rgba(255,255,255,.14);color:#e7eef6}
+header .chip.ok{background:rgba(79,191,116,.22);color:#c9f2d7}
+header .chip.warn{background:rgba(224,166,58,.25);color:#ffe2a8}
+header button.b{background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.3)}
+header button.b.p{background:var(--ouro);border-color:var(--ouro);color:#1b1404;font-weight:600}
+.wrap{min-height:calc(100vh - 61px)}
+nav{display:flex;flex-direction:column;position:sticky;top:61px;height:calc(100vh - 61px);overflow:auto}
+nav button{position:relative;margin:1px 0;transition:background .15s}
+nav button:hover{background:var(--chip)}
+nav button.on{background:color-mix(in srgb,var(--accent) 11%,var(--card));color:var(--accent)}
+nav button.on::before{content:"";position:absolute;left:-14px;top:6px;bottom:6px;width:4px;border-radius:0 3px 3px 0;background:var(--accent)}
+nav button.on .n{border-color:var(--accent)}
+.credito{margin:auto 6px 0;padding:12px 4px 2px;border-top:1px solid var(--line);font-size:11.5px;color:var(--quiet);line-height:1.6}
+.credito a{color:var(--accent);text-decoration:none}.credito a:hover{text-decoration:underline}
+main{padding:24px 28px}
+h2{font-size:20px;letter-spacing:-.01em}
+.card,.kpi,.etapa{box-shadow:var(--sombra);border-radius:12px}
+.card{padding:18px}
+button.b{border-radius:8px;transition:border-color .15s,background .15s}
+button.p:hover{filter:brightness(1.08)}
+input[type=text],select,textarea{border-radius:8px}
+input[type=text]:focus,select:focus,textarea:focus{outline:2px solid color-mix(in srgb,var(--accent) 35%,transparent);border-color:var(--accent)}
+.hero{display:flex;gap:20px;align-items:center;background:linear-gradient(120deg,var(--marca),#1a5796);color:#fff;border-radius:14px;padding:22px 26px;margin-bottom:16px;box-shadow:var(--sombra);border-bottom:3px solid var(--ouro)}
+.hero h2{font-size:24px;margin:0 0 4px;color:#fff}
+.hero p{margin:0 0 6px;color:#dbe6f2;max-width:760px}
+.hero .quem{font-size:12.5px;color:#b9cbe0}
+.hero a{color:#ffd970}
+.etapa{transition:transform .12s,border-color .15s}.etapa:hover{transform:translateY(-1px)}
+@media (max-width:760px){header{position:static}nav{position:static;height:auto;flex-direction:row}.credito{display:none}.hero{flex-direction:column;align-items:flex-start;padding:16px}svg.logo.grande{width:56px;height:56px}main{padding:14px}}
 </style>
 </head>
 <body>
 <header>
-  <h1>Painel IPED-PCBA</h1>
+  <a class="marca" href="#" onclick="ir('inicio');return false" title="Início"><svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="lgE" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e2b93b"/><stop offset="1" stop-color="#b8891a"/></linearGradient></defs><path d="M24 3 41 9v13c0 11-7.3 19.3-17 23C14.3 41.3 7 33 7 22V9z" fill="#0d2f57" stroke="url(#lgE)" stroke-width="2.5"/><circle cx="22" cy="21" r="7.5" fill="none" stroke="#fff" stroke-width="3"/><path d="m27.5 26.5 6.5 6.5" stroke="url(#lgE)" stroke-width="4" stroke-linecap="round"/><path d="M18.5 21h7M22 17.5v7" stroke="#7fb3ea" stroke-width="2" stroke-linecap="round"/></svg><span><b>IPED-PCBA</b><small>Painel de análise forense</small></span></a>
   <div class="caso"><label for="casoSel">Caso em análise</label><select id="casoSel" onchange="trocarCaso(this.value)"></select></div>
   <button class="b p" id="chipIped" style="display:none" onclick="ir('config')" title="Há uma versão mais nova do IPED">Atualizar IPED</button>
   <span class="chip" id="chipIa" title="Situação da IA">IA</span>
@@ -183,13 +228,19 @@ nav .n.ok::after{content:"✓"}
   <button data-s="ia"><span class="n" id="n4">⚙</span>Conexões de IA (MCP)</button>
   <button data-s="tarefas"><span class="n">≡</span>Tarefas e logs</button>
   <div class="ajuda" id="topo" style="margin:14px 10px 0;word-break:break-all">carregando…</div>
+  <div class="credito" id="credito">
+    <div>Desenvolvido por <a href="https://github.com/marcusvlessa" target="_blank" rel="noopener">Marcus (@marcusvlessa)</a></div>
+    <div><a href="https://github.com/marcusvlessa/iped-pcba" target="_blank" rel="noopener">github.com/marcusvlessa/iped-pcba</a></div>
+    <div>Sobre o <a href="https://github.com/sepinf-inc/IPED" target="_blank" rel="noopener">IPED</a>, da Polícia Federal</div>
+  </div>
 </nav>
 <main>
 
 <!-- INÍCIO -->
 <section id="inicio" class="on">
-  <h2>Início</h2>
-  <p class="sub">O painel conduz o trabalho do começo ao fim: preparar a máquina, processar a evidência, analisar com gráficos e IA, e fechar o relatório técnico.</p>
+  <div class="hero"><svg class="logo grande" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="lgH" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e2b93b"/><stop offset="1" stop-color="#b8891a"/></linearGradient></defs><path d="M24 3 41 9v13c0 11-7.3 19.3-17 23C14.3 41.3 7 33 7 22V9z" fill="#0d2f57" stroke="url(#lgH)" stroke-width="2.5"/><circle cx="22" cy="21" r="7.5" fill="none" stroke="#fff" stroke-width="3"/><path d="m27.5 26.5 6.5 6.5" stroke="url(#lgH)" stroke-width="4" stroke-linecap="round"/><path d="M18.5 21h7M22 17.5v7" stroke="#7fb3ea" stroke-width="2" stroke-linecap="round"/></svg><div><h2>IPED-PCBA</h2>
+    <p>O painel conduz o trabalho do começo ao fim: preparar a máquina, processar a evidência, analisar com gráficos e IA, e fechar o relatório técnico.</p>
+    <p class="quem">Desenvolvido por <a href="https://github.com/marcusvlessa" target="_blank" rel="noopener">Marcus (@marcusvlessa)</a> · código em <a href="https://github.com/marcusvlessa/iped-pcba" target="_blank" rel="noopener">github.com/marcusvlessa/iped-pcba</a> · <span id="heroVer"></span></p></div></div>
   <div class="prox" id="prox"></div>
   <div class="etapas" id="etapas"></div>
   <div class="card" id="inicioCaso" style="display:none"></div>
@@ -499,6 +550,7 @@ async function addEvid(tipo){await tentar(async()=>{const r=await api("escolher"
 
 async function resumo(){
   R=await api("resumo");
+  $("heroVer").textContent="versão "+R.versao_painel;
   $("topo").textContent=R.iped_ok?`IPED ${R.versao_iped} em ${R.raiz} · painel ${R.versao_painel}`:"IPED não encontrado";
   const cs=casosOk(),sel=$("casoSel");
   sel.innerHTML=(R.caso_ativo&&cs.some(c=>mesmo(c.pasta,R.caso_ativo))?"":'<option value="">'+(cs.length?"escolha o caso…":"nenhum caso ainda")+'</option>')+cs.map(c=>`<option value="${esc(c.pasta)}">${esc(c.nome)}</option>`).join("");
