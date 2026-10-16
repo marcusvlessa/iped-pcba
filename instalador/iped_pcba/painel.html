@@ -77,6 +77,14 @@ svg.ch text.ink{fill:var(--ink)}
 svg.ch .eixo{stroke:var(--line)}
 svg.ch .grade{stroke:var(--grade)}
 svg.ch [data-tip]:hover{opacity:.8}
+.pg{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px}
+.pg-pc{font-size:22px;font-weight:600}
+.pg-barra{height:14px;border-radius:7px;background:var(--chip);overflow:hidden;margin:6px 0 10px}
+.pg-barra i{display:block;height:100%;border-radius:7px;transition:width .6s}
+.pg-barra i.indet{width:30%!important;animation:pgIndet 1.4s infinite linear}
+@keyframes pgIndet{from{margin-left:-30%}to{margin-left:100%}}
+.pg-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.pg-k b{font-size:16px}
 .rede-barra{display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--quiet);margin:2px 0 6px}
 .rede-barra select,.rede-barra input{font-size:12px}
 .rede-bt{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
@@ -240,7 +248,8 @@ nav .n.ok::after{content:"✓"}
   </div>
   <div class="card" id="procLogCard" style="display:none">
     <h3 id="procTitulo">Processamento</h3>
-    <pre class="log" id="procLog"></pre>
+    <div id="procProg"></div>
+    <details class="tab" id="procLogDet"><summary>log completo do IPED</summary><pre class="log" id="procLog"></pre></details>
     <div class="row"><button class="b d" id="procParar">Parar</button><span id="procSit"></span></div>
   </div>
 </section>
@@ -417,7 +426,7 @@ nav .n.ok::after{content:"✓"}
   <h2>Tarefas e logs</h2>
   <p class="sub">Processamentos e instalações iniciados por este painel.</p>
   <div class="card"><div id="listaTarefas" class="muted">nenhuma</div></div>
-  <div class="card" id="tarefaCard" style="display:none"><h3 id="tarefaTitulo"></h3><pre class="log" id="tarefaLog"></pre></div>
+  <div class="card" id="tarefaCard" style="display:none"><h3 id="tarefaTitulo"></h3><div id="tarefaProg"></div><pre class="log" id="tarefaLog"></pre></div>
 </section>
 
 </main>
@@ -528,7 +537,7 @@ async function lerProc(){
   if(!procId)return;const id=procId;
   try{const r=await api("tarefa",{id,desde:procPos});procPos=r.pos;const pre=$("procLog");const fim=pre.scrollTop+pre.clientHeight>=pre.scrollHeight-20;pre.textContent+=r.texto;if(pre.textContent.length>400000)pre.textContent=pre.textContent.slice(-300000);if(fim)pre.scrollTop=pre.scrollHeight;
     const t=r.tarefa;$("procSit").innerHTML=t.rodando?'<span class="spin"></span> processando…':(t.codigo==0?'<span class="tag ok">concluído</span> <button class="b p" onclick="ir(\'casos\')">Próximo: abrir o caso →</button>':'<span class="tag bad">terminou com erro (código '+t.codigo+')</span> veja o log acima');
-    $("procParar").disabled=!t.rodando;
+    $("procParar").disabled=!t.rodando;lerProgresso(id,"procProg");
     if(t.rodando)setTimeout(lerProc,2000);else{procId=null;resumo()}
   }catch(e){setTimeout(lerProc,4000)}
 }
@@ -582,8 +591,29 @@ function desenharTarefas(){
   const l=R.tarefas||[];
   $("listaTarefas").innerHTML=l.length?`<table><thead><tr><th>Tarefa</th><th>Início</th><th>Situação</th><th></th></tr></thead><tbody>`+l.map(t=>`<tr><td>${esc(t.titulo)}</td><td>${esc(t.inicio.replace("T"," "))}</td><td>${t.rodando?'<span class="spin"></span> rodando':t.codigo==0?'<span class="tag ok">ok</span>':'<span class="tag bad">código '+t.codigo+'</span>'}</td><td><button class="b" onclick="abrirTarefa('${t.id}','${esc(js(t.titulo))}')">Ver log</button></td></tr>`).join("")+`</tbody></table>`:"nenhuma";
 }
-function abrirTarefa(id,titulo){tarefaId=id;tarefaPos=0;$("tarefaLog").textContent="";$("tarefaCard").style.display="block";$("tarefaTitulo").textContent=titulo;lerTarefa()}
-async function lerTarefa(){if(!tarefaId)return;const id=tarefaId;try{const r=await api("tarefa",{id,desde:tarefaPos});if(id!=tarefaId)return;tarefaPos=r.pos;$("tarefaLog").textContent+=r.texto;$("tarefaLog").scrollTop=1e9;if(r.tarefa.rodando)setTimeout(lerTarefa,2000);else resumo()}catch(e){}}
+function abrirTarefa(id,titulo){tarefaId=id;tarefaPos=0;$("tarefaLog").textContent="";$("tarefaProg").innerHTML="";$("tarefaCard").style.display="block";$("tarefaTitulo").textContent=titulo;lerTarefa()}
+async function lerTarefa(){if(!tarefaId)return;const id=tarefaId;try{const r=await api("tarefa",{id,desde:tarefaPos});if(id!=tarefaId)return;tarefaPos=r.pos;if(r.tarefa.tipo=="processar")lerProgresso(id,"tarefaProg");$("tarefaLog").textContent+=r.texto;$("tarefaLog").scrollTop=1e9;if(r.tarefa.rodando)setTimeout(lerTarefa,2000);else resumo()}catch(e){}}
+
+// ------------------------------------------------------------------ progresso do processamento
+const FASES={iniciando:"Iniciando o IPED",descobrindo:"Descobrindo itens nas evidências",processando:"Processando itens",finalizando:"Finalizando: gravando o índice",concluido:"Concluído",erro:"Terminou com erro"};
+function hms(s){if(s==null)return"—";s=Math.max(0,Math.round(s));const h=Math.floor(s/3600),m=Math.floor(s/60)%60;return h?`${h}h ${String(m).padStart(2,"0")}min`:m?`${m}min ${String(s%60).padStart(2,"0")}s`:`${s}s`}
+async function lerProgresso(id,el){let p;try{p=await api("tarefa/progresso",{id})}catch(e){return}desenharProgresso(el,p)}
+function desenharProgresso(el,p){
+  const pc=p.percentual,conc=p.fase=="concluido",cor=p.fase=="erro"?"var(--bad)":conc?"var(--ok)":"var(--accent)";
+  const fimPrev=p.restante_s!=null?new Date(Date.now()+p.restante_s*1000).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):null;
+  const kpi=(t,v,d)=>`<div class="pg-k"><div class="ajuda">${t}</div><b>${v}</b>${d?`<div class="ajuda">${d}</div>`:""}</div>`;
+  let serie="";if(p.serie&&p.serie.length>1){const W=600,H=60,t0=p.serie[0][0],mx=Math.max(1,p.serie[p.serie.length-1][0]-t0);
+    serie=`<svg class="ch" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:60px"><polyline fill="none" stroke="${cor}" stroke-width="2" points="${p.serie.map(([t,v])=>`${(t-t0)/mx*W},${H-2-v/100*(H-4)}`).join(" ")}"/></svg><div class="ajuda">percentual ao longo do tempo</div>`}
+  $(el).innerHTML=`<div class="pg">
+    <div class="row" style="margin:0;justify-content:space-between"><b>${esc(FASES[p.fase]||p.fase)}</b><span class="pg-pc">${pc!=null?pc+"%":p.fase=="descobrindo"?"contando…":""}</span></div>
+    <div class="pg-barra"><i style="width:${pc!=null?pc:3}%;background:${cor}"${pc==null&&!conc?' class="indet"':""}></i></div>
+    <div class="pg-kpis">${kpi("Itens",p.processados!=null?fmt(p.processados)+" de "+fmt(p.total):p.total!=null?fmt(p.total)+" achados":"—")}
+      ${kpi("Tempo decorrido",hms(p.decorrido_s))}${kpi("Tempo estimado restante",conc?"0":hms(p.restante_s),fimPrev?"término por volta das "+fimPrev:p.fase=="descobrindo"?"sai quando o IPED terminar de contar":"")}
+      ${kpi("Velocidade",p.gb_por_hora!=null?p.gb_por_hora+" GB/h":"—")}${kpi("Erros e avisos",fmt(p.erros)+" / "+fmt(p.avisos),p.erros?"veja no log":"")}</div>
+    ${p.atividades.length&&!conc?`<div class="ajuda" style="margin-top:8px">Em andamento agora (${p.atividades.reduce((a,x)=>a+x.workers,0)} workers)</div><table>${p.atividades.map(a=>`<tr><td><b>${esc(a.tarefa)}</b></td><td style="text-align:right;white-space:nowrap">${a.workers} worker${a.workers>1?"s":""}</td><td class="muted" style="font-size:12px;word-break:break-all">${esc(a.itens.join(" · "))}</td></tr>`).join("")}</table>`:""}
+    ${p.mensagens.length?`<div class="ajuda" style="margin-top:8px">Últimas mensagens do IPED</div><div class="muted" style="font-size:12px">${p.mensagens.slice(-4).map(esc).join("<br>")}</div>`:""}
+    ${p.ultimos_erros.length?`<details class="tab"><summary>últimos erros (${p.erros})</summary><pre class="log" style="height:auto">${esc(p.ultimos_erros.join("\n"))}</pre></details>`:""}
+    ${serie}</div>`}
 
 // ------------------------------------------------------------------ relatório
 let RT=null, UN=null;

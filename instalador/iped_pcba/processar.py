@@ -193,6 +193,16 @@ class Tarefas(object):
         return [self._publico(t) for t in sorted(self._lista.values(), key=lambda x: x["id"],
                                                   reverse=True)]
 
+    def progresso(self, tid):
+        """Percentual, tempo restante e tarefas em andamento do IPED, lidos do log da tarefa."""
+        from .progresso import Leitor
+        t = self._lista.get(tid)
+        if not t:
+            raise KeyError(tid)
+        leitor = t.setdefault("leitor", Leitor())
+        leitor.ler(t["log"])
+        return dict(leitor.estado(t["codigo"] is None, t["codigo"]), tarefa=self._publico(t))
+
     def ler_log(self, tid, desde=0, maximo=200000):
         t = self._lista.get(tid)
         if not t:

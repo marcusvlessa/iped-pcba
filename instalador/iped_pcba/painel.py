@@ -453,6 +453,8 @@ def _rotear(e, rota, d):
         return e.whisper(d)
     if rota == "/api/tarefa":
         return e.tarefas.ler_log(d["id"], int(d.get("desde") or 0))
+    if rota == "/api/tarefa/progresso":
+        return e.tarefas.progresso(d["id"])
     if rota == "/api/parar":
         return {"parado": e.tarefas.parar(d["id"])}
     if rota == "/api/caso/adicionar":
