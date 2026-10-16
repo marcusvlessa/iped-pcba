@@ -17,7 +17,6 @@ import os
 import re
 import shutil
 import sys
-import urllib.request
 
 from .configurar import carimbo, gravar_texto, ler_texto
 
@@ -229,24 +228,7 @@ def remover(cliente):
 
 # ------------------------------------------------------------------ IA local
 
-SERVIDORES_LOCAIS = (
-    ("Ollama", "http://127.0.0.1:11434/api/tags", "models", "name"),
-    ("LM Studio", "http://127.0.0.1:1234/v1/models", "data", "id"),
-)
-
-
 def ia_local(timeout=1.5):
-    """Servidores de IA rodando nesta máquina e os modelos que oferecem."""
-    achados = []
-    abridor = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-    for nome, url, lista, campo in SERVIDORES_LOCAIS:
-        item = {"nome": nome, "url": url.rsplit("/", 2)[0], "ativo": False, "modelos": []}
-        try:
-            with abridor.open(url, timeout=timeout) as r:
-                dados = json.loads(r.read().decode("utf-8"))
-            item["ativo"] = True
-            item["modelos"] = [m.get(campo) for m in dados.get(lista, []) if m.get(campo)]
-        except Exception:
-            pass
-        achados.append(item)
-    return achados
+    """Ollama e LM Studio nesta máquina: instalados, servidor ligado e modelos (ver ialocal)."""
+    from . import ialocal
+    return ialocal.servidores(timeout)

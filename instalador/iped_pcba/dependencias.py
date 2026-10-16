@@ -35,7 +35,7 @@ VCREDIST = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
 POPPLER_REPO = "oschwartz10612/poppler-windows"
 CASA = os.path.join(os.path.expanduser("~"), ".iped-pcba")
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-ITENS = ["iped", "plugins", "vcredist", "gpu", "ollama", "modelo", "pdftotext", "mcp"]
+ITENS = ["iped", "plugins", "vcredist", "gpu", "ollama", "modelo", "pdftotext", "mcp", "skills"]
 
 
 def log(*a):
@@ -253,14 +253,28 @@ def modelo_sugerido():
 
 
 def modelos_ollama():
+    """Modelos do Ollama: pelo disco (Ollama fechado) e pelo ollama list."""
+    from . import ialocal
+    mods = ialocal.ollama_baixados()
     exe = ollama_exe()
-    if not exe:
-        return []
-    try:
-        out = subprocess.run([exe, "list"], capture_output=True, text=True, timeout=30).stdout
-        return [l.split()[0] for l in out.splitlines()[1:] if l.strip()]
-    except (OSError, subprocess.SubprocessError):
-        return []
+    if exe:
+        try:
+            out = subprocess.run([exe, "list"], capture_output=True, text=True, timeout=30).stdout
+            mods += [l.split()[0] for l in out.splitlines()[1:] if l.strip() and l.split()[0] not in mods]
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return mods
+
+
+def _item_skills():
+    from . import skills
+    sit = skills.situacao()
+    faltam = [d["nome"] for d in sit["destinos"] if d["detectado"]
+              and any(i["estado"] not in ("instalada", "gerado") for i in d["itens"])]
+    onde = ", ".join(d["nome"].split(" (")[0] for d in sit["destinos"] if d["detectado"])
+    return {"id": "skills", "nome": "Skills de análise ({})".format(len(sit["skills"])), "ok": not faltam,
+            "detalhe": ("instalar ou atualizar em: " + ", ".join(faltam)) if faltam else "instaladas em: " + onde,
+            "auto": True}
 
 
 def pdftotext():
@@ -294,8 +308,13 @@ def _item_iped(raiz):
 
 def situacao(raiz=None):
     """Lista o que existe e o que falta. 'auto' diz se o painel instala sozinho nesta máquina."""
+    from . import ialocal
     gpu = gpu_nvidia()
     mods = modelos_ollama()
+    lms = ialocal.lmstudio_baixados() if ialocal.lmstudio_instalado() else []
+    bons = [m for m in mods + lms if ialocal.com_ferramentas(m)]
+    det = "; ".join(x for x in ("Ollama: " + ", ".join(mods) if mods else "",
+                                 "LM Studio: " + ", ".join(lms) if lms else "") if x)
     itens = [
         _item_iped(raiz),
         {"id": "plugins", "nome": "Transcrição (Whisper) e reconhecimento facial do IPED", "ok": tem_plugins(raiz),
@@ -305,17 +324,18 @@ def situacao(raiz=None):
         {"id": "gpu", "nome": "CUDA para o Whisper na placa de vídeo", "ok": (not gpu) or tem_cuda_whisper(raiz),
          "detalhe": gpu or "sem placa NVIDIA: o Whisper roda no processador", "auto": bool(gpu) and WIN and bool(raiz),
          "aplica": bool(gpu)},
-        {"id": "ollama", "nome": "Ollama (IA local)", "ok": bool(ollama_exe()), "detalhe": ollama_exe() or "não instalado",
-         "auto": WIN, "manual": None if WIN else "curl -fsSL https://ollama.com/install.sh | sh"},
-        {"id": "modelo", "nome": "Modelo de IA local ({})".format(modelo_sugerido()), "ok": any(m.startswith("qwen") or
-                                                                                              m.startswith("llama3") for m in mods),
-         "detalhe": ", ".join(mods) or "nenhum modelo", "auto": bool(ollama_exe()) or WIN,
+        {"id": "ollama", "nome": "Ollama (IA local)", "ok": bool(ollama_exe()),
+         "detalhe": ollama_exe() or ("não é preciso: o LM Studio já tem modelo" if lms else "não instalado"),
+         "auto": WIN, "aplica": not lms, "manual": None if WIN else "curl -fsSL https://ollama.com/install.sh | sh"},
+        {"id": "modelo", "nome": "Modelo de IA local" + ("" if bons else " ({})".format(modelo_sugerido())),
+         "ok": bool(bons), "detalhe": det or "nenhum modelo", "auto": bool(ollama_exe()) or WIN,
          "requer": "instale o Ollama primeiro"},
         {"id": "pdftotext", "nome": "Leitor de PDF (Poppler)", "ok": bool(pdftotext()), "detalhe": pdftotext() or
          "PDFs dos arquivos de contexto não são lidos", "auto": WIN,
          "manual": None if WIN else "sudo apt install poppler-utils"},
         {"id": "mcp", "nome": "MCP do IPED (IA consulta o caso)", "ok": tem_mcp(raiz),
          "detalhe": "vem no pacote da página de Releases", "auto": True},
+        _item_skills(),
     ]
     return {"itens": itens, "faltam": [i["id"] for i in itens if not i["ok"] and i.get("aplica", True)],
             "sistema": platform.system(), "ram_gb": round(ram_gb())}
@@ -474,6 +494,12 @@ def instalar_mcp(raiz):
     log("MCP copiado para", os.path.join(REPO, "mcp-dist"), "- agora use Configurar a máquina.")
 
 
+def instalar_skills():
+    from . import skills
+    for f in skills.instalar():
+        log("{}: {} ({})".format(f["destino"], f["skill"], f["acao"]))
+
+
 def instalar(itens, raiz=None, destino=None):
     sit = {i["id"]: i for i in situacao(raiz)["itens"]}
     if itens == ["tudo"]:
@@ -499,6 +525,8 @@ def instalar(itens, raiz=None, destino=None):
                 instalar_pdftotext()
             elif item == "mcp":
                 instalar_mcp(raiz)
+            elif item == "skills":
+                instalar_skills()
         except Exception as e:
             falhas.append(item)
             log("FALHOU:", e)

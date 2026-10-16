@@ -18,7 +18,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from . import agentes, contexto as ctx
+from . import agentes, contexto as ctx, ialocal
 from .configurar import gravar_texto, ler_texto
 from .mcpcliente import ClienteMcp, ErroMcp
 
@@ -36,18 +36,20 @@ def ler_config(arquivo=None):
         c = json.loads(ler_texto(arquivo or ARQ_CONFIG))
     except (OSError, ValueError):
         c = {}
-    return {"tipo": c.get("tipo") or "ollama", "url": c.get("url") or "", "modelo": c.get("modelo") or ""}
+    return {"tipo": c.get("tipo") or "auto", "url": c.get("url") or "", "modelo": c.get("modelo") or ""}
 
 
 def gravar_config(c, arquivo=None):
-    tipo = c.get("tipo") or "ollama"
-    if tipo not in ("ollama", "openai"):
+    tipo = c.get("tipo") or "auto"
+    if tipo not in ("auto", "ollama", "openai"):
         raise ValueError("Tipo de IA desconhecido: " + tipo)
     url = (c.get("url") or "").strip().rstrip("/")
     if url and not url_local(url):
         raise ValueError("Só IA local (127.0.0.1 ou localhost) pode ser usada pelo painel. Para IA na nuvem, "
                          "copie a pergunta para o programa ligado ao MCP.")
     dados = {"tipo": tipo, "url": url, "modelo": (c.get("modelo") or "").strip()}
+    if tipo == "auto":
+        dados.update(url="", modelo="")
     arquivo = arquivo or ARQ_CONFIG
     os.makedirs(os.path.dirname(arquivo), exist_ok=True)
     gravar_texto(arquivo, json.dumps(dados, ensure_ascii=False, indent=1))
@@ -215,12 +217,13 @@ class Conversas(object):
         agente = agentes.por_id(agente_id)
         if not (pergunta or "").strip():
             raise ValueError("Escreva a pergunta.")
-        modelo = modelo_de(config)
+        if config.get("url") and not url_local(config["url"]):
+            raise ValueError("Só IA local (127.0.0.1 ou localhost) pode ser usada pelo painel.")
         with self._lock:
             self._n += 1
             cid = "c{}".format(self._n)
             conv = {"id": cid, "agente": agente["nome"], "pergunta": pergunta, "caso": caso,
-                    "modelo": config["modelo"], "inicio": datetime.datetime.now().isoformat(timespec="seconds"),
+                    "modelo": config.get("modelo") or "", "inicio": datetime.datetime.now().isoformat(timespec="seconds"),
                     "eventos": [], "rodando": True, "resposta": None, "parar": False, "contexto": []}
             self._c[cid] = conv
 
@@ -232,6 +235,10 @@ class Conversas(object):
         def rodar():
             mcp = None
             try:
+                evento({"tipo": "aviso", "texto": "Procurando a IA local…"})
+                cfg = ialocal.preparar(config, lambda t: evento({"tipo": "aviso", "texto": t}))
+                modelo = modelo_de(cfg)
+                conv["modelo"] = cfg["modelo"]
                 c = None
                 if contexto_itens:
                     evento({"tipo": "aviso", "texto": "Lendo os arquivos de contexto…"})
@@ -261,7 +268,7 @@ class Conversas(object):
             if not c:
                 raise ValueError("Conversa não encontrada.")
             return {"eventos": c["eventos"][desde:], "pos": len(c["eventos"]), "rodando": c["rodando"],
-                    "resposta": c["resposta"], "contexto": c["contexto"]}
+                    "resposta": c["resposta"], "contexto": c["contexto"], "modelo": c["modelo"]}
 
     def parar(self, cid):
         with self._lock:

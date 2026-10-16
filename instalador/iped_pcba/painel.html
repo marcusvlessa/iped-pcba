@@ -143,10 +143,11 @@ nav .n.ok{font-size:0}nav .n.ok::after{content:"✓";font-size:12px}
 .perfil,.agente{display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch}
 @media (max-width:760px){header{flex-wrap:wrap;gap:8px 12px;padding:10px 12px}header .marca{flex:1}header .caso{order:3;flex-basis:100%}
  nav{align-items:center;padding:6px 8px}nav .grupo,nav #topo{display:none}nav button{width:auto;padding:8px 10px}
- .ast>div{min-width:0}#agentes{display:flex;overflow-x:auto;gap:8px;padding-bottom:4px}#agentes .agente{flex:0 0 170px}#agentes .agente .d{display:none}}
+ .ast>div{min-width:0}#agentes,#agSkills{display:flex;overflow-x:auto;gap:8px;padding-bottom:4px}#agentes .agente,#agSkills .agente{flex:0 0 170px}#agentes .agente .d,#agSkills .agente .d{display:none}}
 .agente{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:9px 11px;margin-bottom:8px;cursor:pointer;font:inherit;color:var(--ink)}
 .agente.on{border:2px solid var(--accent);padding:8px 10px}
 .agente .d{font-size:12px;color:var(--quiet)}
+.grupo{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--quiet);margin:4px 0 6px}#agSkills .agente{border-style:dashed}
 .agente .esc{font-size:10px;margin-left:6px}
 .pergs{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 10px}
 .perg{border:1px solid var(--line);background:var(--bg);border-radius:16px;padding:5px 12px;cursor:pointer;font:inherit;font-size:13px;color:var(--ink)}
@@ -268,6 +269,12 @@ input[type=text]:focus,select:focus,textarea:focus{outline:2px solid color-mix(i
     <div class="row"><button class="b p" id="depsTudo" onclick="instalarDeps(['tudo'])">Instalar tudo que falta</button><span class="ajuda">Baixa só de fontes oficiais e confere o SHA-256 quando o GitHub informa. O Visual C++ pede confirmação do Windows.</span></div>
     <div id="depsLogCard" style="display:none"><pre class="log" id="depsLog" style="height:180px"></pre></div>
   </div>
+  <div class="card" id="skillsCard">
+    <h3>Skills de análise <span class="muted">roteiros prontos que a IA segue</span></h3>
+    <div class="ajuda">Financeira (PDFs, extratos, PIX, SIMBA, RIF), imagens, áudios, geolocalização, mídias x logs do aparelho e a análise completa, que usa todas. No Assistente de IA elas ficam numa lista própria, separada dos agentes. Para Claude Code e Hermes o painel copia as pastas; para Claude Desktop e claude.ai gera um .zip por skill para enviar em Configurações &gt; Capacidades &gt; Skills.</div>
+    <div id="skillsSit" style="margin:8px 0"></div>
+    <div class="row"><button class="b p" onclick="instalarSkills()">Instalar e atualizar as skills</button><button class="b" onclick="abrirZips()">Abrir a pasta dos .zip</button><span id="skillsMsg" class="ajuda"></span></div>
+  </div>
   <div class="card">
     <h3>Opções</h3>
     <div class="row">
@@ -376,7 +383,7 @@ input[type=text]:focus,select:focus,textarea:focus{outline:2px solid color-mix(i
   <h2>Assistente de IA</h2>
   <p class="sub">Escolha um agente e uma pergunta pronta (ou escreva a sua). A IA local consulta o caso pelo MCP e mostra cada passo; tudo fica no log de auditoria. O que estiver entre [COLCHETES] é para você trocar antes de enviar.</p>
   <div class="ast">
-    <div><div id="agentes"></div></div>
+    <div><div class="grupo">Agentes</div><div id="agentes"></div><div class="grupo">Skills de análise</div><div id="agSkills"></div><div class="ajuda" style="margin-top:4px">Instale ou atualize as skills em <a href="#" onclick="ir('config');return false">1. Configurar a máquina</a>.</div></div>
     <div>
       <div class="card">
         <h3 id="agNome">Agente</h3><div class="muted" id="agDesc"></div>
@@ -440,15 +447,9 @@ input[type=text]:focus,select:focus,textarea:focus{outline:2px solid color-mix(i
     <div class="muted" style="font-size:12px;margin-top:8px">Depois de ligar, feche e abra o programa de IA. Antes de alterar, uma cópia do arquivo fica ao lado (.bak-pcba-…). Claude Desktop e Antigravity usam modelos na nuvem: o conteúdo que a IA lê do caso sai da máquina. Para dados reais, use IA local (Assistente de IA com Ollama ou LM Studio, ou Hermes com modelo local).</div>
   </div>
   <div class="card">
-    <h3>Skills de análise <span class="muted">roteiros prontos que a IA segue</span></h3>
-    <div class="ajuda">Financeira (PDFs, extratos, PIX, SIMBA, RIF), imagens, áudios, geolocalização, mídias x logs do aparelho e a análise completa, que usa todas. Na IA local elas já aparecem como agentes no Assistente de IA. Para Claude Code e Hermes o painel copia as pastas; para Claude Desktop e claude.ai gera um .zip por skill para enviar em Configurações &gt; Capacidades &gt; Skills.</div>
-    <div id="skillsSit" style="margin:8px 0"></div>
-    <div class="row"><button class="b p" onclick="instalarSkills()">Instalar e atualizar as skills</button><button class="b" onclick="abrirZips()">Abrir a pasta dos .zip</button><span id="skillsMsg" class="ajuda"></span></div>
-  </div>
-  <div class="card">
     <h3>IA local nesta máquina</h3>
     <div id="iaLocal" class="muted">procurando…</div>
-    <div class="muted" style="font-size:12px;margin-top:8px">As regras da PCBATech pedem IA local em produção. Com LM Studio, ligue o MCP acima e escolha um modelo com suporte a ferramentas (tool use).</div>
+    <div class="muted" style="font-size:12px;margin-top:8px">As regras da PCBATech pedem IA local em produção. O painel acha o Ollama e o LM Studio mesmo com o servidor desligado e liga o servidor quando você envia uma pergunta no Assistente. Use um modelo com ferramentas (tool use), como qwen2.5, qwen3 ou llama3.1.</div>
   </div>
 </section>
 
@@ -538,7 +539,7 @@ async function tentar(f){try{return await f()}catch(e){aviso(e.message,true)}}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>ir(b.dataset.s));
 let SECAO="inicio";
 function ir(s){SECAO=s;document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x.dataset.s==s));document.querySelectorAll("section").forEach(x=>x.classList.toggle("on",x.id==s));window.scrollTo(0,0);atualizarSecao()}
-function atualizarSecao(){const s=SECAO;if(s=="inicio")desenharInicio();if(s=="ia")carregarIa();if(s=="tarefas")desenharTarefas();if(s=="relatorio")entrarRt();if(s=="visao")entrarVisao();if(s=="assist")entrarAssist();if(s=="multi")entrarMulti();if(s=="config")carregarDeps();if(s=="proc")lerFila()}
+function atualizarSecao(){const s=SECAO;if(s=="inicio")desenharInicio();if(s=="ia")carregarIa();if(s=="tarefas")desenharTarefas();if(s=="relatorio")entrarRt();if(s=="visao")entrarVisao();if(s=="assist")entrarAssist();if(s=="multi")entrarMulti();if(s=="config"){carregarDeps();carregarSkills()}if(s=="proc")lerFila()}
 const CASO=()=>R.caso_ativo||"";
 const mesmo=(a,b)=>(a||"").toLowerCase()==(b||"").toLowerCase();
 const casosOk=()=>(R.casos||[]).filter(c=>c.existe);
@@ -669,9 +670,8 @@ async function carregarIa(){
   <b>Caso que a IA lê</b><span>${R.caso_ativo?esc(R.caso_ativo):'<span class="tag warn">nenhum</span> escolha o caso em análise no alto da tela'}</span>`;
   $("escrita").checked=!!m.escrita;$("escrita").disabled=!m.instalado;$("btnTestar").disabled=!m.instalado;
   $("clientes").innerHTML=(R.clientes||[]).map(c=>`<tr><td><b>${esc(c.nome)}</b>${c.nuvem?' <span class="tag warn">nuvem</span>':' <span class="tag ok">pode ser local</span>'}</td><td>${c.aponta_para_este?'<span class="tag ok">ligado</span>':c.configurado?'<span class="tag warn">ligado a outro IPED</span>':c.instalado?'<span class="tag">não ligado</span>':'<span class="tag">não encontrado</span>'}${c.erro?'<div class="aviso">'+esc(c.erro)+'</div>':''}</td><td class="muted" style="font-size:12px">${esc(c.arquivo)}</td><td><div class="row" style="margin:0"><button class="b ${c.aponta_para_este?'':'p'}" ${m.instalado?'':'disabled'} onclick="ligar('${c.cliente}')">${c.aponta_para_este?'Ligar de novo':'Ligar'}</button>${c.configurado?`<button class="b d" onclick="desligar('${c.cliente}')">Desligar</button>`:''}</div></td></tr>`).join("");
-  carregarSkills();
   $("iaLocal").innerHTML='<span class="spin"></span> procurando…';
-  await tentar(async()=>{const r=await api("ia");$("iaLocal").innerHTML=r.local.map(s=>`<div class="row"><b style="width:90px">${esc(s.nome)}</b>${s.ativo?`<span class="tag ok">rodando</span> <span class="muted">${esc(s.url)}</span> <span>${s.modelos.length?esc(s.modelos.slice(0,8).join(", ")):"nenhum modelo carregado"}</span>`:'<span class="tag">não está rodando</span>'}</div>`).join("")});
+  await tentar(async()=>{const r=await api("ia");$("iaLocal").innerHTML=r.local.map(s=>`<div class="row"><b style="width:90px">${esc(s.nome)}</b>${s.ativo?`<span class="tag ok">rodando</span> <span class="muted">${esc(s.url)}</span> <span>${s.modelos.length?esc(s.modelos.slice(0,8).join(", ")):"nenhum modelo carregado"}</span>`:s.instalado?`<span class="tag warn">instalado, servidor desligado</span> <span>${(s.baixados||[]).length?esc(s.baixados.slice(0,8).join(", ")):"nenhum modelo baixado"}</span> <span class="muted">o Assistente liga sozinho ao enviar</span>`:'<span class="tag">não instalado</span>'}</div>`).join("")});
 }
 async function carregarSkills(){await tentar(async()=>{const r=await api("skills/ler");const rot={instalada:"ok",gerado:"ok",desatualizada:"warn",falta:""};
   $("skillsSit").innerHTML="<table><thead><tr><th>Skill</th>"+r.destinos.map(d=>`<th>${esc(d.nome)}${d.detectado?"":' <span class="tag">não encontrado</span>'}</th>`).join("")+"</tr></thead><tbody>"+
@@ -709,7 +709,7 @@ let depsId=null,depsPos=0;
 async function instalarDeps(itens,destino){await tentar(async()=>{const r=await api("deps/instalar",{itens,destino:destino||""});depsId=r.tarefa;depsPos=0;
   $("depsLogCard").style.display="block";$("depsLog").textContent="";lerDeps()})}
 async function lerDeps(){if(!depsId)return;try{const r=await api("tarefa",{id:depsId,desde:depsPos});depsPos=r.pos;const pre=$("depsLog");pre.textContent+=r.texto;pre.scrollTop=pre.scrollHeight;
-  if(r.tarefa.rodando)setTimeout(lerDeps,1500);else{depsId=null;await resumo();carregarDeps();aviso(r.tarefa.codigo==0?"Instalação concluída.":"A instalação terminou com falhas; veja o log.",r.tarefa.codigo!=0)}}catch(e){setTimeout(lerDeps,3000)}}
+  if(r.tarefa.rodando)setTimeout(lerDeps,1500);else{depsId=null;await resumo();carregarDeps();carregarSkills();aviso(r.tarefa.codigo==0?"Instalação concluída.":"A instalação terminou com falhas; veja o log.",r.tarefa.codigo!=0)}}catch(e){setTimeout(lerDeps,3000)}}
 
 // ------------------------------------------------------------------ multicasos
 let MG=[],MR=null;
@@ -1107,15 +1107,18 @@ function irAgente(id){ir("assist");setTimeout(()=>{if(AG)escolherAgente(id);else
 async function entrarAssist(){
   if(!CASO()){$("iaSit").innerHTML='<b>Escolha o caso em análise</b> no alto da tela antes de enviar.'}
   await tentar(async()=>{AG=await api("assist/agentes");
-    $("agentes").innerHTML=AG.agentes.map(a=>`<button class="agente" data-id="${a.id}" onclick="escolherAgente('${a.id}')"><b>${esc(a.nome)}</b>${a.skill?'<span class="tag esc">skill</span>':''}${a.escrita?'<span class="tag warn esc">escreve no caso</span>':''}<div class="d">${esc(a.descricao)}</div></button>`).join("");
-    const op=[];AG.ia_local.forEach(sv=>{if(sv.ativo)sv.modelos.forEach(m=>op.push({tipo:sv.nome=="Ollama"?"ollama":"openai",url:sv.url,modelo:m,rot:sv.nome+": "+m}))});
-    const c=AG.config;if(c.modelo&&!op.some(o=>o.modelo==c.modelo&&o.tipo==c.tipo))op.unshift({tipo:c.tipo,url:c.url,modelo:c.modelo,rot:(c.tipo=="ollama"?"Ollama":"LM Studio")+": "+c.modelo+" (não encontrado agora)"});
-    $("iaModelo").innerHTML=op.length?op.map((o,i)=>`<option value="${i}">${esc(o.rot)}</option>`).join(""):'<option value="">nenhuma IA local rodando</option>';
-    $("iaModelo")._op=op;const k=op.findIndex(o=>o.modelo==c.modelo&&o.tipo==c.tipo);if(k>=0)$("iaModelo").value=k;
+    const bt=a=>`<button class="agente" data-id="${a.id}" onclick="escolherAgente('${a.id}')"><b>${esc(a.nome)}</b>${a.escrita?'<span class="tag warn esc">escreve no caso</span>':''}<div class="d">${esc(a.descricao)}</div></button>`;
+    $("agentes").innerHTML=AG.agentes.filter(a=>!a.skill).map(bt).join("");$("agSkills").innerHTML=AG.agentes.filter(a=>a.skill).map(bt).join("");
+    const op=[{tipo:"auto",url:"",modelo:"",rot:"Automático (o painel liga e escolhe)"}];
+    AG.ia_local.forEach(sv=>{if(sv.ativo)sv.modelos.forEach(m=>op.push({tipo:sv.tipo,url:sv.url,modelo:m,rot:sv.nome+": "+m}))});
+    const c=AG.config;if(c.modelo&&!op.some(o=>o.modelo==c.modelo&&o.tipo==c.tipo))op.push({tipo:c.tipo,url:c.url,modelo:c.modelo,rot:(c.tipo=="ollama"?"Ollama":"LM Studio")+": "+c.modelo+" (liga ao enviar)"});
+    $("iaModelo").innerHTML=op.map((o,i)=>`<option value="${i}">${esc(o.rot)}</option>`).join("");
+    $("iaModelo")._op=op;const k=c.modelo?op.findIndex(o=>o.modelo==c.modelo&&o.tipo==c.tipo):0;$("iaModelo").value=k>=0?k:0;
     $("iaModelo").onchange=()=>{const o=op[+$("iaModelo").value];if(o)tentar(()=>api("assist/config",{tipo:o.tipo,url:o.url,modelo:o.modelo}))};
-    if(op.length&&k<0)$("iaModelo").onchange();
     const avisos=[];if(!AG.mcp_instalado)avisos.push("O MCP não está instalado (passo 1).");
-    if(!op.length)avisos.push("Abra o Ollama ou o LM Studio com um modelo que use ferramentas (ex.: qwen2.5, qwen3, llama3.1) e volte a esta tela. Sem IA local, use o botão Copiar e cole a pergunta no programa ligado ao MCP.");
+    const inst=AG.ia_local.filter(sv=>sv.instalado),liga=inst.filter(sv=>!sv.ativo&&(sv.baixados||[]).length);
+    if(!inst.length)avisos.push("Nenhuma IA local nesta máquina. Instale o Ollama e o modelo em 1. Configurar a máquina, ou abra o LM Studio com um modelo baixado. Sem IA local, use o botão Copiar e cole a pergunta no programa ligado ao MCP.");
+    liga.forEach(sv=>avisos.push(`${sv.nome} instalado com ${sv.baixados.length} modelo(s) baixado(s) e servidor desligado: ao enviar, o painel liga o servidor sozinho.`));
     if(!AG.escrita)avisos.push("Escrita no caso desligada: agentes que marcam itens ou escrevem no RT só vão consultar.");
     if(CASO())$("iaSit").innerHTML=avisos.map(esc).join("<br>")||"Pronto. A IA local roda nesta máquina; sem GPU, cada resposta pode levar alguns minutos.";
     escolherAgente(AGsel||(AG.agentes[0]||{}).id)});carregarContexto()}
@@ -1158,7 +1161,7 @@ async function copiarAgente(){const a=AG.agentes.find(x=>x.id==AGsel);let txt=a.
 async function enviarAgente(){const perg=$("agPerg").value.trim();
   if(/\[[^\]]+\]/.test(perg)&&!confirm("A pergunta ainda tem [COLCHETES] para trocar. Enviar assim mesmo?"))return;
   await tentar(async()=>{const r=await api("assist/enviar",{caso:CASO(),agente:AGsel,pergunta:perg,usar_contexto:$("ctxUsar").checked});CONV=r.id;convPos=0;
-    const a=AG.agentes.find(x=>x.id==AGsel);convFim={agente:a.nome,pergunta:perg,modelo:($("iaModelo")._op[+$("iaModelo").value]||{}).modelo};
+    const a=AG.agentes.find(x=>x.id==AGsel);convFim={agente:a.nome,pergunta:perg,modelo:""};
     $("convCard").style.display="block";$("convTit").textContent=a.nome;$("convPassos").innerHTML="";$("convResp").innerHTML='<span class="spin"></span> a IA está trabalhando…';
     $("convAcoes").style.display="none";$("convSalvo").textContent="";$("convParar").style.display="";$("agEnviar").disabled=true;
     $("convCard").scrollIntoView({behavior:"smooth"});lerConversa()})}
@@ -1173,6 +1176,7 @@ async function lerConversa(){if(!CONV)return;const id=CONV;
       else if(e.tipo=="erro"){h=`<span style="color:var(--bad)">✖ ${esc(e.texto)}</span>`;$("convResp").innerHTML=`<div class="aviso">${esc(e.texto)}</div>`}
       if(h&&e.tipo!="resposta")$("convPassos").insertAdjacentHTML("beforeend","<div>"+h+"</div>")});
     $("convPassos").scrollTop=1e9;
+    if(r.modelo)convFim.modelo=r.modelo;
     if(r.rodando){setTimeout(lerConversa,1500);return}
     $("agEnviar").disabled=false;$("convParar").style.display="none";
     if(r.resposta!=null){convFim.resposta=r.resposta;convFim.contexto=r.contexto;$("convResp").innerHTML=`<div class="ajuda" style="margin-bottom:6px">Resposta da IA: confira cada fato no IPED pelo ID do item antes de usar.</div><div class="resposta">${md(r.resposta)}</div>`;$("convAcoes").style.display="flex"}
