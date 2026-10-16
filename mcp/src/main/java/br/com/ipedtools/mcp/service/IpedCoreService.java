@@ -2231,9 +2231,17 @@ public class IpedCoreService {
      * @return Map containing graph nodes and edges suitable for cognitive reasoning or network visualization
      */
     public Map<String, Object> getCommunicationsGraph(String focalContact, int minInteractions, int limitEdges) throws IOException {
+        return getCommunicationsGraph(focalContact, minInteractions, limitEdges, 200);
+    }
+
+    /**
+     * Same as {@link #getCommunicationsGraph(String, int, int)}, with a custom upper bound for the edge count.
+     * The tool keeps 200 so answers fit an AI context; the panel export asks for the whole network.
+     */
+    public Map<String, Object> getCommunicationsGraph(String focalContact, int minInteractions, int limitEdges, int maxEdges) throws IOException {
         checkCaseOpen();
         int safeMinInteractions = Math.clamp(minInteractions <= 0 ? 5 : minInteractions, 1, Integer.MAX_VALUE);
-        int maxLimitEdges = Math.clamp(limitEdges <= 0 ? 50 : limitEdges, 1, 200);
+        int maxLimitEdges = Math.clamp(limitEdges <= 0 ? 50 : limitEdges, 1, Math.max(1, maxEdges));
 
         List<CommunicationEvent> events = collectCommunicationEvents();
 

@@ -77,6 +77,16 @@ svg.ch text.ink{fill:var(--ink)}
 svg.ch .eixo{stroke:var(--line)}
 svg.ch .grade{stroke:var(--grade)}
 svg.ch [data-tip]:hover{opacity:.8}
+.rede-barra{display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--quiet);margin:2px 0 6px}
+.rede-barra select,.rede-barra input{font-size:12px}
+.rede-bt{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+.rede-tela{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--card)}
+svg.rede{width:100%;height:68vh;min-height:420px;touch-action:none;cursor:grab;user-select:none}
+svg.rede.arrastando{cursor:grabbing}
+svg.rede g.no{cursor:pointer}
+svg.rede text{font-size:inherit;pointer-events:none}
+.rede-cheia{position:fixed;inset:0;z-index:50;background:var(--bg);padding:12px;overflow:auto}
+.rede-cheia svg.rede{height:calc(100vh - 110px)}
 .leg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--quiet);margin:2px 0 6px}
 .leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
 #tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--bg);padding:6px 9px;border-radius:6px;font-size:12px;display:none;z-index:10;max-width:320px;white-space:pre-line}
@@ -654,7 +664,7 @@ function desenharVisao(){
   if(cats.length)barrasH("gCat",cats.slice(0,12).map(c=>({r:c.nome,v:[c.total]})),[{n:"Itens",c:"var(--s1)"}]);
   const con=v&&v.contatos||[];mostrar("gConC",con.length);
   if(con.length)barrasH("gCon",con.slice(0,12).map(c=>({r:c.name||c.identifier,v:[c.messages_count||0,c.calls_count||0],x:(c.channels||[]).join(", ")})),[{n:"Mensagens",c:"var(--s1)"},{n:"Chamadas",c:"var(--s2)"}]);
-  const rede=v&&v.rede||{};mostrar("gRedeC",(rede.edges||[]).length);REDE_FOCO=null;if((rede.edges||[]).length)desenharRede("gRede",rede);
+  const rede=v&&v.rede||{};mostrar("gRedeC",(rede.edges||[]).length);RV.foco=null;RV.qtd=null;if((rede.edges||[]).length)desenharRede("gRede",rede);
   const ia=(v&&v.ia_filtros||[]).filter(f=>f.total>0);mostrar("gIaC",ia.length);
   if(ia.length)barrasH("gIa",ia.map(f=>({r:f.nome,v:[f.total]})),[{n:"Itens",c:"var(--s3)"}]);
   const disp=v&&v.dispositivos||[];mostrar("gDispC",disp.length);
@@ -717,38 +727,150 @@ function juntarLigacoes(edges){
     t.weight+=e.weight||0;t.messages_count+=e.messages_count||0;t.calls_count+=e.calls_count||0;
     (e.channels||[]).forEach(c=>{if(!t.channels.includes(c))t.channels.push(c)})});
   return Object.values(m).sort((a,b)=>b.weight-a.weight)}
-let REDE_QTD=50,REDE_FOCO=null;
-function desenharRede(id,rede){
-  const todas=juntarLigacoes(rede.edges||[]),qtd=REDE_QTD&&REDE_QTD<todas.length?REDE_QTD:0,ar=qtd?todas.slice(0,qtd):todas;
-  const porId={};(rede.nodes||[]).forEach(n=>porId[n.id]=n);
+// ---------------------------------------------------------------- rede de vínculos (tela tipo canvas)
+// Arraste contatos, arraste o fundo para mover, use a roda do mouse para zoom. Layouts: força, circular,
+// hierárquico, radial e grade. Nada é cortado: a quantidade de ligações e os rótulos são escolhas do usuário.
+const RV={qtd:null,foco:null,layout:"forca",rot:"principais",cor:"tipo",tela:false};
+const CORES_GRUPO=["#2a78d6","#eb6834","#1baf7a","#9b59b6","#d4a017","#e0457b","#16a2b8","#7f8c8d","#8e5a2b","#4b6cb7"];
+function redeNos(ar,porId){
   const peso={};ar.forEach(e=>{peso[e.source]=(peso[e.source]||0)+e.weight;peso[e.target]=(peso[e.target]||0)+e.weight});
-  const nos=Object.keys(peso).map(k=>Object.assign({label:k},porId[k]||{id:k},{id:k,total:peso[k]})),ix={};
-  nos.sort((a,b)=>b.total-a.total);nos.forEach((n,i)=>{ix[n.id]=i;n.x=Math.cos(i*2.4)*(50+i*4);n.y=Math.sin(i*2.4)*(50+i*4);n.vx=0;n.vy=0});
-  const W=Math.max(320,$(id).clientWidth||900),H=Math.min(680,Math.max(360,W*.6)),maxw=Math.max(...ar.map(e=>e.weight)),maxn=Math.max(...nos.map(n=>n.total));
-  for(let it=0;it<400;it++){const a=1-it/400;
-    for(let i=0;i<nos.length;i++)for(let j=i+1;j<nos.length;j++){const p=nos[i],q=nos[j];let dx=p.x-q.x,dy=p.y-q.y,d2=dx*dx+dy*dy+.01,f=1800/d2;p.vx+=dx*f;p.vy+=dy*f;q.vx-=dx*f;q.vy-=dy*f}
-    ar.forEach(e=>{const p=nos[ix[e.source]],q=nos[ix[e.target]];const dx=q.x-p.x,dy=q.y-p.y,d=Math.sqrt(dx*dx+dy*dy)+.01,f=(d-90)*.02;p.vx+=dx/d*f*d*.05;p.vy+=dy/d*f*d*.05;q.vx-=dx/d*f*d*.05;q.vy-=dy/d*f*d*.05});
-    nos.forEach(n=>{n.vx-=n.x*.01;n.vy-=n.y*.01;n.x+=Math.max(-20,Math.min(20,n.vx))*a;n.y+=Math.max(-20,Math.min(20,n.vy))*a;n.vx*=.5;n.vy*=.5})}
-  const xs=nos.map(n=>n.x),ys=nos.map(n=>n.y),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys),
-    sx=v=>24+(v-x0)/Math.max(1,x1-x0)*(W-220),sy=v=>24+(v-y0)/Math.max(1,y1-y0)*(H-48),r=n=>4+10*Math.sqrt(n.total/maxn),
-    nome=n=>String(n.label||n.id),curto=t=>t.length>30?t.slice(0,29)+"…":t;
-  const foco=REDE_FOCO in ix?REDE_FOCO:null,liga=e=>!foco||e.source==foco||e.target==foco,
-    viz=new Set(ar.filter(e=>foco&&liga(e)).flatMap(e=>[e.source,e.target]));
-  const top=new Set(nos.slice(0,30).map(n=>n.id));
-  let g=ar.map(e=>{const p=nos[ix[e.source]],q=nos[ix[e.target]];return `<line x1="${sx(p.x)}" y1="${sy(p.y)}" x2="${sx(q.x)}" y2="${sy(q.y)}" stroke="${foco&&liga(e)?"var(--s1)":"var(--quiet)"}" stroke-opacity="${liga(e)?.55:.08}" stroke-width="${1+4*e.weight/maxw}" data-tip="${esc(nome(p)+" ↔ "+nome(q)+"\n"+fmt(e.weight)+" interações ("+fmt(e.messages_count)+" mensagens, "+fmt(e.calls_count)+" chamadas)\n"+e.channels.join(", "))}"/>`}).join("");
-  g+=nos.map(n=>{const apaga=foco&&n.id!=foco&&!viz.has(n.id),rot=foco?(n.id==foco||viz.has(n.id)):top.has(n.id);
-    return `<g class="no" data-no="${esc(n.id)}" style="cursor:pointer" opacity="${apaga?.2:1}"><circle cx="${sx(n.x)}" cy="${sy(n.y)}" r="${r(n)}" fill="${n.is_group?"var(--s3)":"var(--s1)"}" stroke="${n.id==foco?"var(--ink)":"var(--card)"}" stroke-width="2" data-tip="${esc(nome(n)+(nome(n)!=n.id?"\n"+n.id:"")+"\n"+fmt(n.total)+" interações"+(n.is_group?"\ngrupo":"")+"\nclique para destacar as ligações")}"/>`+
-      (rot?`<text x="${sx(n.x)+r(n)+3}" y="${sy(n.y)+4}" class="ink">${esc(curto(nome(n)))}</text>`:"")+"</g>"}).join("");
-  const exp=rede.edges_before_limit>(rede.edges||[]).length?` O caso tem ${fmt(rede.edges_before_limit)} ligações com 2 ou mais interações; o painel recebeu as ${fmt((rede.edges||[]).length)} mais fortes.`:"";
-  const opc=[25,50,100,0].filter(q=>!q||q<todas.length).map(q=>`<option value="${q}"${q==qtd?" selected":""}>${q?q+" mais fortes":"todas ("+todas.length+")"}</option>`).join("");
-  $(id).innerHTML=`<div class="leg"><span><i style="background:var(--s1)"></i>Pessoa ou conta</span><span><i style="background:var(--s3)"></i>Grupo</span>`+
-    (todas.length>25?`<label>Ligações: <select id="redeQtd">${opc}</select></label>`:"")+(foco?`<button class="sec" id="redeLimpar">Mostrar toda a rede</button>`:"")+`</div>`+
-    `<p class="muted">Mostrando ${fmt(ar.length)} de ${fmt(todas.length)} ligações entre ${fmt(nos.length)} contatos. Clique num contato para destacar só as ligações dele.${exp}</p>`+
-    `<svg class="ch" viewBox="0 0 ${W} ${H}" role="img" aria-label="rede de comunicações">${g}</svg>`+
+  const nos=Object.keys(peso).map(k=>Object.assign({label:k},porId[k]||{},{id:k,total:peso[k]}));
+  nos.sort((a,b)=>b.total-a.total);const ix={};nos.forEach((n,i)=>{ix[n.id]=i;n.viz=[]});
+  ar.forEach(e=>{nos[ix[e.source]].viz.push(ix[e.target]);nos[ix[e.target]].viz.push(ix[e.source])});
+  return [nos,ix]}
+// grupos de contatos que falam mais entre si (propagação de rótulos, ponderada)
+function redeComunidades(nos,ar,ix){
+  // o titular (contato ligado a boa parte da rede) não entra: senão todos caem no grupo dele
+  const ego=new Set(nos.map((n,i)=>n.viz.length>Math.max(8,nos.length/4)?i:-1).filter(i=>i>=0));
+  const adj=nos.map(()=>[]);ar.forEach(e=>{const a=ix[e.source],b=ix[e.target];if(ego.has(a)||ego.has(b))return;adj[a].push([b,e.weight]);adj[b].push([a,e.weight])});
+  const c=nos.map((_,i)=>i);
+  for(let it=0;it<20;it++){let mudou=0;
+    for(let i=nos.length-1;i>=0;i--){const s={};adj[i].forEach(([j,w])=>s[c[j]]=(s[c[j]]||0)+w);let m=c[i],mv=-1;
+      for(const k in s)if(s[k]>mv||(s[k]==mv&&+k<m)){mv=s[k];m=+k}if(m!=c[i]){c[i]=m;mudou++}}
+    if(!mudou)break}
+  const tam={};c.forEach(k=>tam[k]=(tam[k]||0)+1);const ordem=Object.keys(tam).sort((a,b)=>tam[b]-tam[a]),num={};ordem.forEach((k,i)=>num[k]=i);
+  nos.forEach((n,i)=>n.com=num[c[i]]);return ordem.length}
+// percurso em largura a partir da raiz; componentes soltos entram depois, cada um com sua raiz
+function redeNiveis(nos,raiz){
+  const nivel=new Array(nos.length).fill(-1),pai=new Array(nos.length).fill(-1),comps=[];
+  const ordem=[raiz].concat(nos.map((_,i)=>i));
+  ordem.forEach(r=>{if(nivel[r]>=0)return;const fila=[r],comp=[r];nivel[r]=0;
+    while(fila.length){const i=fila.shift();nos[i].viz.forEach(j=>{if(nivel[j]<0){nivel[j]=nivel[i]+1;pai[j]=i;fila.push(j);comp.push(j)}})}
+    comps.push(comp)});
+  return {nivel,pai,comps}}
+// árvore do percurso: cada ramo ocupa uma faixa proporcional ao número de folhas (hierarquia e radial)
+function redeArvore(nos,raiz){const {nivel,pai,comps}=redeNiveis(nos,raiz),filhos=nos.map(()=>[]),folhas=new Array(nos.length).fill(0);
+  comps.forEach(c=>c.forEach(i=>{if(pai[i]>=0)filhos[pai[i]].push(i)}));
+  comps.forEach(c=>{for(let k=c.length-1;k>=0;k--){const i=c[k];folhas[i]=Math.max(1,filhos[i].reduce((a,j)=>a+folhas[j],0))}});
+  const meio=new Array(nos.length).fill(0),anel=new Array(nos.length).fill(0);let ini=0;
+  const prof0=Math.max(0,...comps[0].map(i=>nivel[i]))+1;
+  comps.forEach((c,ci)=>{const ir=(i,a)=>{meio[i]=a+folhas[i]/2;anel[i]=ci?prof0+nivel[i]:nivel[i];
+      filhos[i].sort((x,y)=>nos[y].total-nos[x].total);let b=a;filhos[i].forEach(j=>{ir(j,b);b+=folhas[j]})};
+    ir(c[0],ini);ini+=folhas[c[0]]});
+  return {nivel,meio,anel,T:Math.max(1,ini),prof:Math.max(...anel)}}
+const LAYOUTS={
+  forca(nos,ar,ix){const n=nos.length,L=70,cel=L*3,it=n>2000?90:n>800?160:300;
+    nos.forEach((p,i)=>{const a=i*2.4,r=L*Math.sqrt(i+1)*.9;p.x=Math.cos(a)*r;p.y=Math.sin(a)*r});
+    for(let t=0;t<it;t++){const temp=L*(1-t/it)+2;nos.forEach(p=>{p.vx=0;p.vy=0});
+      const grade=new Map();nos.forEach((p,i)=>{const k=Math.floor(p.x/cel)+","+Math.floor(p.y/cel);let l=grade.get(k);if(!l)grade.set(k,l=[]);l.push(i)});
+      nos.forEach((p,i)=>{const cx=Math.floor(p.x/cel),cy=Math.floor(p.y/cel);
+        for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const l=grade.get((cx+a)+","+(cy+b));if(!l)continue;
+          for(const j of l){if(j<=i)continue;const q=nos[j];let dx=p.x-q.x,dy=p.y-q.y,d2=dx*dx+dy*dy;
+            if(d2<.01){dx=Math.random()-.5;dy=Math.random()-.5;d2=.5}if(d2>cel*cel)continue;
+            const f=L*L/d2;p.vx+=dx*f;p.vy+=dy*f;q.vx-=dx*f;q.vy-=dy*f}}});
+      ar.forEach(e=>{const p=nos[ix[e.source]],q=nos[ix[e.target]],dx=q.x-p.x,dy=q.y-p.y,d=Math.sqrt(dx*dx+dy*dy)+.01,
+        f=d/L*Math.min(3,1+Math.log10(e.weight))/Math.sqrt(Math.max(p.viz.length,q.viz.length));p.vx+=dx*f;p.vy+=dy*f;q.vx-=dx*f;q.vy-=dy*f});
+      nos.forEach(p=>{p.vx-=p.x*.02;p.vy-=p.y*.02;const d=Math.sqrt(p.vx*p.vx+p.vy*p.vy)+.01,m=Math.min(d,temp);p.x+=p.vx/d*m;p.y+=p.vy/d*m})}},
+  circular(nos){const n=nos.length,R=Math.max(160,n*(n>300?22:64)/(2*Math.PI)),ord=nos.map((p,i)=>i).sort((a,b)=>nos[a].com-nos[b].com||nos[b].total-nos[a].total);
+    ord.forEach((i,k)=>{const a=k/n*2*Math.PI-Math.PI/2;nos[i].x=Math.cos(a)*R;nos[i].y=Math.sin(a)*R})},
+  hierarquico(nos,ar,ix,raiz){const t=redeArvore(nos,raiz),dx=Math.max(34,Math.min(170,3200/t.T));
+    nos.forEach((p,i)=>{p.x=t.meio[i]*dx;p.y=t.nivel[i]*130})},
+  radial(nos,ar,ix,raiz){const t=redeArvore(nos,raiz),passo=Math.max(150,t.T*24/(2*Math.PI)/Math.max(1,t.prof));
+    nos.forEach((p,i)=>{const a=t.meio[i]/t.T*2*Math.PI,R=t.anel[i]*passo;p.x=Math.cos(a)*R;p.y=Math.sin(a)*R})},
+  grade(nos){const c=Math.ceil(Math.sqrt(nos.length));nos.forEach((p,i)=>{p.x=(i%c)*90;p.y=Math.floor(i/c)*70})}};
+function desenharRede(id,rede){
+  const caixa=$(id),porId={};(rede.nodes||[]).forEach(n=>porId[n.id]=n);
+  const todas=juntarLigacoes(rede.edges||[]);
+  if(RV.qtd==null)RV.qtd=todas.length<=300?0:200;
+  const ar=RV.qtd&&RV.qtd<todas.length?todas.slice(0,RV.qtd):todas;
+  const [nos,ix]=redeNos(ar,porId),ncom=redeComunidades(nos,ar,ix);
+  if(!(RV.foco in ix))RV.foco=null;
+  const raiz=RV.foco!=null?ix[RV.foco]:0,maxw=Math.max(...ar.map(e=>e.weight)),maxn=Math.max(...nos.map(n=>n.total));
+  (LAYOUTS[RV.layout]||LAYOUTS.forca)(nos,ar,ix,raiz);
+  const r=n=>5+12*Math.sqrt(n.total/maxn),nome=n=>String(n.label||n.id),
+    cor=n=>RV.cor=="grupo"?CORES_GRUPO[n.com%CORES_GRUPO.length]:n.is_group?"var(--s3)":"var(--s1)";
+  const exp=rede.edges_before_limit>(rede.edges||[]).length?` O MCP enviou ${fmt((rede.edges||[]).length)} de ${fmt(rede.edges_before_limit)} ligações; atualize o painel para receber a rede inteira.`:"";
+  const opc=[50,100,200,500,1000,0].filter(q=>!q||q<todas.length).map(q=>`<option value="${q}"${q==(ar.length<todas.length?RV.qtd:0)?" selected":""}>${q?q+" mais fortes":"todas ("+fmt(todas.length)+")"}</option>`).join("");
+  const sel=(idS,v,ops)=>`<select id="${idS}">${ops.map(([k,t])=>`<option value="${k}"${k==v?" selected":""}>${t}</option>`).join("")}</select>`;
+  caixa.innerHTML=`<div class="rede-barra">`+
+      `<label>Formato ${sel("redeLayout",RV.layout,[["forca","Força (agrupa quem fala mais)"],["circular","Circular"],["hierarquico","Hierarquia"],["radial","Radial (a partir do contato)"],["grade","Grade"]])}</label>`+
+      (todas.length>50?`<label>Ligações <select id="redeQtd">${opc}</select></label>`:"")+
+      `<label>Nomes ${sel("redeRot",RV.rot,[["principais","principais"],["todos","todos"],["nenhum","nenhum"]])}</label>`+
+      `<label>Cor ${sel("redeCor",RV.cor,[["tipo","pessoa / grupo"],["grupo","grupos de contatos ("+ncom+")"]])}</label>`+
+      `<input id="redeBusca" list="redeNomes" placeholder="Achar contato…" style="width:170px"><datalist id="redeNomes">${nos.slice(0,3000).map(n=>`<option value="${esc(nome(n))}">`).join("")}</datalist>`+
+      `<span class="rede-bt"><button class="sec" id="redeMais" title="Aproximar">+</button><button class="sec" id="redeMenos" title="Afastar">−</button>`+
+      `<button class="sec" id="redeAjustar">Ajustar à tela</button><button class="sec" id="redeTela">${RV.tela?"Sair da tela cheia":"Tela cheia"}</button>`+
+      `<button class="sec" id="redeSvg">Baixar imagem</button>${RV.foco!=null?`<button class="sec" id="redeLimpar">Mostrar toda a rede</button>`:""}</span></div>`+
+    `<p class="muted">Mostrando ${fmt(ar.length)} de ${fmt(todas.length)} ligações entre ${fmt(nos.length)} contatos. Arraste os contatos e o fundo, use a roda do mouse para aproximar, clique num contato para destacar as ligações dele.${exp}</p>`+
+    `<div class="rede-tela"><svg class="ch rede" id="redeSvgEl" role="img" aria-label="rede de comunicações"><g id="redeMundo"><g id="redeLig"></g><g id="redeNos"></g></g></svg></div>`+
     `<details class="tab"><summary>ver tabela (${fmt(todas.length)} ligações)</summary><table><thead><tr><th>Entre</th><th>e</th><th style="text-align:right">Interações</th><th style="text-align:right">Mensagens</th><th style="text-align:right">Chamadas</th><th>Canais</th></tr></thead><tbody>${todas.map(e=>`<tr><td>${esc((porId[e.source]||{}).label||e.source)}</td><td>${esc((porId[e.target]||{}).label||e.target)}</td><td style="text-align:right">${fmt(e.weight)}</td><td style="text-align:right">${fmt(e.messages_count)}</td><td style="text-align:right">${fmt(e.calls_count)}</td><td>${esc(e.channels.join(", "))}</td></tr>`).join("")}</tbody></table></details>`;
-  const q=$("redeQtd");if(q)q.onchange=()=>{REDE_QTD=+q.value;desenharRede(id,rede)};
-  const l=$("redeLimpar");if(l)l.onclick=()=>{REDE_FOCO=null;desenharRede(id,rede)};
-  $(id).querySelectorAll("g.no").forEach(el=>el.onclick=()=>{const k=el.getAttribute("data-no");REDE_FOCO=REDE_FOCO==k?null:k;desenharRede(id,rede)})}
+  caixa.classList.toggle("rede-cheia",RV.tela);
+  const svg=$("redeSvgEl"),mundo=$("redeMundo"),NS="http://www.w3.org/2000/svg",mk=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e};
+  const linhas=ar.map(e=>{const p=nos[ix[e.source]],q=nos[ix[e.target]];
+    const l=mk("line",{"stroke-width":1+4*e.weight/maxw,"data-tip":nome(p)+" ↔ "+nome(q)+"\n"+fmt(e.weight)+" interações ("+fmt(e.messages_count)+" mensagens, "+fmt(e.calls_count)+" chamadas)\n"+e.channels.join(", ")});
+    l.e=e;l.p=p;l.q=q;$("redeLig").appendChild(l);return l});
+  const top=new Set(nos.slice(0,30).map(n=>n.id));
+  const grupos=nos.map((n,i)=>{const g=mk("g",{class:"no","data-no":n.id}),c=mk("circle",{r:r(n),fill:cor(n),
+      "data-tip":nome(n)+(nome(n)!=n.id?"\n"+n.id:"")+"\n"+fmt(n.total)+" interações com "+fmt(n.viz.length)+" contatos"+(n.is_group?"\ngrupo":"")+"\narraste para mover, clique para destacar"});
+    const t=mk("text",{class:"ink",x:r(n)+3,y:4});t.textContent=nome(n);g.append(c,t);g.n=n;g.t=t;n.g=g;$("redeNos").appendChild(g);return g});
+  const pos=()=>{linhas.forEach(l=>{l.setAttribute("x1",l.p.x);l.setAttribute("y1",l.p.y);l.setAttribute("x2",l.q.x);l.setAttribute("y2",l.q.y)});
+    grupos.forEach(g=>g.setAttribute("transform",`translate(${g.n.x},${g.n.y})`))};
+  const realce=()=>{const f=RV.foco,viz=new Set();if(f!=null)nos[ix[f]].viz.forEach(j=>viz.add(nos[j].id));
+    linhas.forEach(l=>{const liga=f==null||l.e.source==f||l.e.target==f;l.setAttribute("stroke",f!=null&&liga?"var(--s1)":"var(--quiet)");l.setAttribute("stroke-opacity",liga?.55:.06)});
+    grupos.forEach(g=>{const n=g.n,on=f==null||n.id==f||viz.has(n.id);g.setAttribute("opacity",on?1:.15);
+      g.firstChild.setAttribute("stroke",n.id==f?"var(--ink)":"var(--card)");
+      g.t.style.display=RV.rot=="todos"||(RV.rot=="principais"&&(f!=null?on:top.has(n.id)||V.k>1.6))?"":"none"})};
+  // câmera: x,y,k aplicados no grupo do mundo; textos e traços mantêm o tamanho na tela
+  const V={x:0,y:0,k:1},cam=()=>{mundo.setAttribute("transform",`translate(${V.x},${V.y}) scale(${V.k})`);mundo.style.fontSize=(12/V.k)+"px";
+    grupos.forEach(g=>g.firstChild.setAttribute("stroke-width",2/V.k));realce()};
+  const ajustar=()=>{const W=svg.clientWidth||900,H=svg.clientHeight||600,xs=nos.map(n=>n.x),ys=nos.map(n=>n.y),
+      x0=Math.min(...xs)-30,x1=Math.max(...xs)+160,y0=Math.min(...ys)-30,y1=Math.max(...ys)+30;
+    V.k=Math.min(4,Math.min(W/Math.max(1,x1-x0),H/Math.max(1,y1-y0)));V.x=(W-(x1-x0)*V.k)/2-x0*V.k;V.y=(H-(y1-y0)*V.k)/2-y0*V.k;cam()};
+  const zoom=(f,cx,cy)=>{const k=Math.max(.05,Math.min(12,V.k*f));V.x=cx-(cx-V.x)*k/V.k;V.y=cy-(cy-V.y)*k/V.k;V.k=k;cam()};
+  const centrar=n=>{const W=svg.clientWidth,H=svg.clientHeight;V.k=Math.max(V.k,1.5);V.x=W/2-n.x*V.k;V.y=H/2-n.y*V.k;cam()};
+  pos();ajustar();if(RV.foco!=null&&(RV.layout=="radial"||RV.layout=="hierarquico"))centrar(nos[ix[RV.foco]]);
+  svg.addEventListener("wheel",ev=>{ev.preventDefault();const b=svg.getBoundingClientRect();zoom(ev.deltaY<0?1.2:1/1.2,ev.clientX-b.left,ev.clientY-b.top)},{passive:false});
+  let arr=null;
+  svg.addEventListener("pointerdown",ev=>{const g=ev.target.closest("g.no");svg.setPointerCapture(ev.pointerId);
+    arr={g,x:ev.clientX,y:ev.clientY,vx:V.x,vy:V.y,nx:g&&g.n.x,ny:g&&g.n.y,moveu:false};svg.classList.add("arrastando")});
+  svg.addEventListener("pointermove",ev=>{if(!arr)return;const dx=ev.clientX-arr.x,dy=ev.clientY-arr.y;if(Math.abs(dx)+Math.abs(dy)>3)arr.moveu=true;
+    if(arr.g){const n=arr.g.n;n.x=arr.nx+dx/V.k;n.y=arr.ny+dy/V.k;arr.g.setAttribute("transform",`translate(${n.x},${n.y})`);
+      linhas.forEach(l=>{if(l.p===n){l.setAttribute("x1",n.x);l.setAttribute("y1",n.y)}else if(l.q===n){l.setAttribute("x2",n.x);l.setAttribute("y2",n.y)}})}
+    else{V.x=arr.vx+dx;V.y=arr.vy+dy;mundo.setAttribute("transform",`translate(${V.x},${V.y}) scale(${V.k})`)}});
+  const solta=()=>{if(!arr)return;const a=arr;arr=null;svg.classList.remove("arrastando");
+    if(a.g&&!a.moveu){const k=a.g.n.id;RV.foco=RV.foco==k?null:k;
+      if(RV.layout=="radial"||RV.layout=="hierarquico")desenharRede(id,rede);else{realce();const l=$("redeLimpar");if(!l&&RV.foco!=null||l&&RV.foco==null)desenharRede(id,rede)}}};
+  svg.addEventListener("pointerup",solta);svg.addEventListener("pointercancel",solta);
+  const on=(i,ev,f)=>{const e=$(i);if(e)e[ev]=f};
+  on("redeQtd","onchange",e=>{RV.qtd=+e.target.value;desenharRede(id,rede)});
+  on("redeLayout","onchange",e=>{RV.layout=e.target.value;desenharRede(id,rede)});
+  on("redeRot","onchange",e=>{RV.rot=e.target.value;realce()});
+  on("redeCor","onchange",e=>{RV.cor=e.target.value;grupos.forEach(g=>g.firstChild.setAttribute("fill",cor(g.n)))});
+  on("redeMais","onclick",()=>zoom(1.3,svg.clientWidth/2,svg.clientHeight/2));
+  on("redeMenos","onclick",()=>zoom(1/1.3,svg.clientWidth/2,svg.clientHeight/2));
+  on("redeAjustar","onclick",ajustar);
+  on("redeTela","onclick",()=>{RV.tela=!RV.tela;desenharRede(id,rede)});
+  on("redeLimpar","onclick",()=>{RV.foco=null;desenharRede(id,rede)});
+  on("redeBusca","onchange",e=>{const t=e.target.value.trim().toLowerCase();if(!t)return;
+    const n=nos.find(n=>nome(n).toLowerCase()==t)||nos.find(n=>nome(n).toLowerCase().includes(t)||n.id.toLowerCase().includes(t));
+    if(!n){e.target.value="";e.target.placeholder="não achei";return}RV.foco=n.id;if(RV.layout=="radial"||RV.layout=="hierarquico")return desenharRede(id,rede);realce();centrar(n)});
+  on("redeSvg","onclick",()=>{const c=svg.cloneNode(true);c.setAttribute("xmlns",NS);const b=svg.getBoundingClientRect();c.setAttribute("width",b.width);c.setAttribute("height",b.height);
+    const st=getComputedStyle(document.documentElement),cs=s=>s.replace(/var\((--[\w-]+)\)/g,(m,v)=>st.getPropertyValue(v).trim()||"#888");
+    c.querySelectorAll("[stroke],[fill]").forEach(e=>{["stroke","fill"].forEach(a=>{const v=e.getAttribute(a);if(v)e.setAttribute(a,cs(v))})});
+    c.querySelectorAll("text").forEach(t=>{t.setAttribute("fill",cs("var(--ink)"));t.setAttribute("font-family","Segoe UI, sans-serif")});
+    c.insertBefore(mk("rect",{width:"100%",height:"100%",fill:cs("var(--card)")}),c.firstChild);
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(c)],{type:"image/svg+xml"}));
+    a.download="rede-de-vinculos.svg";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)})}
 
 // ---------------------------------------------------------------- início
 function etapasEstado(){
