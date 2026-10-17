@@ -102,7 +102,7 @@ class TestConfigIa(unittest.TestCase):
         shutil.rmtree(self.tmp)
 
     def test_padrao_e_gravacao(self):
-        self.assertEqual(assistente.ler_config(self.arq), {"tipo": "ollama", "url": "", "modelo": ""})
+        self.assertEqual(assistente.ler_config(self.arq), {"tipo": "auto", "url": "", "modelo": ""})
         assistente.gravar_config({"tipo": "openai", "url": "http://localhost:1234/", "modelo": " qwen "}, self.arq)
         self.assertEqual(assistente.ler_config(self.arq),
                          {"tipo": "openai", "url": "http://localhost:1234", "modelo": "qwen"})

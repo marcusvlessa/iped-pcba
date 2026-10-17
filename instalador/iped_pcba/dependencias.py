@@ -27,15 +27,15 @@ import zipfile
 WIN = os.name == "nt"
 IPED_VERSAO = "4.3.1"
 IPED_REPO = "sepinf-inc/IPED"
-IPED_ZIP = "IPED-{v}_and_java_plugins.zip"
-IPED_PLUGINS_WIN = "IPED-4.3.x_plugins_Whisper_FaceRecognition_AgeClassifier_Win64_CPU.zip"
+IPED_ZIP_FIM = "_and_java_plugins.zip"
+IPED_PLUGINS_FIM = "_plugins_Whisper_FaceRecognition_AgeClassifier_Win64_CPU.zip"
 PCBA_REPO = "marcusvlessa/iped-pcba"
 OLLAMA_WIN = "https://ollama.com/download/OllamaSetup.exe"
 VCREDIST = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
 POPPLER_REPO = "oschwartz10612/poppler-windows"
 CASA = os.path.join(os.path.expanduser("~"), ".iped-pcba")
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-ITENS = ["iped", "plugins", "vcredist", "gpu", "ollama", "modelo", "pdftotext", "mcp"]
+ITENS = ["iped", "plugins", "vcredist", "gpu", "ollama", "modelo", "pdftotext", "mcp", "skills"]
 
 
 def log(*a):
@@ -48,6 +48,34 @@ def _json(url):
     req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": "iped-pcba"})
     with urllib.request.urlopen(req, timeout=60) as r:
         return json.loads(r.read().decode("utf-8"))
+
+
+_MAIS_NOVA = []
+
+
+def versao_iped_mais_nova():
+    """Versão da última release do IPED no GitHub; sem internet, a versão que este pacote conhece."""
+    if not _MAIS_NOVA:
+        try:
+            req = urllib.request.Request("https://api.github.com/repos/{}/releases/latest".format(IPED_REPO),
+                                         headers={"Accept": "application/vnd.github+json", "User-Agent": "iped-pcba"})
+            with urllib.request.urlopen(req, timeout=5) as r:
+                tag = json.loads(r.read().decode("utf-8")).get("tag_name") or ""
+            v = tag.lstrip("vV")
+            _MAIS_NOVA.append(v if _chave(v) > _chave(IPED_VERSAO) else IPED_VERSAO)
+        except Exception:
+            _MAIS_NOVA.append(IPED_VERSAO)
+    return _MAIS_NOVA[0]
+
+
+def _chave(v):
+    import re
+    return tuple(int(x) for x in re.findall(r"\d+", v or "")) or (0,)
+
+
+def versao_instalada(raiz):
+    from .localizar import versao_de
+    return versao_de(raiz) if raiz else ""
 
 
 def asset_github(repo, nome=None, tag=None, termina=None):
@@ -225,14 +253,28 @@ def modelo_sugerido():
 
 
 def modelos_ollama():
+    """Modelos do Ollama: pelo disco (Ollama fechado) e pelo ollama list."""
+    from . import ialocal
+    mods = ialocal.ollama_baixados()
     exe = ollama_exe()
-    if not exe:
-        return []
-    try:
-        out = subprocess.run([exe, "list"], capture_output=True, text=True, timeout=30).stdout
-        return [l.split()[0] for l in out.splitlines()[1:] if l.strip()]
-    except (OSError, subprocess.SubprocessError):
-        return []
+    if exe:
+        try:
+            out = subprocess.run([exe, "list"], capture_output=True, text=True, timeout=30).stdout
+            mods += [l.split()[0] for l in out.splitlines()[1:] if l.strip() and l.split()[0] not in mods]
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return mods
+
+
+def _item_skills():
+    from . import skills
+    sit = skills.situacao()
+    faltam = [d["nome"] for d in sit["destinos"] if d["detectado"]
+              and any(i["estado"] not in ("instalada", "gerado") for i in d["itens"])]
+    onde = ", ".join(d["nome"].split(" (")[0] for d in sit["destinos"] if d["detectado"])
+    return {"id": "skills", "nome": "Skills de análise ({})".format(len(sit["skills"])), "ok": not faltam,
+            "detalhe": ("instalar ou atualizar em: " + ", ".join(faltam)) if faltam else "instaladas em: " + onde,
+            "auto": True}
 
 
 def pdftotext():
@@ -251,13 +293,30 @@ def tem_mcp(raiz):
         os.path.isfile(os.path.join(REPO, "mcp-dist", "iped-pcba-mcp.jar"))
 
 
+def _item_iped(raiz):
+    nova = versao_iped_mais_nova()
+    tem = bool(raiz and os.path.isfile(os.path.join(raiz, "iped.jar")))
+    atual = versao_instalada(raiz) if tem else ""
+    velho = bool(tem and atual and _chave(atual) < _chave(nova))
+    item = {"id": "iped", "nome": "IPED " + (atual or nova), "ok": tem and not velho,
+            "detalhe": raiz or "não encontrado", "auto": True, "tamanho": "714 MB", "versao": atual, "mais_nova": nova}
+    if velho:
+        item.update(desatualizado=True, nome="IPED " + atual,
+                    detalhe="{} · a versão atual é a {}; a nova é instalada ao lado e a antiga fica intacta".format(raiz, nova))
+    return item
+
+
 def situacao(raiz=None):
     """Lista o que existe e o que falta. 'auto' diz se o painel instala sozinho nesta máquina."""
+    from . import ialocal
     gpu = gpu_nvidia()
     mods = modelos_ollama()
+    lms = ialocal.lmstudio_baixados() if ialocal.lmstudio_instalado() else []
+    bons = [m for m in mods + lms if ialocal.com_ferramentas(m)]
+    det = "; ".join(x for x in ("Ollama: " + ", ".join(mods) if mods else "",
+                                 "LM Studio: " + ", ".join(lms) if lms else "") if x)
     itens = [
-        {"id": "iped", "nome": "IPED " + IPED_VERSAO, "ok": bool(raiz and os.path.isfile(os.path.join(raiz, "iped.jar"))),
-         "detalhe": raiz or "não encontrado", "auto": True, "tamanho": "714 MB"},
+        _item_iped(raiz),
         {"id": "plugins", "nome": "Transcrição (Whisper) e reconhecimento facial do IPED", "ok": tem_plugins(raiz),
          "detalhe": "bibliotecas Python do IPED", "auto": bool(raiz), "tamanho": "528 MB" if WIN else "pip"},
         {"id": "vcredist", "nome": "Microsoft Visual C++ 2015-2022", "ok": tem_vcredist(),
@@ -265,17 +324,18 @@ def situacao(raiz=None):
         {"id": "gpu", "nome": "CUDA para o Whisper na placa de vídeo", "ok": (not gpu) or tem_cuda_whisper(raiz),
          "detalhe": gpu or "sem placa NVIDIA: o Whisper roda no processador", "auto": bool(gpu) and WIN and bool(raiz),
          "aplica": bool(gpu)},
-        {"id": "ollama", "nome": "Ollama (IA local)", "ok": bool(ollama_exe()), "detalhe": ollama_exe() or "não instalado",
-         "auto": WIN, "manual": None if WIN else "curl -fsSL https://ollama.com/install.sh | sh"},
-        {"id": "modelo", "nome": "Modelo de IA local ({})".format(modelo_sugerido()), "ok": any(m.startswith("qwen") or
-                                                                                              m.startswith("llama3") for m in mods),
-         "detalhe": ", ".join(mods) or "nenhum modelo", "auto": bool(ollama_exe()) or WIN,
+        {"id": "ollama", "nome": "Ollama (IA local)", "ok": bool(ollama_exe()),
+         "detalhe": ollama_exe() or ("não é preciso: o LM Studio já tem modelo" if lms else "não instalado"),
+         "auto": WIN, "aplica": not lms, "manual": None if WIN else "curl -fsSL https://ollama.com/install.sh | sh"},
+        {"id": "modelo", "nome": "Modelo de IA local" + ("" if bons else " ({})".format(modelo_sugerido())),
+         "ok": bool(bons), "detalhe": det or "nenhum modelo", "auto": bool(ollama_exe()) or WIN,
          "requer": "instale o Ollama primeiro"},
         {"id": "pdftotext", "nome": "Leitor de PDF (Poppler)", "ok": bool(pdftotext()), "detalhe": pdftotext() or
          "PDFs dos arquivos de contexto não são lidos", "auto": WIN,
          "manual": None if WIN else "sudo apt install poppler-utils"},
         {"id": "mcp", "nome": "MCP do IPED (IA consulta o caso)", "ok": tem_mcp(raiz),
          "detalhe": "vem no pacote da página de Releases", "auto": True},
+        _item_skills(),
     ]
     return {"itens": itens, "faltam": [i["id"] for i in itens if not i["ok"] and i.get("aplica", True)],
             "sistema": platform.system(), "ram_gb": round(ram_gb())}
@@ -302,18 +362,24 @@ def pasta_padrao_iped():
     return os.path.join(melhor, "Tools", "IPED")
 
 
-def instalar_iped(destino=None):
+def instalar_iped(destino=None, atual=None):
+    """Instala a última versão do IPED. Atualizando, a nova vai ao lado da antiga, que fica intacta."""
+    versao = versao_iped_mais_nova()
+    if atual:
+        destino = destino or os.path.dirname(os.path.normpath(atual))
+        log("IPED instalado:", versao_instalada(atual) or "versão desconhecida", "em", atual)
+        log("Instalando o IPED", versao, "ao lado; a pasta antiga não é alterada.")
     destino = destino or pasta_padrao_iped()
-    a = asset_github(IPED_REPO, nome=IPED_ZIP.format(v=IPED_VERSAO), tag=IPED_VERSAO)
+    a = asset_github(IPED_REPO, termina=IPED_ZIP_FIM, tag=versao)
     livre = shutil.disk_usage(os.path.splitdrive(os.path.abspath(destino))[0] + os.sep if WIN else "/").free
     if livre < 3 * 1024 ** 3:
         raise RuntimeError("Pouco espaço livre para o IPED (precisa de uns 3 GB).")
     z = baixar(a["url"], os.path.join(_downloads(), a["nome"]), a["tamanho"], a["sha256"])
     os.makedirs(destino, exist_ok=True)
     extrair(z, destino)
-    raiz = os.path.join(destino, "iped-" + IPED_VERSAO)
+    raiz = os.path.join(destino, "iped-" + versao)
     if not os.path.isfile(os.path.join(raiz, "iped.jar")):
-        raise RuntimeError("O zip não trouxe iped-{}/iped.jar".format(IPED_VERSAO))
+        raise RuntimeError("O zip não trouxe iped-{}/iped.jar".format(versao))
     if not WIN:
         for sub in ("jre/bin", "tools"):
             for r, _, fs in os.walk(os.path.join(raiz, sub)):
@@ -321,6 +387,8 @@ def instalar_iped(destino=None):
                     p = os.path.join(r, f)
                     os.chmod(p, os.stat(p).st_mode | 0o111)
     log("IPED instalado em", raiz)
+    if atual:
+        log("Abra \"1. Configurar a máquina\" e aplique a configuração para levar os ajustes da PCBA ao IPED novo.")
     log("IPED_RAIZ=" + raiz)
     return raiz
 
@@ -332,7 +400,7 @@ def instalar_plugins(raiz):
         py = _python_iped(raiz) or shutil.which("python3")
         log("Linux: instalando faster-whisper no Python", py)
         return subprocess.check_call([py, "-m", "pip", "install", "--user", "faster-whisper", "numpy<2"])
-    a = asset_github(IPED_REPO, nome=IPED_PLUGINS_WIN, tag=IPED_VERSAO)
+    a = asset_github(IPED_REPO, termina=IPED_PLUGINS_FIM, tag=versao_instalada(raiz) or IPED_VERSAO)
     z = baixar(a["url"], os.path.join(_downloads(), a["nome"]), a["tamanho"], a["sha256"])
     copia = os.path.join(raiz, "conf.antes-plugins-" + time.strftime("%Y%m%d-%H%M%S"))
     shutil.copytree(os.path.join(raiz, "conf"), copia)
@@ -426,6 +494,12 @@ def instalar_mcp(raiz):
     log("MCP copiado para", os.path.join(REPO, "mcp-dist"), "- agora use Configurar a máquina.")
 
 
+def instalar_skills():
+    from . import skills
+    for f in skills.instalar():
+        log("{}: {} ({})".format(f["destino"], f["skill"], f["acao"]))
+
+
 def instalar(itens, raiz=None, destino=None):
     sit = {i["id"]: i for i in situacao(raiz)["itens"]}
     if itens == ["tudo"]:
@@ -436,7 +510,7 @@ def instalar(itens, raiz=None, destino=None):
         log("== " + sit[item]["nome"])
         try:
             if item == "iped":
-                raiz = instalar_iped(destino)
+                raiz = instalar_iped(destino, atual=raiz if sit["iped"].get("desatualizado") else None)
             elif item == "plugins":
                 instalar_plugins(raiz)
             elif item == "vcredist":
@@ -451,6 +525,8 @@ def instalar(itens, raiz=None, destino=None):
                 instalar_pdftotext()
             elif item == "mcp":
                 instalar_mcp(raiz)
+            elif item == "skills":
+                instalar_skills()
         except Exception as e:
             falhas.append(item)
             log("FALHOU:", e)

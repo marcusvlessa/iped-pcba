@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Painel IPED-PCBA</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' aria-hidden='true'%3E%3Cdefs%3E%3ClinearGradient id='lgE' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23e2b93b'/%3E%3Cstop offset='1' stop-color='%23b8891a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M24 3 41 9v13c0 11-7.3 19.3-17 23C14.3 41.3 7 33 7 22V9z' fill='%230d2f57' stroke='url(%23lgE)' stroke-width='2.5'/%3E%3Ccircle cx='22' cy='21' r='7.5' fill='none' stroke='%23fff' stroke-width='3'/%3E%3Cpath d='m27.5 26.5 6.5 6.5' stroke='url(%23lgE)' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M18.5 21h7M22 17.5v7' stroke='%237fb3ea' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
 :root{--bg:#f4f6f8;--card:#fff;--ink:#1d2733;--quiet:#5d6b7a;--line:#dfe4ea;--accent:#0b5cad;--ok:#1d7a3e;--warn:#9a6200;--bad:#b42318;--chip:#eef2f6}
 @media (prefers-color-scheme:dark){:root{--bg:#12161b;--card:#1b2128;--ink:#e6ebf0;--quiet:#9aa7b4;--line:#2c343d;--accent:#5aa2f0;--ok:#4fbf74;--warn:#e0a63a;--bad:#f0726a;--chip:#252d36}}
@@ -120,7 +121,7 @@ header .caso label{color:var(--quiet);font-size:12px;white-space:nowrap}
 .chip.warn{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
 nav .grupo{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--quiet);margin:14px 10px 4px}
 nav .grupo:first-child{margin-top:0}
-nav .n.ok::after{content:"✓"}
+nav .n.ok{font-size:0}nav .n.ok::after{content:"✓";font-size:12px}
 .prox{display:flex;gap:16px;align-items:center;background:color-mix(in srgb,var(--accent) 9%,var(--card));border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));border-radius:12px;padding:18px 20px;margin-bottom:14px}
 .prox .t{font-size:18px;font-weight:650;margin-bottom:2px}
 .prox .d{color:var(--quiet)}
@@ -140,12 +141,13 @@ nav .n.ok::after{content:"✓"}
 .ast{display:grid;grid-template-columns:260px 1fr;gap:14px;align-items:start}
 @media (max-width:900px){.ast{grid-template-columns:1fr}}
 .perfil,.agente{display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch}
-@media (max-width:760px){header{flex-wrap:wrap;gap:8px 12px;padding:10px 12px}header h1{flex:1}header .caso{order:3;flex-basis:100%}
+@media (max-width:760px){header{flex-wrap:wrap;gap:8px 12px;padding:10px 12px}header .marca{flex:1}header .caso{order:3;flex-basis:100%}
  nav{align-items:center;padding:6px 8px}nav .grupo,nav #topo{display:none}nav button{width:auto;padding:8px 10px}
- .ast>div{min-width:0}#agentes{display:flex;overflow-x:auto;gap:8px;padding-bottom:4px}#agentes .agente{flex:0 0 170px}#agentes .agente .d{display:none}}
+ .ast>div{min-width:0}#agentes,#agSkills{display:flex;overflow-x:auto;gap:8px;padding-bottom:4px}#agentes .agente,#agSkills .agente{flex:0 0 170px}#agentes .agente .d,#agSkills .agente .d{display:none}}
 .agente{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:9px 11px;margin-bottom:8px;cursor:pointer;font:inherit;color:var(--ink)}
 .agente.on{border:2px solid var(--accent);padding:8px 10px}
 .agente .d{font-size:12px;color:var(--quiet)}
+.grupo{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--quiet);margin:4px 0 6px}#agSkills .agente{border-style:dashed}
 .agente .esc{font-size:10px;margin-left:6px}
 .pergs{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 10px}
 .perg{border:1px solid var(--line);background:var(--bg);border-radius:16px;padding:5px 12px;cursor:pointer;font:inherit;font-size:13px;color:var(--ink)}
@@ -156,12 +158,57 @@ nav .n.ok::after{content:"✓"}
 .resposta p{margin:0 0 8px}.resposta ul{margin:0 0 8px;padding-left:20px}
 .resposta{overflow-x:auto;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;line-height:1.5}
 .ajuda{font-size:12px;color:var(--quiet)}
+
+/* ---- visual 0.3.1 ---- */
+:root{--bg:#f1f4f8;--line:#dde3ea;--accent:#0f4c8a;--marca:#0d2f57;--ouro:#c9a227;--sombra:0 1px 2px rgba(16,32,56,.06),0 4px 14px rgba(16,32,56,.05)}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1318;--line:#29313b;--accent:#5aa2f0;--marca:#0b1f38;--ouro:#d8b44a;--sombra:none}}
+body{font-size:14px}
+header{background:linear-gradient(90deg,var(--marca),#14467d);border-bottom:3px solid var(--ouro);color:#fff;padding:10px 20px;position:sticky;top:0;z-index:20}
+header .marca{display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none;flex:none}
+header .marca span{display:flex;flex-direction:column;line-height:1.15}
+header .marca b{font-size:17px;letter-spacing:.02em}
+header .marca small{font-size:11px;opacity:.75}
+svg.logo{width:38px;height:38px;flex:none}
+svg.logo.grande{width:84px;height:84px}
+header .caso label{color:#c8d6e6}
+header .caso select{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.25)}
+header .caso select option{color:#1d2733}
+header .chip{background:rgba(255,255,255,.14);color:#e7eef6}
+header .chip.ok{background:rgba(79,191,116,.22);color:#c9f2d7}
+header .chip.warn{background:rgba(224,166,58,.25);color:#ffe2a8}
+header button.b{background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.3)}
+header button.b.p{background:var(--ouro);border-color:var(--ouro);color:#1b1404;font-weight:600}
+.wrap{min-height:calc(100vh - 61px)}
+nav{display:flex;flex-direction:column;position:sticky;top:61px;height:calc(100vh - 61px);overflow:auto}
+nav button{position:relative;margin:1px 0;transition:background .15s}
+nav button:hover{background:var(--chip)}
+nav button.on{background:color-mix(in srgb,var(--accent) 11%,var(--card));color:var(--accent)}
+nav button.on::before{content:"";position:absolute;left:-14px;top:6px;bottom:6px;width:4px;border-radius:0 3px 3px 0;background:var(--accent)}
+nav button.on .n{border-color:var(--accent)}
+.credito{margin:auto 6px 0;padding:12px 4px 2px;border-top:1px solid var(--line);font-size:11.5px;color:var(--quiet);line-height:1.6}
+.credito a{color:var(--accent);text-decoration:none}.credito a:hover{text-decoration:underline}
+main{padding:24px 28px}
+h2{font-size:20px;letter-spacing:-.01em}
+.card,.kpi,.etapa{box-shadow:var(--sombra);border-radius:12px}
+.card{padding:18px}
+button.b{border-radius:8px;transition:border-color .15s,background .15s}
+button.p:hover{filter:brightness(1.08)}
+input[type=text],select,textarea{border-radius:8px}
+input[type=text]:focus,select:focus,textarea:focus{outline:2px solid color-mix(in srgb,var(--accent) 35%,transparent);border-color:var(--accent)}
+.hero{display:flex;gap:20px;align-items:center;background:linear-gradient(120deg,var(--marca),#1a5796);color:#fff;border-radius:14px;padding:22px 26px;margin-bottom:16px;box-shadow:var(--sombra);border-bottom:3px solid var(--ouro)}
+.hero h2{font-size:24px;margin:0 0 4px;color:#fff}
+.hero p{margin:0 0 6px;color:#dbe6f2;max-width:760px}
+.hero .quem{font-size:12.5px;color:#b9cbe0}
+.hero a{color:#ffd970}
+.etapa{transition:transform .12s,border-color .15s}.etapa:hover{transform:translateY(-1px)}
+@media (max-width:760px){header{position:static}nav{position:static;height:auto;flex-direction:row}.credito{display:none}.hero{flex-direction:column;align-items:flex-start;padding:16px}svg.logo.grande{width:56px;height:56px}main{padding:14px}}
 </style>
 </head>
 <body>
 <header>
-  <h1>Painel IPED-PCBA</h1>
+  <a class="marca" href="#" onclick="ir('inicio');return false" title="Início"><svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="lgE" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e2b93b"/><stop offset="1" stop-color="#b8891a"/></linearGradient></defs><path d="M24 3 41 9v13c0 11-7.3 19.3-17 23C14.3 41.3 7 33 7 22V9z" fill="#0d2f57" stroke="url(#lgE)" stroke-width="2.5"/><circle cx="22" cy="21" r="7.5" fill="none" stroke="#fff" stroke-width="3"/><path d="m27.5 26.5 6.5 6.5" stroke="url(#lgE)" stroke-width="4" stroke-linecap="round"/><path d="M18.5 21h7M22 17.5v7" stroke="#7fb3ea" stroke-width="2" stroke-linecap="round"/></svg><span><b>IPED-PCBA</b><small>Painel de análise forense</small></span></a>
   <div class="caso"><label for="casoSel">Caso em análise</label><select id="casoSel" onchange="trocarCaso(this.value)"></select></div>
+  <button class="b p" id="chipIped" style="display:none" onclick="ir('config')" title="Há uma versão mais nova do IPED">Atualizar IPED</button>
   <span class="chip" id="chipIa" title="Situação da IA">IA</span>
   <button class="b" onclick="sair()">Sair</button>
 </header>
@@ -182,13 +229,19 @@ nav .n.ok::after{content:"✓"}
   <button data-s="ia"><span class="n" id="n4">⚙</span>Conexões de IA (MCP)</button>
   <button data-s="tarefas"><span class="n">≡</span>Tarefas e logs</button>
   <div class="ajuda" id="topo" style="margin:14px 10px 0;word-break:break-all">carregando…</div>
+  <div class="credito" id="credito">
+    <div>Desenvolvido por <a href="https://github.com/marcusvlessa" target="_blank" rel="noopener">Marcus (@marcusvlessa)</a></div>
+    <div><a href="https://github.com/marcusvlessa/iped-pcba" target="_blank" rel="noopener">github.com/marcusvlessa/iped-pcba</a></div>
+    <div>Sobre o <a href="https://github.com/sepinf-inc/IPED" target="_blank" rel="noopener">IPED</a>, da Polícia Federal</div>
+  </div>
 </nav>
 <main>
 
 <!-- INÍCIO -->
 <section id="inicio" class="on">
-  <h2>Início</h2>
-  <p class="sub">O painel conduz o trabalho do começo ao fim: preparar a máquina, processar a evidência, analisar com gráficos e IA, e fechar o relatório técnico.</p>
+  <div class="hero"><svg class="logo grande" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="lgH" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e2b93b"/><stop offset="1" stop-color="#b8891a"/></linearGradient></defs><path d="M24 3 41 9v13c0 11-7.3 19.3-17 23C14.3 41.3 7 33 7 22V9z" fill="#0d2f57" stroke="url(#lgH)" stroke-width="2.5"/><circle cx="22" cy="21" r="7.5" fill="none" stroke="#fff" stroke-width="3"/><path d="m27.5 26.5 6.5 6.5" stroke="url(#lgH)" stroke-width="4" stroke-linecap="round"/><path d="M18.5 21h7M22 17.5v7" stroke="#7fb3ea" stroke-width="2" stroke-linecap="round"/></svg><div><h2>IPED-PCBA</h2>
+    <p>O painel conduz o trabalho do começo ao fim: preparar a máquina, processar a evidência, analisar com gráficos e IA, e fechar o relatório técnico.</p>
+    <p class="quem">Desenvolvido por <a href="https://github.com/marcusvlessa" target="_blank" rel="noopener">Marcus (@marcusvlessa)</a> · código em <a href="https://github.com/marcusvlessa/iped-pcba" target="_blank" rel="noopener">github.com/marcusvlessa/iped-pcba</a> · <span id="heroVer"></span></p></div></div>
   <div class="prox" id="prox"></div>
   <div class="etapas" id="etapas"></div>
   <div class="card" id="inicioCaso" style="display:none"></div>
@@ -198,6 +251,10 @@ nav .n.ok::after{content:"✓"}
 <section id="config">
   <h2>1. Configurar a máquina</h2>
   <p class="sub">O painel lê o hardware e propõe a configuração do IPED. Você pode desmarcar ou editar cada item antes de aplicar. Tudo tem backup.</p>
+  <div class="card" id="ipedVelho" style="display:none;border-color:#d97706">
+    <h3>IPED desatualizado</h3><p id="ipedVelhoTxt" class="sub"></p>
+    <div class="row"><button class="b p" onclick="instalarDeps(['iped'])">Atualizar o IPED</button><span class="ajuda">Depois, aplique de novo a configuração abaixo para levar os ajustes da PCBA ao IPED novo.</span></div>
+  </div>
   <div class="card" id="semIped" style="display:none">
     <h3>IPED não encontrado</h3>
     <div class="row"><input type="text" class="grow" id="raizManual" placeholder="Pasta do IPED (onde está o iped.jar)">
@@ -211,6 +268,12 @@ nav .n.ok::after{content:"✓"}
     <div id="deps" class="muted">verificando…</div>
     <div class="row"><button class="b p" id="depsTudo" onclick="instalarDeps(['tudo'])">Instalar tudo que falta</button><span class="ajuda">Baixa só de fontes oficiais e confere o SHA-256 quando o GitHub informa. O Visual C++ pede confirmação do Windows.</span></div>
     <div id="depsLogCard" style="display:none"><pre class="log" id="depsLog" style="height:180px"></pre></div>
+  </div>
+  <div class="card" id="skillsCard">
+    <h3>Skills de análise <span class="muted">roteiros prontos que a IA segue</span></h3>
+    <div class="ajuda">Financeira (PDFs, extratos, PIX, SIMBA, RIF), imagens, áudios, geolocalização, mídias x logs do aparelho e a análise completa, que usa todas. No Assistente de IA elas ficam numa lista própria, separada dos agentes. Para Claude Code e Hermes o painel copia as pastas; para Claude Desktop e claude.ai gera um .zip por skill para enviar em Configurações &gt; Capacidades &gt; Skills.</div>
+    <div id="skillsSit" style="margin:8px 0"></div>
+    <div class="row"><button class="b p" onclick="instalarSkills()">Instalar e atualizar as skills</button><button class="b" onclick="abrirZips()">Abrir a pasta dos .zip</button><span id="skillsMsg" class="ajuda"></span></div>
   </div>
   <div class="card">
     <h3>Opções</h3>
@@ -320,7 +383,7 @@ nav .n.ok::after{content:"✓"}
   <h2>Assistente de IA</h2>
   <p class="sub">Escolha um agente e uma pergunta pronta (ou escreva a sua). A IA local consulta o caso pelo MCP e mostra cada passo; tudo fica no log de auditoria. O que estiver entre [COLCHETES] é para você trocar antes de enviar.</p>
   <div class="ast">
-    <div><div id="agentes"></div></div>
+    <div><div class="grupo">Agentes</div><div id="agentes"></div><div class="grupo">Skills de análise</div><div id="agSkills"></div><div class="ajuda" style="margin-top:4px">Instale ou atualize as skills em <a href="#" onclick="ir('config');return false">1. Configurar a máquina</a>.</div></div>
     <div>
       <div class="card">
         <h3 id="agNome">Agente</h3><div class="muted" id="agDesc"></div>
@@ -384,15 +447,9 @@ nav .n.ok::after{content:"✓"}
     <div class="muted" style="font-size:12px;margin-top:8px">Depois de ligar, feche e abra o programa de IA. Antes de alterar, uma cópia do arquivo fica ao lado (.bak-pcba-…). Claude Desktop e Antigravity usam modelos na nuvem: o conteúdo que a IA lê do caso sai da máquina. Para dados reais, use IA local (Assistente de IA com Ollama ou LM Studio, ou Hermes com modelo local).</div>
   </div>
   <div class="card">
-    <h3>Skills de análise <span class="muted">roteiros prontos que a IA segue</span></h3>
-    <div class="ajuda">Financeira (PDFs, extratos, PIX, SIMBA, RIF), imagens, áudios, geolocalização, mídias x logs do aparelho e a análise completa, que usa todas. Na IA local elas já aparecem como agentes no Assistente de IA. Para Claude Code e Hermes o painel copia as pastas; para Claude Desktop e claude.ai gera um .zip por skill para enviar em Configurações &gt; Capacidades &gt; Skills.</div>
-    <div id="skillsSit" style="margin:8px 0"></div>
-    <div class="row"><button class="b p" onclick="instalarSkills()">Instalar e atualizar as skills</button><button class="b" onclick="abrirZips()">Abrir a pasta dos .zip</button><span id="skillsMsg" class="ajuda"></span></div>
-  </div>
-  <div class="card">
     <h3>IA local nesta máquina</h3>
     <div id="iaLocal" class="muted">procurando…</div>
-    <div class="muted" style="font-size:12px;margin-top:8px">As regras da PCBATech pedem IA local em produção. Com LM Studio, ligue o MCP acima e escolha um modelo com suporte a ferramentas (tool use).</div>
+    <div class="muted" style="font-size:12px;margin-top:8px">As regras da PCBATech pedem IA local em produção. O painel acha o Ollama e o LM Studio mesmo com o servidor desligado e liga o servidor quando você envia uma pergunta no Assistente. Use um modelo com ferramentas (tool use), como qwen2.5, qwen3 ou llama3.1.</div>
   </div>
 </section>
 
@@ -482,7 +539,7 @@ async function tentar(f){try{return await f()}catch(e){aviso(e.message,true)}}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>ir(b.dataset.s));
 let SECAO="inicio";
 function ir(s){SECAO=s;document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x.dataset.s==s));document.querySelectorAll("section").forEach(x=>x.classList.toggle("on",x.id==s));window.scrollTo(0,0);atualizarSecao()}
-function atualizarSecao(){const s=SECAO;if(s=="inicio")desenharInicio();if(s=="ia")carregarIa();if(s=="tarefas")desenharTarefas();if(s=="relatorio")entrarRt();if(s=="visao")entrarVisao();if(s=="assist")entrarAssist();if(s=="multi")entrarMulti();if(s=="config")carregarDeps();if(s=="proc")lerFila()}
+function atualizarSecao(){const s=SECAO;if(s=="inicio")desenharInicio();if(s=="ia")carregarIa();if(s=="tarefas")desenharTarefas();if(s=="relatorio")entrarRt();if(s=="visao")entrarVisao();if(s=="assist")entrarAssist();if(s=="multi")entrarMulti();if(s=="config"){carregarDeps();carregarSkills()}if(s=="proc")lerFila()}
 const CASO=()=>R.caso_ativo||"";
 const mesmo=(a,b)=>(a||"").toLowerCase()==(b||"").toLowerCase();
 const casosOk=()=>(R.casos||[]).filter(c=>c.existe);
@@ -494,6 +551,7 @@ async function addEvid(tipo){await tentar(async()=>{const r=await api("escolher"
 
 async function resumo(){
   R=await api("resumo");
+  $("heroVer").textContent="versão "+R.versao_painel;
   $("topo").textContent=R.iped_ok?`IPED ${R.versao_iped} em ${R.raiz} · painel ${R.versao_painel}`:"IPED não encontrado";
   const cs=casosOk(),sel=$("casoSel");
   sel.innerHTML=(R.caso_ativo&&cs.some(c=>mesmo(c.pasta,R.caso_ativo))?"":'<option value="">'+(cs.length?"escolha o caso…":"nenhum caso ainda")+'</option>')+cs.map(c=>`<option value="${esc(c.pasta)}">${esc(c.nome)}</option>`).join("");
@@ -612,9 +670,8 @@ async function carregarIa(){
   <b>Caso que a IA lê</b><span>${R.caso_ativo?esc(R.caso_ativo):'<span class="tag warn">nenhum</span> escolha o caso em análise no alto da tela'}</span>`;
   $("escrita").checked=!!m.escrita;$("escrita").disabled=!m.instalado;$("btnTestar").disabled=!m.instalado;
   $("clientes").innerHTML=(R.clientes||[]).map(c=>`<tr><td><b>${esc(c.nome)}</b>${c.nuvem?' <span class="tag warn">nuvem</span>':' <span class="tag ok">pode ser local</span>'}</td><td>${c.aponta_para_este?'<span class="tag ok">ligado</span>':c.configurado?'<span class="tag warn">ligado a outro IPED</span>':c.instalado?'<span class="tag">não ligado</span>':'<span class="tag">não encontrado</span>'}${c.erro?'<div class="aviso">'+esc(c.erro)+'</div>':''}</td><td class="muted" style="font-size:12px">${esc(c.arquivo)}</td><td><div class="row" style="margin:0"><button class="b ${c.aponta_para_este?'':'p'}" ${m.instalado?'':'disabled'} onclick="ligar('${c.cliente}')">${c.aponta_para_este?'Ligar de novo':'Ligar'}</button>${c.configurado?`<button class="b d" onclick="desligar('${c.cliente}')">Desligar</button>`:''}</div></td></tr>`).join("");
-  carregarSkills();
   $("iaLocal").innerHTML='<span class="spin"></span> procurando…';
-  await tentar(async()=>{const r=await api("ia");$("iaLocal").innerHTML=r.local.map(s=>`<div class="row"><b style="width:90px">${esc(s.nome)}</b>${s.ativo?`<span class="tag ok">rodando</span> <span class="muted">${esc(s.url)}</span> <span>${s.modelos.length?esc(s.modelos.slice(0,8).join(", ")):"nenhum modelo carregado"}</span>`:'<span class="tag">não está rodando</span>'}</div>`).join("")});
+  await tentar(async()=>{const r=await api("ia");$("iaLocal").innerHTML=r.local.map(s=>`<div class="row"><b style="width:90px">${esc(s.nome)}</b>${s.ativo?`<span class="tag ok">rodando</span> <span class="muted">${esc(s.url)}</span> <span>${s.modelos.length?esc(s.modelos.slice(0,8).join(", ")):"nenhum modelo carregado"}</span>`:s.instalado?`<span class="tag warn">instalado, servidor desligado</span> <span>${(s.baixados||[]).length?esc(s.baixados.slice(0,8).join(", ")):"nenhum modelo baixado"}</span> <span class="muted">o Assistente liga sozinho ao enviar</span>`:'<span class="tag">não instalado</span>'}</div>`).join("")});
 }
 async function carregarSkills(){await tentar(async()=>{const r=await api("skills/ler");const rot={instalada:"ok",gerado:"ok",desatualizada:"warn",falta:""};
   $("skillsSit").innerHTML="<table><thead><tr><th>Skill</th>"+r.destinos.map(d=>`<th>${esc(d.nome)}${d.detectado?"":' <span class="tag">não encontrado</span>'}</th>`).join("")+"</tr></thead><tbody>"+
@@ -644,13 +701,15 @@ async function lerTarefa(){if(!tarefaId)return;const id=tarefaId;try{const r=awa
 async function carregarDeps(){await tentar(async()=>{const r=await api("deps/ler");if(!$("destIped").value)$("destIped").value=r.pasta_iped;
   const l=r.itens.filter(i=>i.aplica!==false);
   $("deps").innerHTML="<table>"+l.map(i=>`<tr><td><b>${esc(i.nome)}</b><div class="muted" style="font-size:12px">${esc(i.detalhe||"")}${i.tamanho&&!i.ok?" · "+esc(i.tamanho):""}</div></td>`+
-    `<td>${i.ok?'<span class="tag ok">pronto</span>':'<span class="tag warn">falta</span>'}</td><td>${i.ok?"":i.auto?`<button class="b" onclick="instalarDeps(['${i.id}'])">Instalar</button>${i.admin?' <span class="ajuda">pede administrador</span>':""}`:i.manual?`<span class="ajuda">rode no terminal: <code>${esc(i.manual)}</code></span>`:`<span class="ajuda">${esc(i.requer||"instale o IPED primeiro")}</span>`}</td></tr>`).join("")+"</table>";
-  $("depsTudo").disabled=!l.some(i=>!i.ok&&i.auto)})}
+    `<td>${i.ok?'<span class="tag ok">pronto</span>':i.desatualizado?'<span class="tag warn">desatualizado</span>':'<span class="tag warn">falta</span>'}</td><td>${i.ok?"":i.auto?`<button class="b${i.desatualizado?" p":""}" onclick="instalarDeps(['${i.id}'])">${i.desatualizado?"Atualizar para "+esc(i.mais_nova):"Instalar"}</button>${i.admin?' <span class="ajuda">pede administrador</span>':""}`:i.manual?`<span class="ajuda">rode no terminal: <code>${esc(i.manual)}</code></span>`:`<span class="ajuda">${esc(i.requer||"instale o IPED primeiro")}</span>`}</td></tr>`).join("")+"</table>";
+  $("depsTudo").disabled=!l.some(i=>!i.ok&&i.auto);
+  const v=l.find(i=>i.desatualizado);$("ipedVelho").style.display=v?"block":"none";$("chipIped").style.display=v?"":"none";
+  if(v)$("ipedVelhoTxt").textContent=`O IPED desta máquina é o ${v.versao} e a versão atual é a ${v.mais_nova}. A atualização instala o novo ao lado, sem mexer no antigo nem nos casos, e o painel passa a usar o novo.`})}
 let depsId=null,depsPos=0;
 async function instalarDeps(itens,destino){await tentar(async()=>{const r=await api("deps/instalar",{itens,destino:destino||""});depsId=r.tarefa;depsPos=0;
   $("depsLogCard").style.display="block";$("depsLog").textContent="";lerDeps()})}
 async function lerDeps(){if(!depsId)return;try{const r=await api("tarefa",{id:depsId,desde:depsPos});depsPos=r.pos;const pre=$("depsLog");pre.textContent+=r.texto;pre.scrollTop=pre.scrollHeight;
-  if(r.tarefa.rodando)setTimeout(lerDeps,1500);else{depsId=null;await resumo();carregarDeps();aviso(r.tarefa.codigo==0?"Instalação concluída.":"A instalação terminou com falhas; veja o log.",r.tarefa.codigo!=0)}}catch(e){setTimeout(lerDeps,3000)}}
+  if(r.tarefa.rodando)setTimeout(lerDeps,1500);else{depsId=null;await resumo();carregarDeps();carregarSkills();aviso(r.tarefa.codigo==0?"Instalação concluída.":"A instalação terminou com falhas; veja o log.",r.tarefa.codigo!=0)}}catch(e){setTimeout(lerDeps,3000)}}
 
 // ------------------------------------------------------------------ multicasos
 let MG=[],MR=null;
@@ -1048,15 +1107,18 @@ function irAgente(id){ir("assist");setTimeout(()=>{if(AG)escolherAgente(id);else
 async function entrarAssist(){
   if(!CASO()){$("iaSit").innerHTML='<b>Escolha o caso em análise</b> no alto da tela antes de enviar.'}
   await tentar(async()=>{AG=await api("assist/agentes");
-    $("agentes").innerHTML=AG.agentes.map(a=>`<button class="agente" data-id="${a.id}" onclick="escolherAgente('${a.id}')"><b>${esc(a.nome)}</b>${a.skill?'<span class="tag esc">skill</span>':''}${a.escrita?'<span class="tag warn esc">escreve no caso</span>':''}<div class="d">${esc(a.descricao)}</div></button>`).join("");
-    const op=[];AG.ia_local.forEach(sv=>{if(sv.ativo)sv.modelos.forEach(m=>op.push({tipo:sv.nome=="Ollama"?"ollama":"openai",url:sv.url,modelo:m,rot:sv.nome+": "+m}))});
-    const c=AG.config;if(c.modelo&&!op.some(o=>o.modelo==c.modelo&&o.tipo==c.tipo))op.unshift({tipo:c.tipo,url:c.url,modelo:c.modelo,rot:(c.tipo=="ollama"?"Ollama":"LM Studio")+": "+c.modelo+" (não encontrado agora)"});
-    $("iaModelo").innerHTML=op.length?op.map((o,i)=>`<option value="${i}">${esc(o.rot)}</option>`).join(""):'<option value="">nenhuma IA local rodando</option>';
-    $("iaModelo")._op=op;const k=op.findIndex(o=>o.modelo==c.modelo&&o.tipo==c.tipo);if(k>=0)$("iaModelo").value=k;
+    const bt=a=>`<button class="agente" data-id="${a.id}" onclick="escolherAgente('${a.id}')"><b>${esc(a.nome)}</b>${a.escrita?'<span class="tag warn esc">escreve no caso</span>':''}<div class="d">${esc(a.descricao)}</div></button>`;
+    $("agentes").innerHTML=AG.agentes.filter(a=>!a.skill).map(bt).join("");$("agSkills").innerHTML=AG.agentes.filter(a=>a.skill).map(bt).join("");
+    const op=[{tipo:"auto",url:"",modelo:"",rot:"Automático (o painel liga e escolhe)"}];
+    AG.ia_local.forEach(sv=>{if(sv.ativo)sv.modelos.forEach(m=>op.push({tipo:sv.tipo,url:sv.url,modelo:m,rot:sv.nome+": "+m}))});
+    const c=AG.config;if(c.modelo&&!op.some(o=>o.modelo==c.modelo&&o.tipo==c.tipo))op.push({tipo:c.tipo,url:c.url,modelo:c.modelo,rot:(c.tipo=="ollama"?"Ollama":"LM Studio")+": "+c.modelo+" (liga ao enviar)"});
+    $("iaModelo").innerHTML=op.map((o,i)=>`<option value="${i}">${esc(o.rot)}</option>`).join("");
+    $("iaModelo")._op=op;const k=c.modelo?op.findIndex(o=>o.modelo==c.modelo&&o.tipo==c.tipo):0;$("iaModelo").value=k>=0?k:0;
     $("iaModelo").onchange=()=>{const o=op[+$("iaModelo").value];if(o)tentar(()=>api("assist/config",{tipo:o.tipo,url:o.url,modelo:o.modelo}))};
-    if(op.length&&k<0)$("iaModelo").onchange();
     const avisos=[];if(!AG.mcp_instalado)avisos.push("O MCP não está instalado (passo 1).");
-    if(!op.length)avisos.push("Abra o Ollama ou o LM Studio com um modelo que use ferramentas (ex.: qwen2.5, qwen3, llama3.1) e volte a esta tela. Sem IA local, use o botão Copiar e cole a pergunta no programa ligado ao MCP.");
+    const inst=AG.ia_local.filter(sv=>sv.instalado),liga=inst.filter(sv=>!sv.ativo&&(sv.baixados||[]).length);
+    if(!inst.length)avisos.push("Nenhuma IA local nesta máquina. Instale o Ollama e o modelo em 1. Configurar a máquina, ou abra o LM Studio com um modelo baixado. Sem IA local, use o botão Copiar e cole a pergunta no programa ligado ao MCP.");
+    liga.forEach(sv=>avisos.push(`${sv.nome} instalado com ${sv.baixados.length} modelo(s) baixado(s) e servidor desligado: ao enviar, o painel liga o servidor sozinho.`));
     if(!AG.escrita)avisos.push("Escrita no caso desligada: agentes que marcam itens ou escrevem no RT só vão consultar.");
     if(CASO())$("iaSit").innerHTML=avisos.map(esc).join("<br>")||"Pronto. A IA local roda nesta máquina; sem GPU, cada resposta pode levar alguns minutos.";
     escolherAgente(AGsel||(AG.agentes[0]||{}).id)});carregarContexto()}
@@ -1099,7 +1161,7 @@ async function copiarAgente(){const a=AG.agentes.find(x=>x.id==AGsel);let txt=a.
 async function enviarAgente(){const perg=$("agPerg").value.trim();
   if(/\[[^\]]+\]/.test(perg)&&!confirm("A pergunta ainda tem [COLCHETES] para trocar. Enviar assim mesmo?"))return;
   await tentar(async()=>{const r=await api("assist/enviar",{caso:CASO(),agente:AGsel,pergunta:perg,usar_contexto:$("ctxUsar").checked});CONV=r.id;convPos=0;
-    const a=AG.agentes.find(x=>x.id==AGsel);convFim={agente:a.nome,pergunta:perg,modelo:($("iaModelo")._op[+$("iaModelo").value]||{}).modelo};
+    const a=AG.agentes.find(x=>x.id==AGsel);convFim={agente:a.nome,pergunta:perg,modelo:""};
     $("convCard").style.display="block";$("convTit").textContent=a.nome;$("convPassos").innerHTML="";$("convResp").innerHTML='<span class="spin"></span> a IA está trabalhando…';
     $("convAcoes").style.display="none";$("convSalvo").textContent="";$("convParar").style.display="";$("agEnviar").disabled=true;
     $("convCard").scrollIntoView({behavior:"smooth"});lerConversa()})}
@@ -1114,6 +1176,7 @@ async function lerConversa(){if(!CONV)return;const id=CONV;
       else if(e.tipo=="erro"){h=`<span style="color:var(--bad)">✖ ${esc(e.texto)}</span>`;$("convResp").innerHTML=`<div class="aviso">${esc(e.texto)}</div>`}
       if(h&&e.tipo!="resposta")$("convPassos").insertAdjacentHTML("beforeend","<div>"+h+"</div>")});
     $("convPassos").scrollTop=1e9;
+    if(r.modelo)convFim.modelo=r.modelo;
     if(r.rodando){setTimeout(lerConversa,1500);return}
     $("agEnviar").disabled=false;$("convParar").style.display="none";
     if(r.resposta!=null){convFim.resposta=r.resposta;convFim.contexto=r.contexto;$("convResp").innerHTML=`<div class="ajuda" style="margin-bottom:6px">Resposta da IA: confira cada fato no IPED pelo ID do item antes de usar.</div><div class="resposta">${md(r.resposta)}</div>`;$("convAcoes").style.display="flex"}
@@ -1135,7 +1198,8 @@ async function salvarConversa(){await tentar(async()=>{const r=await api("assist
 
 async function sair(){if(!confirm("Fechar o painel? Processamentos em andamento continuam."))return;await tentar(()=>api("sair"));document.body.innerHTML='<p style="padding:30px">Painel encerrado. Pode fechar esta aba.</p>'}
 
-resumo().then(()=>{if(R.iped_ok&&!R.configurado)diagnosticar()}).catch(e=>aviso(e.message,true));
+resumo().then(()=>{if(R.iped_ok&&!R.configurado)diagnosticar();verificarIped()}).catch(e=>aviso(e.message,true));
+async function verificarIped(){try{const r=await api("deps/ler");const v=r.itens.find(i=>i.desatualizado);$("chipIped").style.display=v?"":"none";if(v)$("chipIped").textContent="Atualizar IPED "+v.versao+" → "+v.mais_nova}catch(e){}}
 setInterval(()=>{if(document.visibilityState=="visible")api("resumo").then(r=>{R=r;desenharTarefas();}).catch(()=>{})},15000);
 </script>
 </body>
