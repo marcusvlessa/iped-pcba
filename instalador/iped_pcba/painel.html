@@ -147,6 +147,7 @@ nav .n.ok{font-size:0}nav .n.ok::after{content:"✓";font-size:12px}
 .agente{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:9px 11px;margin-bottom:8px;cursor:pointer;font:inherit;color:var(--ink)}
 .agente.on{border:2px solid var(--accent);padding:8px 10px}
 .agente .d{font-size:12px;color:var(--quiet)}
+h4.passo{margin:14px 0 4px;font-size:14px}ol.guia{margin:6px 0 6px 20px;padding:0;font-size:13px;line-height:1.6}
 .grupo{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--quiet);margin:4px 0 6px}#agSkills .agente{border-style:dashed}
 .agente .esc{font-size:10px;margin-left:6px}
 .pergs{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 10px}
@@ -271,9 +272,21 @@ input[type=text]:focus,select:focus,textarea:focus{outline:2px solid color-mix(i
   </div>
   <div class="card" id="skillsCard">
     <h3>Skills de análise <span class="muted">roteiros prontos que a IA segue</span></h3>
-    <div class="ajuda">Financeira (PDFs, extratos, PIX, SIMBA, RIF), imagens, áudios, geolocalização, mídias x logs do aparelho e a análise completa, que usa todas. No Assistente de IA elas ficam numa lista própria, separada dos agentes. Para Claude Code e Hermes o painel copia as pastas; para Claude Desktop e claude.ai gera um .zip por skill para enviar em Configurações &gt; Capacidades &gt; Skills.</div>
+    <div class="ajuda">Financeira (PDFs, extratos, PIX, SIMBA, RIF), imagens, áudios, geolocalização, mídias x logs do aparelho e a análise completa, que usa todas.</div>
+    <h4 class="passo">1. Automático: IA local do painel, Claude Code e Hermes</h4>
+    <div class="ajuda">No Assistente de IA do painel as skills já aparecem numa lista própria, sem instalar nada. Para o Claude Code e o Hermes, o botão abaixo copia as skills para a pasta que cada um lê sozinho.</div>
     <div id="skillsSit" style="margin:8px 0"></div>
-    <div class="row"><button class="b p" onclick="instalarSkills()">Instalar e atualizar as skills</button><button class="b" onclick="abrirZips()">Abrir a pasta dos .zip</button><span id="skillsMsg" class="ajuda"></span></div>
+    <div class="row"><button class="b p" onclick="instalarSkills()">Instalar e atualizar as skills</button><span id="skillsMsg" class="ajuda"></span></div>
+    <h4 class="passo">2. Claude Desktop e claude.ai: envio manual, uma vez por skill</h4>
+    <div class="ajuda">O Claude Desktop guarda as skills na sua conta Claude, não numa pasta do computador, por isso o painel não consegue instalar sozinho. Ele gera um .zip por skill e você envia cada um:</div>
+    <ol class="guia">
+      <li>Abra o Claude Desktop e vá em <b>Personalizar &gt; Skills</b> (em algumas versões: Configurações &gt; Capacidades &gt; Skills).</li>
+      <li>Clique em <b>+</b> ou <b>Enviar skill</b>.</li>
+      <li>Clique em <b>Mostrar o .zip</b> na skill abaixo: a pasta abre com o arquivo selecionado. Escolha esse arquivo no Claude.</li>
+      <li>Deixe a skill <b>ligada</b> e marque <b>Já enviei</b> aqui. Repita para as outras.</li>
+    </ol>
+    <div class="aviso" style="margin:6px 0">O Claude Desktop roda na nuvem: use essas skills só com material que possa sair desta máquina. Para dados reais de investigação, use o Assistente de IA com IA local.</div>
+    <div id="skillsDesk" style="margin:8px 0"></div>
   </div>
   <div class="card">
     <h3>Opções</h3>
@@ -673,11 +686,22 @@ async function carregarIa(){
   $("iaLocal").innerHTML='<span class="spin"></span> procurando…';
   await tentar(async()=>{const r=await api("ia");$("iaLocal").innerHTML=r.local.map(s=>`<div class="row"><b style="width:90px">${esc(s.nome)}</b>${s.ativo?`<span class="tag ok">rodando</span> <span class="muted">${esc(s.url)}</span> <span>${s.modelos.length?esc(s.modelos.slice(0,8).join(", ")):"nenhum modelo carregado"}</span>`:s.instalado?`<span class="tag warn">instalado, servidor desligado</span> <span>${(s.baixados||[]).length?esc(s.baixados.slice(0,8).join(", ")):"nenhum modelo baixado"}</span> <span class="muted">o Assistente liga sozinho ao enviar</span>`:'<span class="tag">não instalado</span>'}</div>`).join("")});
 }
-async function carregarSkills(){await tentar(async()=>{const r=await api("skills/ler");const rot={instalada:"ok",gerado:"ok",desatualizada:"warn",falta:""};
-  $("skillsSit").innerHTML="<table><thead><tr><th>Skill</th>"+r.destinos.map(d=>`<th>${esc(d.nome)}${d.detectado?"":' <span class="tag">não encontrado</span>'}</th>`).join("")+"</tr></thead><tbody>"+
-    r.skills.map((k,i)=>`<tr><td><b>${esc(k.nome)}</b><div class="muted" style="font-size:12px">${esc(k.descricao)}</div></td>`+r.destinos.map(d=>{const e=d.itens[i].estado;return `<td><span class="tag ${rot[e]}">${e}</span></td>`}).join("")+"</tr>").join("")+"</tbody></table>"})}
+async function carregarSkills(r){await tentar(async()=>{r=r||await api("skills/ler");const rot={instalada:"ok",gerado:"ok",enviada:"ok",desatualizada:"warn",reenviar:"warn",falta:""};
+  const txt={instalada:"instalada",desatualizada:"desatualizada",falta:"falta",gerado:"pronto para enviar",enviada:"enviada",reenviar:"mudou: envie de novo"};
+  const auto=r.destinos.filter(d=>!d.manual),desk=r.destinos.find(d=>d.manual);
+  $("skillsSit").innerHTML="<table><thead><tr><th>Skill</th>"+auto.map(d=>`<th>${esc(d.nome)}${d.detectado?`<div class="muted" style="font-size:11px;font-weight:400">${esc(d.pasta)}</div>`:' <span class="tag">não encontrado</span>'}</th>`).join("")+"</tr></thead><tbody>"+
+    r.skills.map((k,i)=>`<tr><td><b>${esc(k.nome)}</b><div class="muted" style="font-size:12px">${esc(k.descricao)}</div></td>`+auto.map(d=>{const e=d.itens[i].estado;return d.detectado?`<td><span class="tag ${rot[e]}">${txt[e]||e}</span></td>`:'<td class="muted">não usado nesta máquina</td>'}).join("")+"</tr>").join("")+"</tbody></table>";
+  if(!desk)return;const n=desk.itens.filter(x=>x.estado=="enviada").length;
+  $("skillsDesk").innerHTML=`<div class="muted" style="margin-bottom:4px">${n} de ${desk.itens.length} enviadas ao Claude Desktop</div><table>`+r.skills.map((k,i)=>{const it=desk.itens[i];
+    return `<tr><td><b>${esc(k.nome)}</b><div class="muted" style="font-size:12px">${esc(k.id)}.zip${it.enviada_em?" · enviada em "+esc(it.enviada_em):""}</div></td><td><span class="tag ${rot[it.estado]}">${txt[it.estado]||it.estado}</span></td>`+
+      `<td><div class="row" style="margin:0"><button class="b" ${it.estado=="falta"?"disabled":""} onclick="mostrarZip('${k.id}')">Mostrar o .zip</button>`+
+      `<label class="switch" style="margin:0"><input type="checkbox" ${it.estado=="enviada"?"checked":""} ${it.estado=="falta"?"disabled":""} onchange="marcarEnviada('${k.id}',this.checked)"><span>Já enviei</span></label></div></td></tr>`}).join("")+"</table>"+
+    (desk.itens.some(x=>x.estado=="falta")?'<div class="ajuda">Os .zip ainda não foram gerados: clique em "Instalar e atualizar as skills" no passo 1.</div>':"")})}
 async function instalarSkills(){await tentar(async()=>{const r=await api("skills/instalar",{});
-  const n=r.feito.filter(x=>x.acao!="já estava").length;$("skillsMsg").textContent=n?`${n} item(ns) instalados ou gerados.`:"Tudo já estava atualizado.";carregarSkills()})}
+  const n=r.feito.filter(x=>x.acao!="já estava"&&x.destino!="zip").length;
+  $("skillsMsg").textContent=(n?`${n} skill(s) instaladas ou atualizadas no Claude Code/Hermes.`:"Claude Code e Hermes já estavam atualizados.")+" Os .zip do Claude Desktop foram gerados: falta o passo 2.";carregarSkills()})}
+async function mostrarZip(id){await tentar(()=>api("skills/mostrar",{skill:id}))}
+async function marcarEnviada(id,v){await tentar(async()=>carregarSkills(await api("skills/enviada",{skill:id,enviada:v})))}
 async function abrirZips(){await tentar(()=>api("skills/abrir",{}))}
 async function trocarEscrita(v){await tentar(async()=>{const r=await api("ia/escrita",{ativa:v});aviso(r.escrita?"Escrita liberada para as próximas conversas.":"IA em modo somente leitura.");await resumo()})}
 async function ligar(c){const cl=(R.clientes||[]).find(x=>x.cliente==c);if(cl&&cl.nuvem&&!confirm(cl.nome+" usa um modelo de IA na nuvem: o que a IA ler do caso sai desta máquina. As regras da PCBATech pedem IA local para dados reais. Ligar mesmo assim?"))return;await tentar(async()=>{const r=await api("ia/configurar",{cliente:c});aviso("Ligado. Feche e abra o programa de IA."+(r.copia?"\nCópia: "+r.copia:""));await resumo();carregarIa()})}

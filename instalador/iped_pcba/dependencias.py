@@ -269,12 +269,16 @@ def modelos_ollama():
 def _item_skills():
     from . import skills
     sit = skills.situacao()
-    faltam = [d["nome"] for d in sit["destinos"] if d["detectado"]
-              and any(i["estado"] not in ("instalada", "gerado") for i in d["itens"])]
-    onde = ", ".join(d["nome"].split(" (")[0] for d in sit["destinos"] if d["detectado"])
-    return {"id": "skills", "nome": "Skills de análise ({})".format(len(sit["skills"])), "ok": not faltam,
-            "detalhe": ("instalar ou atualizar em: " + ", ".join(faltam)) if faltam else "instaladas em: " + onde,
-            "auto": True}
+    auto = [d for d in sit["destinos"] if d["detectado"] and not d.get("manual")]
+    faltam = [d["nome"] for d in auto if any(i["estado"] != "instalada" for i in d["itens"])]
+    zips = next((d for d in sit["destinos"] if d["id"] == "zip"), {"itens": []})["itens"]
+    sem_zip = any(i["estado"] == "falta" for i in zips)
+    enviadas = sum(i["estado"] == "enviada" for i in zips)
+    det = ("instalar ou atualizar em: " + ", ".join(faltam)) if faltam else \
+        "instaladas em: " + (", ".join(d["nome"] for d in auto) or "IA local do painel")
+    det += "; Claude Desktop: {} de {} enviadas (envio manual, veja Skills de análise abaixo)".format(enviadas, len(zips))
+    return {"id": "skills", "nome": "Skills de análise ({})".format(len(sit["skills"])), "ok": not faltam and not sem_zip,
+            "detalhe": det, "auto": True}
 
 
 def pdftotext():
@@ -496,8 +500,22 @@ def instalar_mcp(raiz):
 
 def instalar_skills():
     from . import skills
-    for f in skills.instalar():
-        log("{}: {} ({})".format(f["destino"], f["skill"], f["acao"]))
+    feito = skills.instalar()
+    pastas = {d["id"]: d["pasta"] for d in skills.destinos()}
+    for destino in ("claude-code", "hermes", "zip"):
+        linhas = [f for f in feito if f["destino"] == destino]
+        if not linhas:
+            continue
+        log("")
+        log({"claude-code": "Claude Code (usa sozinho a pasta {})",
+             "hermes": "Hermes Agent (usa sozinho a pasta {})",
+             "zip": "Claude Desktop e claude.ai: arquivos .zip em {}"}[destino].format(pastas[destino]))
+        for f in linhas:
+            log("  " + skills.texto_feito(f))
+    if any(f["destino"] == "zip" for f in feito):
+        log("")
+        log("Falta um passo seu para o Claude Desktop: envie cada .zip em Personalizar > Skills > + (uma vez).")
+        log("O passo a passo está no cartão Skills de análise, em 1. Configurar a máquina.")
 
 
 def instalar(itens, raiz=None, destino=None):
