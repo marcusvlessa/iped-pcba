@@ -24,7 +24,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, assistente, auditoria, clientesia, contexto, multicasos, perfis, processar, skills
+from . import __version__, assistente, atualizacao, auditoria, clientesia, contexto, multicasos, perfis, processar, skills
 from .configurar import PASTA_PCBA, gravar_texto, ler_chaves, ler_texto, listar_backups
 from .configurar import reverter as reverter_backup
 from .mcp import (CASO_ATIVO, PASTA_MCP, achar_java, atualizar_se_preciso, definir_escrita,
@@ -338,6 +338,31 @@ class Estado(object):
     def whisper(self, d):
         cmd = [_python_iped(self.raiz)] + _boot("componentes", "whisper")
         return {"tarefa": self.tarefas.iniciar("componente", "Instalar faster-whisper", cmd)}
+
+    # ------------------------------------------------------------ atualização do IPED-PCBA
+
+    def _baixando(self):
+        return next((t["id"] for t in self.tarefas.listar() if t["tipo"] == "atualizacao" and t["rodando"]), None)
+
+    def atualizacao_ler(self, forcar=False):
+        r = atualizacao.verificar(forcar=forcar)
+        r.update(atualizacao.ler_config(), pronta=atualizacao.pronta(), baixando=self._baixando())
+        return r
+
+    def atualizacao_baixar(self):
+        if self._baixando():
+            return self._baixando()
+        cmd = [_python_iped(self.raiz) if self.raiz else sys.executable] + _boot("atualizacao", "baixar")
+        return self.tarefas.iniciar("atualizacao", "Baixar a versão nova do IPED-PCBA", cmd)
+
+    def atualizacao_aplicar(self):
+        outras = [t["titulo"] for t in self.tarefas.listar() if t["rodando"]]
+        if outras:
+            raise ValueError("Espere terminar antes de atualizar: " + "; ".join(outras))
+        r = atualizacao.iniciar_troca(os.getpid())
+        self.saida = atualizacao.CODIGO_REINICIAR
+        threading.Timer(1.0, self.servidor.shutdown).start()
+        return r
 
     # ------------------------------------------------------------ casos
     def caso_adicionar(self, d):
@@ -664,6 +689,14 @@ def _rotear(e, rota, d):
         return _rotear_rt(rota, d)
     if rota == "/api/atalho":
         return criar_atalho(e.raiz)
+    if rota == "/api/atualizacao/ler":
+        return e.atualizacao_ler(bool(d.get("forcar")))
+    if rota == "/api/atualizacao/config":
+        return atualizacao.gravar_config(bool(d.get("automatica")))
+    if rota == "/api/atualizacao/baixar":
+        return {"tarefa": e.atualizacao_baixar()}
+    if rota == "/api/atualizacao/aplicar":
+        return e.atualizacao_aplicar()
     if rota == "/api/sair":
         threading.Thread(target=e.servidor.shutdown, daemon=True).start()
         return {"ok": True}
@@ -742,6 +775,16 @@ def _abrir_local(alvo):
 
 
 def servir(raiz, porta=0, navegador=True):
+    if atualizacao.pronta() and atualizacao.ler_config()["automatica"] and not atualizacao.desenvolvimento():
+        # versão nova já baixada: entra no lugar agora e o painel reabre por ela
+        v = atualizacao.pronta()["versao"]
+        try:
+            r = atualizacao.iniciar_troca(os.getpid())
+            print("Instalando a versão {} do IPED-PCBA. A {} fica guardada em {}. O painel reabre sozinho."
+                  .format(v, __version__, r["anterior"]), flush=True)
+            return atualizacao.CODIGO_REINICIAR
+        except OSError as e:
+            print("Não consegui instalar a versão {} agora ({}). Sigo na {}.".format(v, e, __version__), flush=True)
     estado = Estado(raiz)
     try:
         aviso = atualizar_se_preciso(estado.raiz, os.path.dirname(os.path.dirname(PACOTE)))
@@ -762,4 +805,4 @@ def servir(raiz, porta=0, navegador=True):
         srv.serve_forever()
     except KeyboardInterrupt:
         pass
-    return 0
+    return getattr(estado, "saida", 0)

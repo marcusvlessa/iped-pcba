@@ -209,6 +209,7 @@ input[type=text]:focus,select:focus,textarea:focus{outline:2px solid color-mix(i
 <header>
   <a class="marca" href="#" onclick="ir('inicio');return false" title="Início"><svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="lgE" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e2b93b"/><stop offset="1" stop-color="#b8891a"/></linearGradient></defs><path d="M24 3 41 9v13c0 11-7.3 19.3-17 23C14.3 41.3 7 33 7 22V9z" fill="#0d2f57" stroke="url(#lgE)" stroke-width="2.5"/><circle cx="22" cy="21" r="7.5" fill="none" stroke="#fff" stroke-width="3"/><path d="m27.5 26.5 6.5 6.5" stroke="url(#lgE)" stroke-width="4" stroke-linecap="round"/><path d="M18.5 21h7M22 17.5v7" stroke="#7fb3ea" stroke-width="2" stroke-linecap="round"/></svg><span><b>IPED-PCBA</b><small>Painel de análise forense</small></span></a>
   <div class="caso"><label for="casoSel">Caso em análise</label><select id="casoSel" onchange="trocarCaso(this.value)"></select></div>
+  <button class="b p" id="chipAtual" style="display:none" onclick="ir('inicio')" title="Há uma versão nova do IPED-PCBA">Nova versão</button>
   <button class="b p" id="chipIped" style="display:none" onclick="ir('config')" title="Há uma versão mais nova do IPED">Atualizar IPED</button>
   <span class="chip" id="chipIa" title="Situação da IA">IA</span>
   <button class="b" onclick="sair()">Sair</button>
@@ -243,6 +244,11 @@ input[type=text]:focus,select:focus,textarea:focus{outline:2px solid color-mix(i
   <div class="hero"><svg class="logo grande" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="lgH" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e2b93b"/><stop offset="1" stop-color="#b8891a"/></linearGradient></defs><path d="M24 3 41 9v13c0 11-7.3 19.3-17 23C14.3 41.3 7 33 7 22V9z" fill="#0d2f57" stroke="url(#lgH)" stroke-width="2.5"/><circle cx="22" cy="21" r="7.5" fill="none" stroke="#fff" stroke-width="3"/><path d="m27.5 26.5 6.5 6.5" stroke="url(#lgH)" stroke-width="4" stroke-linecap="round"/><path d="M18.5 21h7M22 17.5v7" stroke="#7fb3ea" stroke-width="2" stroke-linecap="round"/></svg><div><h2>IPED-PCBA</h2>
     <p>O painel conduz o trabalho do começo ao fim: preparar a máquina, processar a evidência, analisar com gráficos e IA, e fechar o relatório técnico.</p>
     <p class="quem">Desenvolvido por <a href="https://github.com/marcusvlessa" target="_blank" rel="noopener">Marcus (@marcusvlessa)</a> · código em <a href="https://github.com/marcusvlessa/iped-pcba" target="_blank" rel="noopener">github.com/marcusvlessa/iped-pcba</a> · <span id="heroVer"></span></p></div></div>
+  <div class="card" id="atualCard" style="display:none;border-color:#2563eb">
+    <h3>Versão nova do IPED-PCBA</h3><p id="atualTxt" class="sub"></p>
+    <div class="row"><button class="b p" id="atualBtn" onclick="acaoAtualizacao()">Atualizar agora</button><span class="ajuda" id="atualProg"></span></div>
+    <details style="margin-top:8px"><summary>O que mudou</summary><pre id="atualNotas" style="white-space:pre-wrap;font-size:12px"></pre></details>
+  </div>
   <div class="prox" id="prox"></div>
   <div class="etapas" id="etapas"></div>
   <div class="card" id="inicioCaso" style="display:none"></div>
@@ -255,6 +261,12 @@ input[type=text]:focus,select:focus,textarea:focus{outline:2px solid color-mix(i
   <div class="card" id="ipedVelho" style="display:none;border-color:#d97706">
     <h3>IPED desatualizado</h3><p id="ipedVelhoTxt" class="sub"></p>
     <div class="row"><button class="b p" onclick="instalarDeps(['iped'])">Atualizar o IPED</button><span class="ajuda">Depois, aplique de novo a configuração abaixo para levar os ajustes da PCBA ao IPED novo.</span></div>
+  </div>
+  <div class="card" id="atualCfg">
+    <h3>Atualizações do IPED-PCBA</h3>
+    <p class="sub">O painel confere no GitHub, ao abrir, se saiu uma versão nova. Só lê a lista de versões: nada da máquina ou dos casos é enviado. A versão em uso fica guardada como cópia ao lado (iped-pcba-anterior-versão), para voltar se precisar.</p>
+    <div class="row"><span id="atuSit" class="grow">Verificando…</span><button class="b" onclick="verificarAtualizacao(true)">Verificar agora</button></div>
+    <label class="switch"><input type="checkbox" id="atuAuto" onchange="trocarAutoAtualizacao(this.checked)"><span>Atualizar sozinho: baixa a versão nova em segundo plano e instala na próxima vez que o painel abrir</span></label>
   </div>
   <div class="card" id="semIped" style="display:none">
     <h3>IPED não encontrado</h3>
@@ -1222,7 +1234,31 @@ async function salvarConversa(){await tentar(async()=>{const r=await api("assist
 
 async function sair(){if(!confirm("Fechar o painel? Processamentos em andamento continuam."))return;await tentar(()=>api("sair"));document.body.innerHTML='<p style="padding:30px">Painel encerrado. Pode fechar esta aba.</p>'}
 
-resumo().then(()=>{if(R.iped_ok&&!R.configurado)diagnosticar();verificarIped()}).catch(e=>aviso(e.message,true));
+resumo().then(()=>{if(R.iped_ok&&!R.configurado)diagnosticar();verificarIped();verificarAtualizacao()}).catch(e=>aviso(e.message,true));
+let ATU=null;
+async function verificarAtualizacao(forcar){try{const r=await api("atualizacao/ler",{forcar:!!forcar});ATU=r;mostrarAtualizacao();
+  if(r.baixando)seguirAtualizacao(r.baixando);
+  else if(r.tem_nova&&r.tem_pacote&&r.automatica&&!r.pronta&&!r.desenvolvimento)baixarAtualizacao()}catch(e){$("atuSit").textContent="Não consegui verificar: "+e.message}}
+function mostrarAtualizacao(){const r=ATU;if(!r)return;const tem=r.tem_nova&&!r.desenvolvimento;
+  $("atuAuto").checked=r.automatica;
+  $("atuSit").textContent=r.desenvolvimento?"Cópia de desenvolvimento (git): atualize com git pull.":r.erro?r.erro+" Você usa a "+r.atual+".":tem?`Versão ${r.nova} disponível (você usa a ${r.atual}).`:`Você está na versão mais nova (${r.atual}).`;
+  $("chipAtual").style.display=tem?"":"none";$("chipAtual").textContent=r.pronta?"Instalar versão "+r.pronta.versao:"Nova versão "+r.nova;
+  $("atualCard").style.display=tem?"block":"none";if(!tem)return;
+  $("atualTxt").innerHTML=r.pronta?`A versão <b>${esc(r.pronta.versao)}</b> já foi baixada e conferida. Clique em Atualizar agora: o painel fecha, troca a pasta e reabre sozinho numa nova aba${r.automatica?" (se preferir, ela entra sozinha na próxima vez que você abrir o painel)":""}. A versão ${esc(r.atual)} fica guardada como cópia.`
+    :r.baixando?`Baixando a versão ${esc(r.nova)} em segundo plano. Pode continuar usando o painel.`
+    :`Você usa a ${esc(r.atual)}; a <b>${esc(r.nova)}</b> foi publicada em ${esc(r.publicada)}.`+(r.tem_pacote?"":" O pacote dela ainda está sendo montado no GitHub: tente daqui a alguns minutos.");
+  $("atualNotas").textContent=r.notas||"";
+  $("atualBtn").textContent=r.pronta?"Atualizar agora":"Baixar a versão "+r.nova;$("atualBtn").disabled=!!r.baixando||(!r.pronta&&!r.tem_pacote)}
+async function baixarAtualizacao(){await tentar(async()=>{const r=await api("atualizacao/baixar",{});ATU.baixando=r.tarefa;mostrarAtualizacao();seguirAtualizacao(r.tarefa)})}
+async function seguirAtualizacao(id){try{const r=await api("tarefa",{id,desde:0});const ls=r.texto.split("\n").map(x=>x.trim()).filter(x=>x&&!x.startsWith("$")&&!x.startsWith("[fim"));
+  $("atualProg").textContent=ls.slice(-1)[0]||"";if(r.tarefa.rodando)return setTimeout(()=>seguirAtualizacao(id),2000);
+  await verificarAtualizacao(true);if(r.tarefa.codigo!=0)$("atualProg").textContent="Não deu certo: "+(ls.filter(x=>x.startsWith("ERRO")).pop()||ls.pop()||"")+" O log está em Tarefas e logs."}catch(e){}}
+function acaoAtualizacao(){if(ATU&&ATU.pronta)aplicarAtualizacao();else baixarAtualizacao()}
+async function aplicarAtualizacao(){if(!confirm("O painel vai fechar, instalar a versão "+ATU.pronta.versao+" e reabrir. Continuar?"))return;
+  await tentar(async()=>{const r=await api("atualizacao/aplicar",{});
+  $("inicio").innerHTML=`<div class="card"><h3>Atualizando o IPED-PCBA</h3><p>O painel fechou para instalar a versão nova.${r.reabre?" Uma janela mostra a troca e o painel reabre sozinho numa nova aba.":" Abra o painel de novo quando a troca terminar."}</p><p>A versão anterior fica guardada em <code>${esc(r.anterior)}</code>.</p><p>Pode fechar esta aba.</p></div>`;ir("inicio")})}
+async function trocarAutoAtualizacao(v){await tentar(async()=>{await api("atualizacao/config",{automatica:v});if(ATU)ATU.automatica=v;mostrarAtualizacao();
+  aviso(v?"O painel vai baixar as versões novas sozinho e instalá-las ao abrir.":"O painel só vai avisar quando houver versão nova.")})}
 async function verificarIped(){try{const r=await api("deps/ler");const v=r.itens.find(i=>i.desatualizado);$("chipIped").style.display=v?"":"none";if(v)$("chipIped").textContent="Atualizar IPED "+v.versao+" → "+v.mais_nova}catch(e){}}
 setInterval(()=>{if(document.visibilityState=="visible")api("resumo").then(r=>{R=r;desenharTarefas();}).catch(()=>{})},15000);
 </script>
