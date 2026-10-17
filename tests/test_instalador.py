@@ -281,6 +281,15 @@ class TestAplicarNaInstalacao(unittest.TestCase):
         self.assertEqual(codigo, 0)
         return json.loads(saida.getvalue())
 
+    def test_simular_no_console(self):
+        # o instalar.ps1 -Simular / -Aplicar usa a saída em texto, não o JSON
+        saida = io.StringIO()
+        with mock.patch("sys.stdout", saida):
+            codigo = cli.main(["aplicar", "--iped", self.raiz, "--simular"])
+        self.assertEqual(codigo, 0)
+        self.assertIn("SIMULAÇÃO: nada foi gravado.", saida.getvalue())
+        self.assertIn("  perfil pcba-celular", saida.getvalue())
+
     def test_simular_nao_grava(self):
         r = self._rodar("--simular")
         self.assertTrue(r["mudancas"])

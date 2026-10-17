@@ -302,8 +302,8 @@ def _main(argv=None):
             print("  ! {}: {}".format(m["arquivo"], m["erro"]))
         else:
             print("  {} : {} {} -> {}".format(m["arquivo"], m["chave"], m["de"], m["para"]))
-    for p in sorted(perfis):
-        print("  perfil {} ({} chaves)".format(p, len(perfis[p])))
+    for p in perfis:
+        print("  perfil " + p)
     for l in lancadores:
         print("  lançador " + l)
     if mcp:
