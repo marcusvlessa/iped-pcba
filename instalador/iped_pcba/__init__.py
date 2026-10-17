@@ -1,3 +1,3 @@
 """Instalador e autoconfigurador do IPED para a Polícia Civil da Bahia."""
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"

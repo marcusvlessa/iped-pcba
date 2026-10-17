@@ -105,7 +105,8 @@ class TestJanelaEscolha(unittest.TestCase):
 
         antes = painel.WIN, painel.subprocess.run
         painel.WIN = True
-        painel.subprocess.run = lambda cmd, **k: chamadas.append(cmd[-1]) or R()
+        envs = []
+        painel.subprocess.run = lambda cmd, **k: chamadas.append(cmd[-1]) or envs.append(k.get("env") or {}) or R()
         try:
             self.assertEqual(painel.escolher("pasta", "Pasta d'evidência"), ["C:\\Evid"])
             painel.escolher("arquivo", "Evidência", multiplos=True, filtro="evidencia")
@@ -116,8 +117,11 @@ class TestJanelaEscolha(unittest.TestCase):
             self.assertLess(ps.index("$f.Activate()"), ps.index("ShowDialog($f)"))
             self.assertIn("TopMost=$true", ps)
             self.assertTrue(ps.endswith("$f.Close()"))
-        self.assertIn("Description='Pasta devidência'", chamadas[0])
-        self.assertIn("Multiselect=$true", chamadas[1])
+        # o título vai por variável de ambiente, intacto, e não colado no comando
+        self.assertIn("Description=$env:PCBA_TITULO", chamadas[0])
+        self.assertEqual(envs[0]["PCBA_TITULO"], "Pasta d'evidência")
+        self.assertNotIn("evidência", chamadas[0])
+        self.assertEqual(envs[1]["PCBA_MULTIPLOS"], "1")
 
 
 class TestServidor(unittest.TestCase):

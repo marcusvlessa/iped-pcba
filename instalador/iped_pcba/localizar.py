@@ -84,11 +84,14 @@ def localizar_iped(bases=None, profundidade=PROFUNDIDADE):
     vem primeiro a que o IPED registrou como em uso (ipedRoot.txt ou IPED_ROOT)."""
     vistos = {}
     declarados = set()
+    # com bases informadas, a instalação registrada só conta se estiver dentro delas
+    dentro = [os.path.normcase(os.path.abspath(b)).rstrip("\\/") + os.sep for b in bases or []]
     for c in candidatos_declarados():
         if eh_instalacao(c):
             chave = os.path.normcase(os.path.abspath(c))
-            vistos[chave] = os.path.abspath(c)
             declarados.add(chave)
+            if bases is None or any((chave + os.sep).startswith(d) for d in dentro):
+                vistos[chave] = os.path.abspath(c)
     for base in (bases if bases is not None else _bases()):
         for p in _varrer(base, profundidade):
             vistos.setdefault(os.path.normcase(os.path.abspath(p)), os.path.abspath(p))

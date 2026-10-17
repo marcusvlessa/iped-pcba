@@ -2,7 +2,7 @@
 name: analise-financeira
 description: Análise financeira de caso do IPED na PCBA. Use quando o analista pedir para levantar movimentações, extratos, PIX, transferências, boletos, SIMBA, RIF do COAF, comprovantes ou indícios de lavagem de dinheiro num caso aberto no MCP iped-pcba.
 metadata:
-  ferramentas: get_case_summary, list_categories, search_documents, get_document_text, get_document_metadata, get_timeline, get_top_contacts, list_available_properties, case_context_files, bookmark_search_results
+  ferramentas: get_case_summary, list_categories, search_documents, get_document_text, get_document_metadata, get_timeline, get_top_contacts, list_available_properties, query_ai_detections, get_events_around_time, case_context_files, bookmark_search_results
 ---
 
 # Análise financeira

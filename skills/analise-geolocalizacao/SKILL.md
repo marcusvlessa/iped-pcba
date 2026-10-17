@@ -2,7 +2,7 @@
 name: analise-geolocalizacao
 description: Análise de geolocalização de caso do IPED na PCBA. Use para coordenadas GPS de fotos e vídeos, histórico de localização do Google, apps de mobilidade e mapas, e para saber onde o aparelho esteve numa data, num caso aberto no MCP iped-pcba.
 metadata:
-  ferramentas: get_case_summary, list_available_properties, get_property_dictionary, search_documents, get_document_metadata, get_document_text, get_timeline, get_events_around_time, case_context_files
+  ferramentas: get_case_summary, list_available_properties, get_property_dictionary, search_documents, get_document_metadata, get_document_text, get_timeline, get_events_around_time, get_device_and_owner_info, list_categories, case_context_files
 ---
 
 # Análise de geolocalização

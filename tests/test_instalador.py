@@ -2,9 +2,11 @@ import io
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "instalador"))
 
@@ -128,7 +130,20 @@ class TestLocalizar(unittest.TestCase):
             # só configuração, sem iped.jar: não é instalação
             os.makedirs(os.path.join(tmp, "Downloads"))
             open(os.path.join(tmp, "Downloads", "IPEDConfig.txt"), "w").close()
-            achados = localizar.localizar_iped(bases=[tmp])
+            # um IPED registrado em ~/.iped fora das bases não entra na busca
+            fora = os.path.join(tempfile.mkdtemp(), "iped-4.3.1")
+            os.makedirs(os.path.join(fora, "lib"))
+            for f in ("IPEDConfig.txt", "iped.jar", os.path.join("lib", "iped-engine-4.3.1.jar")):
+                open(os.path.join(fora, f), "w").close()
+            home = tempfile.mkdtemp()
+            os.makedirs(os.path.join(home, ".iped"))
+            with open(os.path.join(home, ".iped", "ipedRoot.txt"), "w") as f:
+                f.write(fora)
+            with mock.patch.dict(os.environ, {"HOME": home, "USERPROFILE": home}):
+                os.environ.pop("IPED_ROOT", None)
+                achados = localizar.localizar_iped(bases=[tmp])
+            shutil.rmtree(home)
+            shutil.rmtree(os.path.dirname(fora))
             self.assertEqual([a["versao"] for a in achados], ["4.3.1", "4.2.2"])  # 4.4.0 fundo demais
 
             # duas 4.3.1: vence a registrada pelo IPED como em uso
@@ -266,6 +281,15 @@ class TestAplicarNaInstalacao(unittest.TestCase):
         self.assertEqual(codigo, 0)
         return json.loads(saida.getvalue())
 
+    def test_simular_no_console(self):
+        # o instalar.ps1 -Simular / -Aplicar usa a saída em texto, não o JSON
+        saida = io.StringIO()
+        with mock.patch("sys.stdout", saida):
+            codigo = cli.main(["aplicar", "--iped", self.raiz, "--simular"])
+        self.assertEqual(codigo, 0)
+        self.assertIn("SIMULAÇÃO: nada foi gravado.", saida.getvalue())
+        self.assertIn("  perfil pcba-celular", saida.getvalue())
+
     def test_simular_nao_grava(self):
         r = self._rodar("--simular")
         self.assertTrue(r["mudancas"])
@@ -357,3 +381,29 @@ class TestPerfis(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(os.name == "nt", "o instalar.ps1 só roda no Windows")
+class TestInstalarPs1(unittest.TestCase):
+    """O instalar.ps1 só acha um Python e passa a palavra ao pacote (mesma lógica do painel)."""
+    PS1 = os.path.join(os.path.dirname(__file__), "..", "scripts", "instalar.ps1")
+
+    def test_sem_erro_de_sintaxe(self):
+        cmd = ("$e=$null; [System.Management.Automation.Language.Parser]::ParseFile('{}', [ref]$null, [ref]$e) "
+               "| Out-Null; $e | ForEach-Object {{ $_.ToString() }}; exit $e.Count").format(os.path.abspath(self.PS1))
+        r = subprocess.run(["powershell", "-NoProfile", "-Command", cmd], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_simular_pelo_pacote(self):
+        tmp = tempfile.mkdtemp()
+        try:
+            raiz = os.path.join(tmp, "iped")
+            shutil.copytree(FIXTURE, raiz)  # sem python\python.exe: usa o Python da máquina
+            r = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                                os.path.abspath(self.PS1), "-IpedRoot", raiz, "-Simular", "-Json"],
+                               capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn('"mudancas"', r.stdout)
+            self.assertFalse(os.path.exists(os.path.join(raiz, "pcba")))  # simulação não grava
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)

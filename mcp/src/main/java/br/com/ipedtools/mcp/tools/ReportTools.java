@@ -71,7 +71,8 @@ public class ReportTools {
             Creates or updates the analysis section of one provider (WHATSAPP, GOOGLE, APPLE, META...)
             in the RT draft: the analysis text and, optionally, a suggested conclusion. Base the text
             only on evidence found in the case and cite item ids or queries you used. The conclusion
-            belongs to the examiner: if you suggest one, say it is a suggestion.
+            belongs to the examiner: a suggested conclusion is stored entirely in brackets as
+            [SUGESTÃO DA IA — REVISAR: ...] so it prints in red until the examiner rewrites it.
             """
     )
     public String updateReportAnalysis(

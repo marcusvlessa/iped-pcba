@@ -27,6 +27,10 @@ PASTA_CONVERSAS = os.path.join("iped-pcba-ia", "conversas")
 MAX_PASSOS = 12
 MAX_RESULTADO = 6000  # caracteres de cada resultado de ferramenta entregues ao modelo
 TIMEOUT_MODELO = 900  # CPU sem GPU pode levar minutos por resposta
+# Sem num_ctx o Ollama usa 2048-4096 tokens e descarta em silêncio o começo da conversa (o papel do agente).
+NUM_CTX = 16384
+MANTER_RESULTADOS = 6   # resultados de ferramenta mais recentes que vão inteiros ao modelo
+RESUMO_ANTIGO = 600     # os mais antigos encolhem para este tamanho
 
 
 # ------------------------------------------------------------------ configuração da IA local
@@ -70,13 +74,12 @@ def url_padrao(tipo):
 
 # ------------------------------------------------------------------ modelos
 
-def _post(url, corpo, timeout):
+def _abrir(url, corpo, timeout):
     req = urllib.request.Request(url, data=json.dumps(corpo).encode("utf-8"),
                                  headers={"Content-Type": "application/json"})
     abridor = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # nunca passa por proxy
     try:
-        with abridor.open(req, timeout=timeout) as r:
-            return json.loads(r.read().decode("utf-8"))
+        return abridor.open(req, timeout=timeout)
     except urllib.error.HTTPError as e:
         texto = e.read().decode("utf-8", "replace")[:500]
         if "does not support tools" in texto or "tool" in texto.lower() and e.code == 400:
@@ -85,6 +88,38 @@ def _post(url, corpo, timeout):
         raise RuntimeError("A IA local respondeu com erro {}: {}".format(e.code, texto))
     except urllib.error.URLError as e:
         raise RuntimeError("Não consegui falar com a IA local em {} ({}). Ela está aberta?".format(url, e.reason))
+
+
+def _post(url, corpo, timeout):
+    with _abrir(url, corpo, timeout) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
+def _linhas(url, corpo, timeout):
+    """Resposta em partes (stream): uma linha JSON por vez, como o Ollama e o LM Studio mandam."""
+    with _abrir(url, corpo, timeout) as r:
+        for linha in r:
+            linha = linha.decode("utf-8", "replace").strip()
+            if linha.startswith("data:"):  # formato OpenAI (SSE)
+                linha = linha[5:].strip()
+            if not linha or linha == "[DONE]":
+                continue
+            try:
+                yield json.loads(linha)
+            except ValueError:
+                continue
+
+
+def _compactar(mensagens, manter=MANTER_RESULTADOS, curto=RESUMO_ANTIGO):
+    """Encolhe os resultados de ferramenta antigos para a conversa caber na janela do modelo.
+    O papel do agente, a pergunta e os resultados recentes ficam inteiros."""
+    resultados = [m for m in mensagens if m.get("role") == "tool"]
+    for m in resultados[:-manter] if manter else resultados:
+        c = m.get("content") or ""
+        if len(c) > curto and not m.get("_encolhido"):
+            m["content"] = c[:curto] + "\n[... resultado antigo encurtado; consulte de novo se precisar]"
+            m["_encolhido"] = True
+    return [{k: v for k, v in m.items() if k != "_encolhido"} for m in mensagens]
 
 
 def _ferramentas_para_modelo(ferramentas):
@@ -97,11 +132,26 @@ class ModeloOllama(object):
     def __init__(self, url, modelo):
         self.url, self.modelo = (url or url_padrao("ollama")).rstrip("/"), modelo
 
-    def responder(self, mensagens, ferramentas):
-        r = _post(self.url + "/api/chat", {"model": self.modelo, "messages": mensagens, "stream": False,
-                                           "tools": _ferramentas_para_modelo(ferramentas),
-                                           "options": {"temperature": 0.2}}, TIMEOUT_MODELO)
-        m = r.get("message") or {}
+    def responder(self, mensagens, ferramentas, ao_trecho=None):
+        """ao_trecho(texto_ate_agora): a resposta aparece no painel enquanto o modelo escreve."""
+        corpo = {"model": self.modelo, "messages": mensagens, "stream": ao_trecho is not None,
+                 "tools": _ferramentas_para_modelo(ferramentas),
+                 "options": {"temperature": 0.2, "num_ctx": NUM_CTX}}
+        if ao_trecho is None:
+            m = _post(self.url + "/api/chat", corpo, TIMEOUT_MODELO).get("message") or {}
+        else:
+            texto, pedidas = "", []
+            for parte in _linhas(self.url + "/api/chat", corpo, TIMEOUT_MODELO):
+                pm = parte.get("message") or {}
+                if pm.get("content"):
+                    texto += pm["content"]
+                    ao_trecho(texto)
+                pedidas += pm.get("tool_calls") or []
+                if parte.get("error"):
+                    raise RuntimeError("A IA local respondeu com erro: {}".format(parte["error"]))
+            m = {"role": "assistant", "content": texto}
+            if pedidas:
+                m["tool_calls"] = pedidas
         chamadas = []
         for i, c in enumerate(m.get("tool_calls") or []):
             f = c.get("function") or {}
@@ -119,11 +169,32 @@ class ModeloOpenAI(object):
     def __init__(self, url, modelo):
         self.url, self.modelo = (url or url_padrao("openai")).rstrip("/"), modelo
 
-    def responder(self, mensagens, ferramentas):
-        r = _post(self.url + "/v1/chat/completions", {"model": self.modelo, "messages": mensagens,
-                                                      "tools": _ferramentas_para_modelo(ferramentas),
-                                                      "temperature": 0.2}, TIMEOUT_MODELO)
-        m = ((r.get("choices") or [{}])[0]).get("message") or {}
+    def responder(self, mensagens, ferramentas, ao_trecho=None):
+        corpo = {"model": self.modelo, "messages": mensagens, "tools": _ferramentas_para_modelo(ferramentas),
+                 "temperature": 0.2}
+        if ao_trecho is None:
+            r = _post(self.url + "/v1/chat/completions", corpo, TIMEOUT_MODELO)
+            m = ((r.get("choices") or [{}])[0]).get("message") or {}
+        else:
+            corpo["stream"] = True
+            texto, pedidas = "", {}
+            for parte in _linhas(self.url + "/v1/chat/completions", corpo, TIMEOUT_MODELO):
+                esc = (parte.get("choices") or [{}])[0]
+                d = esc.get("delta") or esc.get("message") or {}  # servidor que ignora o stream manda tudo junto
+                if d.get("content"):
+                    texto += d["content"]
+                    ao_trecho(texto)
+                for c in d.get("tool_calls") or []:  # chegam em pedaços, juntados pelo índice
+                    k = c.get("index", len(pedidas))
+                    t = pedidas.setdefault(k, {"id": "c{}".format(k), "type": "function",
+                                               "function": {"name": "", "arguments": ""}})
+                    t["id"] = c.get("id") or t["id"]
+                    f = c.get("function") or {}
+                    t["function"]["name"] += f.get("name") or ""
+                    t["function"]["arguments"] += f.get("arguments") or ""
+            m = {"content": texto}
+            if pedidas:
+                m["tool_calls"] = [pedidas[k] for k in sorted(pedidas)]
         chamadas = []
         for c in m.get("tool_calls") or []:
             f = c.get("function") or {}
@@ -151,12 +222,14 @@ def modelo_de(config):
 
 # ------------------------------------------------------------------ conversa
 
-def executar(modelo, mcp, agente, pergunta, ao_evento, escrita=False, parar=lambda: False, contexto=None):
+def executar(modelo, mcp, agente, pergunta, ao_evento, escrita=False, parar=lambda: False, contexto=None,
+            ao_trecho=None):
     """Laço da conversa: modelo pede ferramentas, MCP responde, até o modelo dar a resposta final.
 
     contexto (ctx.Contexto): arquivos que o analista anexou; vão na pergunta ou viram ferramentas locais.
 
     ao_evento(dict) recebe cada passo: tipo = pensando | ferramenta | resultado | resposta | erro.
+    ao_trecho(texto), se dado, recebe o texto que o modelo está escrevendo, antes de o passo terminar.
     Devolve o texto final.
     """
     todas = mcp.ferramentas_completas()
@@ -176,7 +249,7 @@ def executar(modelo, mcp, agente, pergunta, ao_evento, escrita=False, parar=lamb
         if parar():
             raise RuntimeError("Conversa interrompida.")
         ao_evento({"tipo": "pensando", "passo": passo + 1})
-        texto, chamadas, msg = modelo.responder(mensagens, ferramentas)
+        texto, chamadas, msg = _responder(modelo, _compactar(mensagens), ferramentas, ao_trecho)
         mensagens.append(msg)
         if not chamadas:
             ao_evento({"tipo": "resposta", "texto": texto})
@@ -200,9 +273,18 @@ def executar(modelo, mcp, agente, pergunta, ao_evento, escrita=False, parar=lamb
                                                  "leia um item por vez]".format(MAX_RESULTADO)
             mensagens.append(modelo.resultado(c, saida))
     mensagens.append({"role": "user", "content": "Pare de consultar e responda agora com o que já encontrou."})
-    texto, _, _ = modelo.responder(mensagens, [])
+    texto, _, _ = _responder(modelo, _compactar(mensagens), [], ao_trecho)
     ao_evento({"tipo": "resposta", "texto": texto})
     return texto
+
+
+def _responder(modelo, mensagens, ferramentas, ao_trecho):
+    if ao_trecho is None:
+        return modelo.responder(mensagens, ferramentas)
+    try:
+        return modelo.responder(mensagens, ferramentas, ao_trecho)
+    finally:
+        ao_trecho("")  # o texto parcial some quando o passo termina
 
 
 class Conversas(object):
@@ -224,7 +306,8 @@ class Conversas(object):
             cid = "c{}".format(self._n)
             conv = {"id": cid, "agente": agente["nome"], "pergunta": pergunta, "caso": caso,
                     "modelo": config.get("modelo") or "", "inicio": datetime.datetime.now().isoformat(timespec="seconds"),
-                    "eventos": [], "rodando": True, "resposta": None, "parar": False, "contexto": []}
+                    "eventos": [], "rodando": True, "resposta": None, "parar": False, "contexto": [],
+                    "parcial": ""}
             self._c[cid] = conv
 
         def evento(e):
@@ -252,7 +335,8 @@ class Conversas(object):
                 mcp = ClienteMcp([lancador, "--case", caso], timeout=600)
                 mcp.iniciar()
                 conv["resposta"] = executar(modelo, mcp, agente, pergunta, evento, escrita,
-                                            parar=lambda: conv["parar"], contexto=c)
+                                            parar=lambda: conv["parar"], contexto=c,
+                                            ao_trecho=lambda t: conv.__setitem__("parcial", t))
             except Exception as ex:  # mostra no painel
                 evento({"tipo": "erro", "texto": str(ex)})
             finally:
@@ -268,7 +352,8 @@ class Conversas(object):
             if not c:
                 raise ValueError("Conversa não encontrada.")
             return {"eventos": c["eventos"][desde:], "pos": len(c["eventos"]), "rodando": c["rodando"],
-                    "resposta": c["resposta"], "contexto": c["contexto"], "modelo": c["modelo"]}
+                    "resposta": c["resposta"], "contexto": c["contexto"], "modelo": c["modelo"],
+                    "parcial": c["parcial"] if c["rodando"] else ""}
 
     def parar(self, cid):
         with self._lock:

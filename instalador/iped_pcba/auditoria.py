@@ -21,7 +21,7 @@ def verificar(caminho):
     """Retorna (quantidade de registros válidos, lista de problemas)."""
     problemas = []
     anterior = INICIO
-    seq_esperada = None
+    seq_esperada = 1  # o primeiro registro do arquivo é sempre o seq 1
     n = 0
     with io.open(caminho, encoding="utf-8", newline="") as f:
         for num, linha in enumerate(f, 1):
@@ -44,7 +44,7 @@ def verificar(caminho):
             if calc != m.group(1):
                 problemas.append("linha %d: conteúdo alterado (hash não confere)" % num)
             seq = dados.get("seq")
-            if seq_esperada is not None and seq != seq_esperada:
+            if seq != seq_esperada:
                 problemas.append("linha %d: sequência %s, esperada %s" % (num, seq, seq_esperada))
             seq_esperada = (seq or 0) + 1
             anterior = m.group(1)

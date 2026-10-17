@@ -41,6 +41,15 @@ class RascunhoRelatorioTest {
     }
 
     @Test
+    void conclusaoDaIaFicaEntreColchetes() {
+        assertEquals("[SUGESTÃO DA IA — REVISAR: Os dados indicam contato frequente (ver item 12).]",
+                RascunhoRelatorio.sugestao("Os dados indicam contato frequente [ver item 12].", "WHATSAPP"));
+        assertEquals("[CONCLUSÃO A CARGO DO ANALISTA]",
+                RascunhoRelatorio.sugestao(" [CONCLUSÃO A CARGO DO ANALISTA] ", "WHATSAPP"));
+        assertEquals("[CONCLUSÃO DO ANALISTA SOBRE WHATSAPP]", RascunhoRelatorio.sugestao("  ", "WHATSAPP"));
+    }
+
+    @Test
     void preservaCamposQueAIaNaoConhece() throws Exception {
         Path arq = caso.resolve("iped-pcba-relatorio").resolve("rt.json");
         Files.createDirectories(arq.getParent());

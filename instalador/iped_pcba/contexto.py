@@ -23,7 +23,7 @@ ARQ = os.path.join("iped-pcba-ia", "contexto.json")
 TEXTO = {".txt", ".md", ".csv", ".tsv", ".json", ".xml", ".html", ".htm", ".log", ".eml", ".rtf", ".ini", ".yaml",
          ".yml"}
 ZIP_XML = {".docx": ["word/document.xml"], ".odt": ["content.xml"], ".ods": ["content.xml"],
-           ".xlsx": ["xl/sharedStrings.xml"], ".pptx": None}
+           ".xlsx": None, ".pptx": None}
 LIDOS = TEXTO | set(ZIP_XML) | {".pdf"}
 MAX_ARQUIVOS = 300
 MAX_BYTES = 30 * 1024 * 1024        # arquivo maior que isso fica de fora
@@ -162,6 +162,65 @@ def _pdf(c):
     return t
 
 
+_NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+_MAX_XML = 200 * 1024 * 1024  # parte do .xlsx descompactada maior que isso não é lida (zip-bomba)
+
+
+def _col(ref):
+    """Índice da coluna de uma referência como 'C12' (A=0)."""
+    n = 0
+    for ch in re.match(r"[A-Z]*", ref or "").group(0):
+        n = n * 26 + ord(ch) - 64
+    return n - 1
+
+
+def _xml(z, nome):
+    import xml.etree.ElementTree as ET
+    if z.getinfo(nome).file_size > _MAX_XML:
+        raise ValueError("planilha grande demais para ler como contexto")
+    return ET.fromstring(z.read(nome))
+
+
+def _xlsx(z):
+    """Planilha .xlsx como texto: cada aba vira linhas separadas por tabulação, com números, datas (como o
+    número do Excel), textos compartilhados e textos na própria célula. Mantém linha e coluna."""
+    nomes = z.namelist()
+    comp = []
+    if "xl/sharedStrings.xml" in nomes:
+        comp = ["".join(t.text or "" for t in si.iter(_NS + "t")) for si in _xml(z, "xl/sharedStrings.xml")]
+    titulos = []
+    if "xl/workbook.xml" in nomes:
+        titulos = [s.get("name") for s in _xml(z, "xl/workbook.xml").iter(_NS + "sheet")]
+    abas = sorted((n for n in nomes if re.match(r"xl/worksheets/sheet\d+\.xml$", n)),
+                  key=lambda n: int(re.search(r"(\d+)\.xml$", n).group(1)))
+    saida, total = [], 0
+    for i, aba in enumerate(abas):
+        saida.append("## Aba: {}".format(titulos[i] if i < len(titulos) and titulos[i] else i + 1))
+        for row in _xml(z, aba).iter(_NS + "row"):
+            linha = []
+            for c in row.iter(_NS + "c"):
+                tipo, v = c.get("t"), c.find(_NS + "v")
+                if tipo == "inlineStr":
+                    val = "".join(t.text or "" for t in c.iter(_NS + "t"))
+                elif v is None or v.text is None:
+                    val = ""
+                elif tipo == "s":
+                    k = int(v.text)
+                    val = comp[k] if 0 <= k < len(comp) else ""
+                else:
+                    val = v.text
+                pos = _col(c.get("r")) if c.get("r") else len(linha)
+                linha += [""] * (pos - len(linha))
+                linha.append(val.replace("\t", " ").replace("\n", " "))
+            texto = "\t".join(linha).rstrip("\t")
+            if texto:
+                saida.append(texto)
+                total += len(texto)
+            if total > MAX_TEXTO:
+                return "\n".join(saida)
+    return "\n".join(saida)
+
+
 def extrair(c):
     """Texto de um arquivo de contexto. ValueError com o motivo se não der para ler."""
     ext = os.path.splitext(c)[1].lower()
@@ -170,9 +229,11 @@ def extrair(c):
     elif ext in ZIP_XML:
         try:
             with zipfile.ZipFile(c) as z:
+                if ext == ".xlsx":
+                    return re.sub(r"\n\s*\n\s*\n+", "\n\n", _xlsx(z)).strip()[:MAX_TEXTO]
                 partes = ZIP_XML[ext] or sorted(n for n in z.namelist() if re.match(r"ppt/slides/slide\d+\.xml$", n))
                 t = "\n".join(_sem_tags(z.read(p).decode("utf-8", "replace")) for p in partes if p in z.namelist())
-        except zipfile.BadZipFile:
+        except (zipfile.BadZipFile, KeyError, SyntaxError):  # SyntaxError = XML inválido
             raise ValueError("arquivo corrompido ou protegido por senha")
     else:
         with open(c, "rb") as f:

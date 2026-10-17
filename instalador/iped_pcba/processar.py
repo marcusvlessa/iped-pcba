@@ -177,6 +177,10 @@ class Tarefas(object):
         threading.Thread(target=esperar, daemon=True).start()
         return tid
 
+    def pid(self, tid):
+        t = self._lista.get(tid)
+        return t["proc"].pid if t else None
+
     def parar(self, tid):
         t = self._lista.get(tid)
         if t and t["codigo"] is None:
@@ -212,3 +216,27 @@ class Tarefas(object):
             dados = f.read(maximo)
         return {"texto": dados.decode("utf-8", "replace"), "pos": desde + len(dados),
                 "tarefa": self._publico(t)}
+
+
+def pid_vivo(pid):
+    """O processo ainda existe? Serve para não reabrir um IPED que continuou rodando com o painel fechado."""
+    if not pid:
+        return False
+    if WIN:
+        import ctypes
+        k = ctypes.windll.kernel32
+        h = k.OpenProcess(0x1000, False, int(pid))  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        try:
+            codigo = ctypes.c_ulong()
+            return bool(k.GetExitCodeProcess(h, ctypes.byref(codigo))) and codigo.value == 259  # STILL_ACTIVE
+        finally:
+            k.CloseHandle(h)
+    try:
+        os.kill(int(pid), 0)
+    except ProcessLookupError:
+        return False
+    except OSError:
+        return True  # existe, mas é de outro usuário
+    return True

@@ -109,18 +109,19 @@ def escolher(tipo, titulo="", multiplos=False, filtro=None):
     """Janela nativa de escolha de pasta/arquivo. Devolve lista de caminhos ([] se cancelar)."""
     if WIN:
         if tipo == "pasta":
-            ps = _DONO + ("$d=New-Object System.Windows.Forms.FolderBrowserDialog;$d.Description='{t}';"
-                  "$d.ShowNewFolderButton=$true;"
-                  "if($d.ShowDialog($f) -eq 'OK'){{[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
-                  "$d.SelectedPath}};$f.Close()").format(t=titulo.replace("'", ""))
+            ps = _DONO + ("$d=New-Object System.Windows.Forms.FolderBrowserDialog;$d.Description=$env:PCBA_TITULO;"
+                          "$d.ShowNewFolderButton=$true;"
+                          "if($d.ShowDialog($f) -eq 'OK'){[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
+                          "$d.SelectedPath};$f.Close()")
         else:
-            ps = _DONO + ("$d=New-Object System.Windows.Forms.OpenFileDialog;$d.Title='{t}';"
-                  "$d.Multiselect=${m};"
-                  "$d.Filter='{filtro}';"
-                  "if($d.ShowDialog($f) -eq 'OK'){{[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
-                  "$d.FileNames}};$f.Close()").format(t=titulo.replace("'", ""), m="true" if multiplos else "false",
-                                                   filtro=FILTROS.get(filtro, FILTROS[None]))
-        r = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", ps],
+            ps = _DONO + ("$d=New-Object System.Windows.Forms.OpenFileDialog;$d.Title=$env:PCBA_TITULO;"
+                          "$d.Multiselect=($env:PCBA_MULTIPLOS -eq '1');$d.Filter=$env:PCBA_FILTRO;"
+                          "if($d.ShowDialog($f) -eq 'OK'){[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
+                          "$d.FileNames};$f.Close()")
+        # textos e caminhos vão por variável de ambiente, nunca colados no comando do PowerShell
+        env = dict(os.environ, PCBA_TITULO=titulo, PCBA_MULTIPLOS="1" if multiplos else "0",
+                   PCBA_FILTRO=FILTROS.get(filtro, FILTROS[None]))
+        r = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", ps], env=env,
                            capture_output=True, timeout=600, creationflags=0x08000000)
         return [l.strip() for l in r.stdout.decode("utf-8", "replace").splitlines() if l.strip()]
     if shutil.which("zenity"):
@@ -144,6 +145,7 @@ class Estado(object):
         self.conversas = assistente.Conversas()
         self.fila = []          # indexação de vários casos, um depois do outro
         self.fila_grupo = None
+        self._fila_carregar()
 
     # ------------------------------------------------------------ visão geral
     def resumo(self):
@@ -242,24 +244,59 @@ class Estado(object):
         return {"tarefa": tid, "comando": cmd, "aviso": aviso_perfil}
 
     # ------------------------------------------------------------ fila (indexação multicase)
+    # A fila fica gravada em ~/.iped-pcba/painel/fila.json: fechar ou atualizar o painel não perde os casos.
+    @staticmethod
+    def _arq_fila():
+        return os.path.join(processar.PASTA, "fila.json")
+
+    def _fila_gravar(self):
+        dados = {"grupo": self.fila_grupo,
+                 "fila": [{k: j.get(k) for k in ("id", "saida", "estado", "erro", "pedido", "pid")} for j in self.fila]}
+        try:
+            os.makedirs(processar.PASTA, exist_ok=True)
+            gravar_texto(self._arq_fila(), json.dumps(dados, indent=1, ensure_ascii=False))
+        except OSError:
+            pass  # sem gravar, a fila continua valendo enquanto o painel estiver aberto
+
+    def _fila_carregar(self):
+        try:
+            dados = json.loads(ler_texto(self._arq_fila()))
+        except (OSError, ValueError):
+            return
+        fila = [j for j in dados.get("fila") or [] if isinstance(j, dict) and j.get("saida") and j.get("pedido")]
+        if not any(j.get("estado") in ("aguardando", "rodando") for j in fila):
+            return  # a fila anterior terminou: começa vazia
+        for j in fila:
+            j["tarefa"] = None
+            if j.get("estado") == "rodando":  # o painel fechou no meio: retoma do ponto onde o IPED parou
+                j["estado"], j["retomar"] = "aguardando", True
+                j["pedido"]["continuar"] = True
+                j["erro"] = "O painel fechou durante a indexação. Ao retomar, o IPED continua de onde parou."
+        self.fila, self.fila_grupo = fila, dados.get("grupo")
+
     def fila_adicionar(self, d):
         _, saida, _ = self._comando(d)       # valida evidências e pasta já ao pôr na fila
         with self.lock:
             if any(os.path.normcase(os.path.abspath(j["saida"])) == os.path.normcase(os.path.abspath(saida))
                    and j["estado"] in ("aguardando", "rodando") for j in self.fila):
                 raise ValueError("Esta pasta de caso já está na fila.")
-            self.fila.append({"id": "{}".format(len(self.fila) + 1), "saida": saida, "estado": "aguardando",
+            if not any(j["estado"] in ("aguardando", "rodando") for j in self.fila):
+                self.fila = []  # fila anterior já terminou
+            n = max([int(j["id"]) for j in self.fila if str(j["id"]).isdigit()] or [0]) + 1
+            self.fila.append({"id": str(n), "saida": saida, "estado": "aguardando",
                               "tarefa": None, "pedido": {k: d.get(k) for k in
                                                          ("evidencias", "saida", "perfil", "fuso", "portavel")}})
+            self._fila_gravar()
         return self.fila_ler()
 
     def fila_remover(self, d):
         with self.lock:
             self.fila = [j for j in self.fila if not (j["id"] == d.get("id") and j["estado"] != "rodando")]
+            self._fila_gravar()
         return self.fila_ler()
 
     def fila_iniciar(self, d):
-        self.fila_grupo = (d.get("grupo") or "").strip() or None
+        self.fila_grupo = (d.get("grupo") or "").strip() or self.fila_grupo
         self._fila_proxima()
         return self.fila_ler()
 
@@ -268,6 +305,12 @@ class Estado(object):
             if any(j["estado"] == "rodando" for j in self.fila):
                 return
             prox = next((j for j in self.fila if j["estado"] == "aguardando"), None)
+            if prox and processar.pid_vivo(prox.get("pid")):
+                # IPED aberto antes de o painel fechar e que ainda não terminou: não roda dois no mesmo caso
+                prox["erro"] = ("O IPED deste caso ainda está rodando, aberto antes de o painel fechar. "
+                                "Espere ele terminar e clique em Retomar a fila.")
+                self._fila_gravar()
+                return
             if prox:
                 prox["estado"] = "rodando"
         if not prox:
@@ -276,6 +319,7 @@ class Estado(object):
                 from . import multicasos
                 multicasos.salvar_grupo(self.fila_grupo, ok)
                 self.fila_grupo = None
+            self._fila_gravar()
             return
 
         def depois(codigo, j=prox):
@@ -283,6 +327,9 @@ class Estado(object):
             self._fila_proxima()
         try:
             prox["tarefa"] = self.processar(prox["pedido"], depois)["tarefa"]
+            prox["pid"], prox["erro"] = self.tarefas.pid(prox["tarefa"]), None
+            prox.pop("retomar", None)
+            self._fila_gravar()
         except Exception as e:  # pasta ocupada desde que entrou na fila, evidência sumiu...
             prox["estado"], prox["erro"] = "erro", str(e)
             self._fila_proxima()
@@ -290,7 +337,7 @@ class Estado(object):
     def fila_ler(self):
         out = []
         for j in self.fila:
-            x = {k: j.get(k) for k in ("id", "saida", "estado", "tarefa", "erro")}
+            x = {k: j.get(k) for k in ("id", "saida", "estado", "tarefa", "erro", "retomar")}
             x["evidencias"] = j["pedido"].get("evidencias")
             x["perfil"] = j["pedido"].get("perfil")
             if j["tarefa"] and j["estado"] == "rodando":
@@ -421,7 +468,7 @@ class Estado(object):
         from . import agentes
         r = self.resumo()
         return {"agentes": agentes.para_painel(), "config": assistente.ler_config(),
-                "ia_local": clientesia.ia_local(), "escrita": (r.get("mcp") or {}).get("escrita"),
+                "escrita": (r.get("mcp") or {}).get("escrita"),
                 "mcp_instalado": (r.get("mcp") or {}).get("instalado"), "clientes": r.get("clientes")}
 
     def assist_enviar(self, d):
@@ -476,11 +523,10 @@ def criar_atalho(raiz):
     alvo = os.path.join(raiz, PASTA_PCBA, "painel-pcba.bat")
     if not os.path.isfile(alvo):
         raise ValueError("Aplique a configuração antes (ela cria o painel dentro do IPED).")
-    ps = ("$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{lnk}');$s.TargetPath='{alvo}';"
-          "$s.WorkingDirectory='{dir}';$s.WindowStyle=7;$s.Description='Painel IPED-PCBA';$s.Save()"
-          ).format(lnk=_atalho().replace("'", "''"), alvo=alvo.replace("'", "''"),
-                   dir=os.path.dirname(alvo).replace("'", "''"))
-    subprocess.run(["powershell", "-NoProfile", "-Command", ps], check=True, timeout=60,
+    ps = ("$s=(New-Object -ComObject WScript.Shell).CreateShortcut($env:PCBA_LNK);$s.TargetPath=$env:PCBA_ALVO;"
+          "$s.WorkingDirectory=$env:PCBA_DIR;$s.WindowStyle=7;$s.Description='Painel IPED-PCBA';$s.Save()")
+    env = dict(os.environ, PCBA_LNK=_atalho(), PCBA_ALVO=alvo, PCBA_DIR=os.path.dirname(alvo))
+    subprocess.run(["powershell", "-NoProfile", "-Command", ps], check=True, timeout=60, env=env,
                    creationflags=0x08000000)
     return {"atalho": _atalho()}
 
@@ -503,6 +549,7 @@ def _handler(estado, html):
             self.send_response(codigo)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Content-Length", str(len(dados)))
             self.end_headers()
             self.wfile.write(dados)
@@ -519,6 +566,8 @@ def _handler(estado, html):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Cache-Control", "no-store")
+                self.send_header("Referrer-Policy", "no-referrer")  # o token da URL não vaza para links externos
+                self.send_header("X-Content-Type-Options", "nosniff")
                 self.send_header("Content-Security-Policy",
                                  "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
                                  "script-src 'self' 'unsafe-inline'; frame-ancestors 'none'")
@@ -600,6 +649,11 @@ def _rotear(e, rota, d):
     if rota == "/api/multi/abrir-pasta":
         os.makedirs(multicasos.PASTA_SAIDA, exist_ok=True)
         return {"aberto": _abrir_local(multicasos.PASTA_SAIDA)}
+    if rota == "/api/iped/versao":
+        from . import dependencias
+        return dependencias._item_iped(e.raiz)
+    if rota == "/api/assist/ia":
+        return {"ia_local": clientesia.ia_local()}
     if rota == "/api/deps/ler":
         return e.deps_ler()
     if rota == "/api/deps/instalar":
