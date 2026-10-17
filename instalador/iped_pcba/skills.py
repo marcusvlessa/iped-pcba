@@ -3,12 +3,15 @@
 O painel usa as skills de três jeitos:
   - IA local (Ollama, LM Studio): cada skill vira um agente do Assistente, sem instalar nada;
   - Claude Code e Hermes Agent: copia as pastas para ~/.claude/skills e ~/.hermes/skills/iped-pcba;
-  - Claude Desktop e claude.ai: gera um .zip por skill, que o analista envia em Configurações > Capacidades.
+  - Claude Desktop e claude.ai: gera um .zip por skill, que o analista envia uma vez em Personalizar > Skills
+    (a lista fica na conta Claude, não numa pasta do PC). O painel guarda quais ele marcou como enviadas.
 Antes de trocar uma skill já instalada e diferente, guarda a anterior em ~/.iped-pcba/backup-skills/.
 Só a biblioteca padrão.
 """
 
 import filecmp
+import hashlib
+import json
 import os
 import shutil
 import time
@@ -93,7 +96,7 @@ def destinos(home=None):
          "detectado": os.path.isdir(os.path.join(home, ".claude")) or bool(shutil.which("claude"))},
         {"id": "hermes", "nome": "Hermes Agent", "pasta": os.path.join(home, ".hermes", "skills", "iped-pcba"),
          "detectado": os.path.isdir(os.path.join(home, ".hermes"))},
-        {"id": "zip", "nome": "Claude Desktop e claude.ai (enviar o .zip)", "pasta": ZIPS, "detectado": True},
+        {"id": "zip", "nome": "Claude Desktop e claude.ai", "pasta": ZIPS, "detectado": True, "manual": True},
     ]
 
 
@@ -108,23 +111,84 @@ def _zip_de(s):
     return os.path.join(ZIPS, s["id"] + ".zip")
 
 
+def _hash(s):
+    h = hashlib.sha256()
+    for raiz, _, arqs in sorted(os.walk(s["pasta"])):
+        for a in sorted(arqs):
+            h.update(os.path.relpath(os.path.join(raiz, a), s["pasta"]).encode("utf-8"))
+            with open(os.path.join(raiz, a), "rb") as f:
+                h.update(f.read())
+    return h.hexdigest()
+
+
+def _arq_enviadas(home=None):
+    return os.path.join(home or os.path.expanduser("~"), ".iped-pcba", "skills-claude-desktop.json")
+
+
+def _enviadas(home=None):
+    try:
+        with open(_arq_enviadas(home), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def marcar_enviada(skill_id, enviada=True, home=None, pasta=PASTA):
+    """O analista avisa que enviou (ou não) o .zip da skill ao Claude Desktop. Guarda a versão enviada."""
+    sk = {s["id"]: s for s in listar(pasta)}
+    if skill_id not in sk:
+        raise ValueError("Skill desconhecida: {}".format(skill_id))
+    d = _enviadas(home)
+    if enviada:
+        d[skill_id] = {"versao": _hash(sk[skill_id]), "quando": time.strftime("%Y-%m-%d %H:%M")}
+    else:
+        d.pop(skill_id, None)
+    arq = _arq_enviadas(home)
+    os.makedirs(os.path.dirname(arq), exist_ok=True)
+    with open(arq, "w", encoding="utf-8") as f:
+        json.dump(d, f, indent=1)
+    return d
+
+
 def situacao(home=None, pasta=PASTA):
     sk = listar(pasta)
+    env = _enviadas(home)
     out = []
     for d in destinos(home):
         itens = []
         for s in sk:
+            item = {"skill": s["id"]}
             if d["id"] == "zip":
                 z = os.path.join(d["pasta"], s["id"] + ".zip")
-                est = "gerado" if os.path.isfile(z) and os.path.getmtime(z) >= os.path.getmtime(
-                    os.path.join(s["pasta"], "SKILL.md")) else "falta"
+                gerado = os.path.isfile(z) and os.path.getmtime(z) >= os.path.getmtime(
+                    os.path.join(s["pasta"], "SKILL.md"))
+                marca = env.get(s["id"])
+                if marca and marca.get("versao") == _hash(s):
+                    est = "enviada"
+                elif marca:
+                    est = "reenviar"  # a skill mudou depois do envio
+                else:
+                    est = "gerado" if gerado else "falta"
+                item.update(zip=z, enviada_em=(marca or {}).get("quando"))
             else:
                 alvo = os.path.join(d["pasta"], s["id"])
                 est = "instalada" if _igual(s["pasta"], alvo) else ("desatualizada" if os.path.isdir(alvo) else "falta")
-            itens.append({"skill": s["id"], "estado": est})
+            item["estado"] = est
+            itens.append(item)
         out.append(dict(d, itens=itens))
     return {"skills": [{"id": s["id"], "nome": _titulo(s)[0], "descricao": _titulo(s)[1]} for s in sk],
             "destinos": out}
+
+
+ACOES = {"já estava": "já estava atualizada", "instalada": "instalada", "zip": ".zip gerado"}
+
+
+def texto_feito(f, pasta=PASTA):
+    """Uma linha legível do que instalar() fez, para o log do painel."""
+    nomes = {s["id"]: _titulo(s)[0] for s in listar(pasta)}
+    destino = {"claude-code": "Claude Code", "hermes": "Hermes", "zip": "Claude Desktop"}.get(f["destino"], f["destino"])
+    acao = ACOES.get(f["acao"], f["acao"])
+    return "{}: {} {}".format(destino, nomes.get(f["skill"], f["skill"]), acao)
 
 
 def instalar(ids=None, home=None, pasta=PASTA):

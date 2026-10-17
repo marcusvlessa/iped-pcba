@@ -638,6 +638,17 @@ def _rotear(e, rota, d):
     if rota == "/api/skills/abrir":
         os.makedirs(skills.ZIPS, exist_ok=True)
         return {"aberto": _abrir_local(skills.ZIPS)}
+    if rota == "/api/skills/enviada":
+        skills.marcar_enviada(d.get("skill") or "", bool(d.get("enviada", True)))
+        return skills.situacao()
+    if rota == "/api/skills/mostrar":
+        z = os.path.join(skills.ZIPS, os.path.basename((d.get("skill") or "") + ".zip"))
+        if not os.path.isfile(z):
+            raise ValueError("O .zip ainda não foi gerado: clique em Instalar e atualizar as skills.")
+        if WIN:
+            subprocess.Popen(["explorer", "/select,", z])
+            return {"aberto": z}
+        return {"aberto": _abrir_local(skills.ZIPS)}
     if rota == "/api/contexto/preparar":
         return contexto.preparar(_caso_valido(d))
     if rota == "/api/contexto/abrir":

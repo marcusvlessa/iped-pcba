@@ -3,6 +3,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+from unittest import mock
 import zipfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "instalador"))
@@ -64,6 +65,22 @@ class TestSkills(unittest.TestCase):
         bk = os.path.join(self.home, ".iped-pcba", "backup-skills")
         achados = [os.path.join(r, a) for r, _, fs in os.walk(bk) for a in fs]
         self.assertEqual(len(achados), 1)
+
+    def test_envio_ao_claude_desktop(self):
+        skills.instalar(["zip"], home=self.home)
+        zips = lambda: {i["skill"]: i["estado"] for i in
+                        {d["id"]: d for d in skills.situacao(home=self.home)["destinos"]}["zip"]["itens"]}
+        self.assertEqual(zips()["analise-audio"], "gerado")
+        skills.marcar_enviada("analise-audio", home=self.home)
+        self.assertEqual(zips()["analise-audio"], "enviada")
+        with mock.patch.object(skills, "_hash", lambda s: "outra versão"):
+            self.assertEqual(zips()["analise-audio"], "reenviar")  # a skill mudou depois do envio
+        skills.marcar_enviada("analise-audio", False, home=self.home)
+        self.assertEqual(zips()["analise-audio"], "gerado")
+        with self.assertRaises(ValueError):
+            skills.marcar_enviada("nao-existe", home=self.home)
+        self.assertEqual(skills.texto_feito({"destino": "claude-code", "skill": "analise-audio", "acao": "já estava"}),
+                         "Claude Code: Análise de áudios já estava atualizada")
 
 
 if __name__ == "__main__":
