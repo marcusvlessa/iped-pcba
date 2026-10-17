@@ -71,6 +71,16 @@ class TestSkills(unittest.TestCase):
         zips = lambda: {i["skill"]: i["estado"] for i in
                         {d["id"]: d for d in skills.situacao(home=self.home)["destinos"]}["zip"]["itens"]}
         self.assertEqual(zips()["analise-audio"], "gerado")
+        # Pacote extraído no Windows: a data do SKILL.md fica à frente da hora local. O .zip continua valendo.
+        md = os.path.join(skills.PASTA, "analise-audio", "SKILL.md")
+        antes = os.path.getmtime(md)
+        os.utime(md, (antes + 3 * 3600, antes + 3 * 3600))
+        try:
+            self.assertEqual(zips()["analise-audio"], "gerado")
+        finally:
+            os.utime(md, (antes, antes))
+        with mock.patch.object(skills, "_zip_atual", lambda s, z: False):
+            self.assertEqual(zips()["analise-audio"], "falta")  # .zip de outra versão da skill
         skills.marcar_enviada("analise-audio", home=self.home)
         self.assertEqual(zips()["analise-audio"], "enviada")
         with mock.patch.object(skills, "_hash", lambda s: "outra versão"):

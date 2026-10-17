@@ -111,6 +111,23 @@ def _zip_de(s):
     return os.path.join(ZIPS, s["id"] + ".zip")
 
 
+def _zip_atual(s, z):
+    """O .zip tem exatamente os arquivos da skill. Compara o conteúdo, não a data: a data dos arquivos
+    extraídos do pacote vem do horário do GitHub e pode ficar à frente da hora do Windows."""
+    try:
+        with zipfile.ZipFile(z) as zf:
+            no_zip = {n.replace("\\", "/"): zf.read(n) for n in zf.namelist() if not n.endswith("/")}
+    except (OSError, zipfile.BadZipFile):
+        return False
+    na_pasta = {}
+    for raiz, _, arqs in os.walk(s["pasta"]):
+        for a in arqs:
+            c = os.path.join(raiz, a)
+            with open(c, "rb") as f:
+                na_pasta[(s["id"] + "/" + os.path.relpath(c, s["pasta"])).replace(os.sep, "/")] = f.read()
+    return no_zip == na_pasta
+
+
 def _hash(s):
     h = hashlib.sha256()
     for raiz, _, arqs in sorted(os.walk(s["pasta"])):
@@ -160,8 +177,7 @@ def situacao(home=None, pasta=PASTA):
             item = {"skill": s["id"]}
             if d["id"] == "zip":
                 z = os.path.join(d["pasta"], s["id"] + ".zip")
-                gerado = os.path.isfile(z) and os.path.getmtime(z) >= os.path.getmtime(
-                    os.path.join(s["pasta"], "SKILL.md"))
+                gerado = os.path.isfile(z) and _zip_atual(s, z)
                 marca = env.get(s["id"])
                 if marca and marca.get("versao") == _hash(s):
                     est = "enviada"

@@ -495,7 +495,7 @@ def _handler(estado, html):
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Cache-Control", "no-store")
                 self.send_header("Content-Security-Policy",
-                                 "default-src 'self'; style-src 'self' 'unsafe-inline'; "
+                                 "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
                                  "script-src 'self' 'unsafe-inline'; frame-ancestors 'none'")
                 self.end_headers()
                 self.wfile.write(dados)
