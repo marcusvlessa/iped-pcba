@@ -10,6 +10,8 @@ import subprocess
 import threading
 import time
 
+MAX_LIXO = 200  # linhas que não são JSON-RPC toleradas no STDOUT por chamada
+
 
 class ErroMcp(Exception):
     pass
@@ -46,6 +48,7 @@ class ClienteMcp(object):
         meu = self._id
         self._enviar({"jsonrpc": "2.0", "id": meu, "method": metodo, "params": params or {}})
         limite = time.time() + self.timeout
+        lixo = 0
         while True:
             resto = limite - time.time()
             if resto <= 0:
@@ -60,9 +63,17 @@ class ClienteMcp(object):
             if not linha:
                 continue
             try:
-                msg = json.loads(linha)
+                msg = json.loads(linha) if linha.startswith("{") else None
             except ValueError:
-                raise ErroMcp("saída que não é JSON-RPC no STDOUT do MCP: " + linha[:300])
+                msg = None
+            if not isinstance(msg, dict):
+                # aviso da JVM ou de biblioteca nativa no STDOUT: guarda no log e segue lendo
+                self.stderr.append("[stdout] " + linha[:300])
+                lixo += 1
+                if lixo > MAX_LIXO:
+                    raise ErroMcp("o MCP escreveu {} linhas que não são JSON-RPC no STDOUT. Última: {}".format(
+                        lixo, linha[:300]))
+                continue
             if msg.get("id") != meu:
                 continue
             if "error" in msg:

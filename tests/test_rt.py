@@ -83,6 +83,20 @@ class TestDocx(unittest.TestCase):
         self.assertIn("DA ANÁLISE DOS DADOS TELEMÁTICOS – WHATSAPP", doc)
         self.assertIn("NUMPAGES", zipfile.ZipFile(saida).read("word/footer2.xml").decode())
 
+    def test_operacao_sem_ponto_duplo_e_numeros_a_direita(self):
+        d = rt.rt_vazio()
+        d.update(nome_operacao="Exemplo.")
+        doc = rt.gerar_docx(d, os.path.join(self.tmp, "RT.docx"), self.unidade)
+        with zipfile.ZipFile(doc) as z:
+            xml = z.read("word/document.xml").decode("utf-8")
+        self.assertIn("OPERAÇÃO: EXEMPLO.<", xml)
+        self.assertNotIn("EXEMPLO..", xml)
+        b = docxmin.Bloco(docxmin.Documento())
+        b.tabela(["Nome", "Valor"], [["FULANO", "R$ 1.500,00"], ["BELTRANO", "20"]])
+        celulas = "".join(b.xml)
+        self.assertIn('<w:jc w:val="right"/>', celulas)
+        self.assertIn('<w:jc w:val="left"/>', celulas)
+
     def test_lacunas(self):
         faltas = dict((t, o) for o, t in rt.lacunas(rt.rt_vazio(), self.unidade))
         self.assertIn("[NÚMERO DO PROCESSO]", faltas)

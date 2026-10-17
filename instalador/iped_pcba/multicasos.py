@@ -79,24 +79,37 @@ def abrir_no_iped(casos):
 def chave(ident):
     """Chave para comparar identificadores entre casos: telefone, e-mail, conta ou nome.
 
-    Telefones viram DDD + 8 últimos dígitos (tira o 55, o 0 de operadora e o nono dígito), para
-    +55 71 9xxxx-xxxx, 71 9xxxx-xxxx e 5571xxxxxxxx@s.whatsapp.net baterem. Devolve (tipo, chave)."""
+    Telefones brasileiros viram DDD + 8 últimos dígitos (tira o 55, o 0 + operadora e o nono dígito),
+    para +55 71 9xxxx-xxxx, 71 9xxxx-xxxx e 5571xxxxxxxx@s.whatsapp.net baterem. Número estrangeiro
+    (+ ou 00 sem 55) é comparado inteiro e grupo do WhatsApp (@g.us) nunca vira telefone.
+    Devolve (tipo, chave)."""
     s = str(ident or "").strip()
     if not s:
         return None, None
     low = s.lower()
+    if "@g.us" in low:
+        return "grupo", low.split("@")[0]
     m = re.search(r"[\w.+-]+@[\w-]+\.[\w.]+", low)
     if m and "whatsapp" not in low and "s.us" not in low and not low.startswith(("+", "55")):
         return "email", m.group(0)
     dig = re.sub(r"\D", "", low.split("@")[0])
     if 8 <= len(dig) <= 15:
-        if dig.startswith("55") and len(dig) >= 12:
+        estrangeiro = low.startswith("+") or dig.startswith("00")
+        if dig.startswith("00"):
             dig = dig[2:]
-        dig = dig.lstrip("0")
-        if len(dig) >= 10:
-            ddd, num = dig[:2], dig[2:]
-            return "telefone", ddd + num[-8:]
-        return "telefone", dig[-8:]
+        if dig.startswith("55") and len(dig) in (12, 13):
+            dig, estrangeiro = dig[2:], False
+        elif not estrangeiro and dig.startswith("0") and len(dig) in (13, 14):
+            dig = dig[3:]                     # 0 + operadora + DDD + número
+        elif not estrangeiro and dig.startswith("0") and len(dig) in (11, 12):
+            dig = dig[1:]                     # 0 + DDD + número
+        if estrangeiro:
+            return "telefone", "+" + dig
+        if len(dig) in (10, 11):
+            return "telefone", dig[:2] + dig[-8:]
+        if len(dig) in (8, 9):
+            return "telefone", dig[-8:]
+        return "telefone", dig                # outro formato: compara o número inteiro
     nome = re.sub(r"\s+", " ", re.sub(r"[^\w ]", " ", low)).strip()
     return ("nome", nome) if len(nome) >= 3 else (None, None)
 

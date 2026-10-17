@@ -2,7 +2,7 @@
 name: analise-imagens
 description: Análise de imagens de caso do IPED na PCBA. Use para fotos, prints de tela, documentos fotografados, armas, drogas, dinheiro, veículos, OCR, QR codes, imagens e rostos semelhantes num caso aberto no MCP iped-pcba.
 metadata:
-  ferramentas: get_case_summary, list_categories, search_documents, get_document_metadata, get_document_text, get_item_thumbnail, search_similar_images, search_similar_faces, list_ai_filters, query_ai_detections, case_context_files, bookmark_search_results
+  ferramentas: get_case_summary, list_categories, search_documents, get_document_metadata, get_document_text, get_item_thumbnail, search_similar_images, search_similar_faces, list_ai_filters, query_ai_detections, get_item_relations, get_device_and_owner_info, get_events_around_time, case_context_files, bookmark_search_results
 ---
 
 # Análise de imagens

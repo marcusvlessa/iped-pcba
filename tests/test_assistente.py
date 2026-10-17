@@ -151,6 +151,17 @@ class TestConversa(unittest.TestCase):
         self.assertEqual(tool["tool_name"], "search_documents")
         self.assertEqual([e["tipo"] for e in eventos], ["pensando", "ferramenta", "resultado", "pensando", "resposta"])
         self.assertEqual(pedidos[0][1]["messages"][0]["role"], "system")
+        self.assertEqual(pedidos[0][1]["options"]["num_ctx"], assistente.NUM_CTX)  # sem isso o Ollama corta o início
+
+    def test_resultados_antigos_encolhem(self):
+        msgs = [{"role": "system", "content": "papel " * 500}, {"role": "user", "content": "pergunta"}]
+        msgs += [{"role": "tool", "content": str(i) * 5000} for i in range(10)]
+        saida = assistente._compactar(msgs, manter=3, curto=100)
+        self.assertEqual(saida[0]["content"], msgs[0]["content"])  # papel do agente intacto
+        tools = [m["content"] for m in saida if m["role"] == "tool"]
+        self.assertTrue(all(len(t) < 200 for t in tools[:7]))
+        self.assertTrue(all(len(t) == 5000 for t in tools[7:]))
+        self.assertNotIn("_encolhido", saida[2])
 
     def test_openai(self):
         texto, eventos, pedidos = self._executar("openai")
@@ -256,6 +267,32 @@ class TestAntigravityEPerfis(unittest.TestCase):
             self.assertTrue(a["pcba"])
             self.assertTrue(a["quando"] and a["liga"] and a["tempo"], nome)
         self.assertFalse(perfis.ajuda("forensic")["pcba"])
+
+
+class TestClienteMcp(unittest.TestCase):
+    def test_aviso_no_stdout_nao_derruba(self):
+        # a JVM às vezes escreve avisos no STDOUT antes da resposta JSON-RPC
+        tmp = tempfile.mkdtemp()
+        try:
+            script = os.path.join(tmp, "mcp_ruidoso.py")
+            with open(script, "w", encoding="utf-8") as f:
+                f.write("import json, sys\n"
+                        "for linha in sys.stdin:\n"
+                        "    msg = json.loads(linha)\n"
+                        "    if 'id' not in msg:\n"
+                        "        continue\n"
+                        "    print('WARNING: aviso da JVM')\n"
+                        "    print('[1.0s] carregando indice')\n"
+                        "    print(json.dumps({'jsonrpc': '2.0', 'id': msg['id'], 'result': {'ok': 1}}))\n"
+                        "    sys.stdout.flush()\n")
+            mcp = ClienteMcp([sys.executable, script], timeout=30)
+            try:
+                self.assertEqual(mcp.chamar("initialize"), {"ok": 1})
+                self.assertIn("[stdout] WARNING: aviso da JVM", mcp.stderr)
+            finally:
+                mcp.fechar()
+        finally:
+            shutil.rmtree(tmp)
 
 
 if __name__ == "__main__":

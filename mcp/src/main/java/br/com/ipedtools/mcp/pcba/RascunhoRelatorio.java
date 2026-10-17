@@ -74,8 +74,9 @@ public class RascunhoRelatorio {
         r.put("campos_editaveis", CAMPOS);
         r.put("observacao", "Rascunho do RT no modelo da PCBA. Escreva em prosa corrida, sem tópicos, "
                 + "terceira pessoa. Não invente processo, CPF, IMEI, hash, conta ou período: deixe entre "
-                + "colchetes, que sai em vermelho. A conclusão de cada análise é do analista; se escrever, "
-                + "deixe claro que é sugestão. O analista revisa e gera o .docx no painel.");
+                + "colchetes, que sai em vermelho. A conclusão de cada análise é do analista; a sugestão que a IA "
+                + "escrever fica entre colchetes, marcada [SUGESTÃO DA IA — REVISAR: ...]. O analista revisa e "
+                + "gera o .docx no painel.");
         return r;
     }
 
@@ -116,6 +117,21 @@ public class RascunhoRelatorio {
         return "Campo '" + campo + "' gravado no rascunho do RT. O analista deve revisar no painel.";
     }
 
+    /**
+     * A conclusão é do analista: o que a IA escrever fica inteiro entre colchetes (sai em vermelho
+     * no .docx) e marcado como sugestão, para não ir ao RT sem revisão.
+     */
+    static String sugestao(String conclusao, String prov) {
+        String c = conclusao.trim();
+        if (c.isEmpty()) {
+            return "[CONCLUSÃO DO ANALISTA SOBRE " + prov + "]";
+        }
+        if (LACUNA.matcher(c).matches()) {
+            return c;
+        }
+        return "[SUGESTÃO DA IA — REVISAR: " + c.replace('[', '(').replace(']', ')') + "]";
+    }
+
     @SuppressWarnings("unchecked")
     public synchronized String definirAnalise(String provedor, String titulo, String texto, String conclusao)
             throws IOException {
@@ -149,7 +165,7 @@ public class RascunhoRelatorio {
             alvo.put("texto", texto);
         }
         if (conclusao != null) {
-            alvo.put("conclusao", conclusao);
+            alvo.put("conclusao", sugestao(conclusao, prov));
         }
         alvo.remove("gerado_automaticamente");
         marcar(dados, "analises." + prov);

@@ -48,6 +48,15 @@ class TestAuditoria(unittest.TestCase):
         n, probs = auditoria.verificar(self._gravar(ls))
         self.assertTrue(any("encadeamento" in p for p in probs))
 
+    def test_primeiro_registro_tem_seq_1(self):
+        # cadeia refeita do zero a partir do 5º registro: hashes conferem, mas o seq denuncia
+        linhas, ant = [], auditoria.INICIO
+        for i in range(5, 8):
+            l, ant = _linha(i, ant, ferramenta="t%d" % i)
+            linhas.append(l)
+        n, probs = auditoria.verificar(self._gravar(linhas))
+        self.assertTrue(any("linha 1: sequência 5, esperada 1" in p for p in probs), probs)
+
     def test_main_codigo_saida(self):
         self.assertEqual(auditoria.main([self._gravar(self._log())]), 0)
 

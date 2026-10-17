@@ -31,6 +31,16 @@ class TestMulticasos(unittest.TestCase):
         self.assertEqual(k("Fulano  Silva!"), ("nome", "fulano silva"))
         self.assertEqual(k(""), (None, None))
 
+    def test_chave_formatos_de_telefone(self):
+        k = lambda x: multicasos.chave(x)
+        self.assertEqual(k("0 41 71 99999-0001"), k("71 99999-0001"))      # 0 + operadora
+        self.assertEqual(k("071 99999-0001"), k("71 99999-0001"))          # 0 + DDD
+        self.assertEqual(k("+1 555 123 4567"), ("telefone", "+15551234567"))
+        self.assertNotEqual(k("+1 555 123 4567"), k("15 5512-34567"))      # estrangeiro ≠ DDD 15
+        self.assertEqual(k("0055 71 99999-0001"), k("71 99999-0001"))
+        self.assertEqual(k("120363012345678901@g.us"), ("grupo", "120363012345678901"))
+        self.assertEqual(k("557199990001-1612345678@g.us")[0], "grupo")
+
     def test_cruzar(self):
         r = multicasos.cruzar(["/casos/A", "/casos/B"], ler={"/casos/A": A, "/casos/B": B}.get)
         self.assertEqual(r["resumo"]["com_dados"], 2)

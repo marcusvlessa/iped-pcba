@@ -266,7 +266,7 @@ def gerar_docx(dados, saida, unidade=None):
     capa.paragrafo(" ", depois=18)
     capa.paragrafo("RELATÓRIO TÉCNICO", negrito=True, alinhar="centro", tam=34, depois=4)
     capa.paragrafo("Nº: " + d["numero_rt"], negrito=True, alinhar="centro", tam=18, depois=24)
-    capa.paragrafo("OPERAÇÃO: {}.".format(d["nome_operacao"].upper()), negrito=True, alinhar="centro",
+    capa.paragrafo("OPERAÇÃO: {}.".format(d["nome_operacao"].upper().rstrip(".")), negrito=True, alinhar="centro",
                    tam=14, depois=18)
     capa.paragrafo("DIFUSÃO: " + _g(d["difusao"], "NOME E CARGO DO DESTINATÁRIO DA DIFUSÃO"), negrito=True,
                    alinhar="centro", depois=40)

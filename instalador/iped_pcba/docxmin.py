@@ -14,6 +14,7 @@ from xml.sax.saxutils import escape
 EMU_CM = 360000
 TWIP_CM = 567
 LACUNA = re.compile(r"(\[[^\[\]]*\])")
+NUMERO = re.compile(r"^-?(R\$\s*)?-?\d[\d.,]*%?$")
 
 NS = ('xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
       'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '
@@ -123,7 +124,12 @@ class Bloco(object):
                fundo_cabecalho="D9D9D9"):
         ncol = len(cabecalho) if cabecalho else len(linhas[0])
         larguras_cm = larguras_cm or [15.5 / ncol] * ncol
-        alinhamentos = alinhamentos or ["esq"] * ncol
+        if not alinhamentos:
+            # coluna só com números (valores, quantidades) fica alinhada à direita
+            alinhamentos = []
+            for i in range(ncol):
+                vals = [str(l[i]).strip() for l in linhas if i < len(l) and l[i] not in (None, "")]
+                alinhamentos.append("dir" if vals and all(NUMERO.match(v) for v in vals) else "esq")
         borda = ('<w:tblBorders>' + "".join(
             '<w:{} w:val="single" w:sz="4" w:space="0" w:color="000000"/>'.format(b)
             for b in ("top", "left", "bottom", "right", "insideH", "insideV")) + '</w:tblBorders>'
