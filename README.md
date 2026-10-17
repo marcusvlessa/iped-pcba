@@ -38,10 +38,12 @@ máquina tem e o que já está instalado, e configura a partir disso.
 2. Dê dois cliques em `instalar.bat`. Ele acha o IPED e abre o **Painel IPED-PCBA** no navegador.
 3. Siga os passos do painel.
 
-Não precisa instalar Python nem nada: o painel usa o Python que vem dentro do IPED. A janela
+Não precisa instalar Python nem nada: o painel usa o Python que vem dentro do IPED (ou o da máquina,
+se houver). Quem acha o IPED, escolhe a versão mais nova e instala o que falta é o mesmo pacote do
+painel; o `instalar.ps1` só procura um Python e passa a palavra a ele. A janela
 preta do `instalar.bat` precisa ficar aberta enquanto o painel estiver em uso.
 
-Se a máquina não tem IPED, o `instalar.bat` oferece baixar o IPED 4.3.1 oficial (cerca de 700 MB)
+Se a máquina não tem IPED, o `instalar.bat` oferece baixar a última versão oficial do IPED (cerca de 700 MB)
 da página de Releases do projeto IPED, confere o SHA-256 informado pelo GitHub e instala em
 `C:\Tools\IPED` (ou no disco com mais espaço). Depois, no passo 1 do painel, o cartão
 **O que esta máquina precisa** mostra o que falta e instala com um clique ou com
@@ -49,7 +51,7 @@ da página de Releases do projeto IPED, confere o SHA-256 informado pelo GitHub 
 
 | Item | Como instala |
 |---|---|
-| IPED 4.3.1 | baixa o pacote oficial com Java e Python, confere tamanho e SHA-256 |
+| IPED | baixa a última versão oficial com Java e Python, confere tamanho e SHA-256 |
 | Transcrição (Whisper) e reconhecimento facial | pacote oficial de plugins do IPED; guarda cópia da pasta `conf` antes e mantém a configuração de transcrição |
 | Visual C++ 2015-2022 | instalador da Microsoft em modo silencioso (pede confirmação do Windows) |
 | CUDA para o Whisper | só aparece com placa NVIDIA; usa o `whisper_gpu.ps1` |
@@ -69,7 +71,7 @@ próximo passo e mostra o andamento. O menu segue o trabalho:
 | Grupo | Tela | O que faz |
 |---|---|---|
 | Preparar | 1. Configurar a máquina | Mostra o hardware e a configuração proposta, com o valor atual e o motivo de cada item. Dá para desmarcar ou editar qualquer valor antes de aplicar. Aplica com backup, restaura qualquer backup, instala o `faster-whisper` com um clique e cria um atalho do painel na Área de Trabalho. |
-| Preparar | 2. Processar evidência | Escolhe evidências, pasta do caso e perfil (em cartões que explicam quando usar cada perfil, o que liga, o que desliga e quanto demora) e roda o IPED. Durante a indexação mostra percentual, itens processados, velocidade, tempo restante, hora prevista de término, as tarefas que cada processo está executando, avisos e erros. A **fila** processa vários casos em sequência e pode salvar o grupo para a análise multicasos. |
+| Preparar | 2. Processar evidência | Escolhe evidências, pasta do caso e perfil (em cartões que explicam quando usar cada perfil, o que liga, o que desliga e quanto demora) e roda o IPED. Durante a indexação mostra percentual, itens processados, velocidade, tempo restante, hora prevista de término, as tarefas que cada processo está executando, avisos e erros. A **fila** processa vários casos em sequência e pode salvar o grupo para a análise multicasos. Ela fica gravada: se o painel fechar ou se atualizar no meio, os casos continuam na fila e o que estava rodando retoma de onde o IPED parou (**Retomar a fila**). |
 | Analisar | 3. Casos | Lista os casos, abre no IPED, escolhe o caso em análise e mostra o log de auditoria da IA com a conferência da cadeia de hashes. |
 | Analisar | Visão do caso | Gráficos, alertas e sugestões do caso (veja abaixo). |
 | Analisar | Assistente de IA | Agentes prontos que mandam a pergunta à IA local pelo próprio painel (veja abaixo). |
@@ -86,7 +88,8 @@ liberada). O texto entre `[COLCHETES]` numa pergunta é para trocar antes de env
 
 **Enviar para a IA local** manda a pergunta ao Ollama ou ao LM Studio desta máquina (o painel
 recusa qualquer endereço que não seja `127.0.0.1` ou `localhost`). A IA consulta o caso pelo MCP
-e o painel mostra cada passo; toda chamada fica no log de auditoria do caso. A resposta pode ser
+e o painel mostra cada passo e o texto da resposta enquanto a IA ainda está escrevendo; toda
+chamada fica no log de auditoria do caso. A resposta pode ser
 copiada ou salva em `<caso>\iped-pcba-ia\conversas\`. O modelo precisa aceitar ferramentas
 (por exemplo qwen2.5, qwen3, llama3.1 ou mistral-nemo).
 

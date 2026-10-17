@@ -656,6 +656,7 @@ function desenharFila(r){const l=r.fila||[];$("filaCard").style.display=l.length
     `<td>${est[j.estado]||esc(j.estado)}${j.estado=="rodando"&&j.percentual!=null?` <b>${j.percentual}%</b> <span class="muted">${j.restante_s!=null?"faltam "+hms(j.restante_s):""}</span>`:""}${j.erro?`<div class="aviso">${esc(j.erro)}</div>`:""}</td>`+
     `<td>${j.estado=="aguardando"?`<button class="b d" onclick="filaRem('${j.id}')">Tirar</button>`:j.tarefa?`<button class="b" onclick="seguirProc('${j.tarefa}','Processar ${esc(js(j.saida))}')">Acompanhar</button>`:""}</td></tr>`).join("")+"</tbody></table>";
   const rodando=l.some(j=>j.estado=="rodando");$("filaIniciar").disabled=rodando||!l.some(j=>j.estado=="aguardando");
+  $("filaIniciar").textContent=l.some(j=>j.retomar||j.estado=="ok")&&!rodando?"Retomar a fila":"Iniciar a fila";if(r.grupo&&!$("filaGrupo").value)$("filaGrupo").value=r.grupo;
   if(rodando)filaTimer=setTimeout(lerFila,3000);else if(l.length&&SECAO=="proc")resumo()}
 async function processarEvid(){
   await tentar(async()=>{
@@ -1234,7 +1235,9 @@ async function lerConversa(){if(!CONV)return;const id=CONV;
       if(h&&e.tipo!="resposta")$("convPassos").insertAdjacentHTML("beforeend","<div>"+h+"</div>")});
     $("convPassos").scrollTop=1e9;
     if(r.modelo)convFim.modelo=r.modelo;
-    if(r.rodando){setTimeout(lerConversa,1500);return}
+    if(r.rodando){if(r.parcial)$("convResp").innerHTML=`<div class="ajuda" style="margin-bottom:6px"><span class="spin"></span> a IA está escrevendo…</div><div class="resposta">${md(r.parcial)}</div>`;
+      else if(!$("convResp").querySelector(".aviso"))$("convResp").innerHTML='<span class="spin"></span> a IA está trabalhando…';
+      setTimeout(lerConversa,1000);return}
     $("agEnviar").disabled=false;$("convParar").style.display="none";
     if(r.resposta!=null){convFim.resposta=r.resposta;convFim.contexto=r.contexto;$("convResp").innerHTML=`<div class="ajuda" style="margin-bottom:6px">Resposta da IA: confira cada fato no IPED pelo ID do item antes de usar.</div><div class="resposta">${md(r.resposta)}</div>`;$("convAcoes").style.display="flex"}
   }catch(e){setTimeout(lerConversa,3000)}}

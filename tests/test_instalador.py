@@ -2,6 +2,7 @@ import io
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -371,3 +372,29 @@ class TestPerfis(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(os.name == "nt", "o instalar.ps1 só roda no Windows")
+class TestInstalarPs1(unittest.TestCase):
+    """O instalar.ps1 só acha um Python e passa a palavra ao pacote (mesma lógica do painel)."""
+    PS1 = os.path.join(os.path.dirname(__file__), "..", "scripts", "instalar.ps1")
+
+    def test_sem_erro_de_sintaxe(self):
+        cmd = ("$e=$null; [System.Management.Automation.Language.Parser]::ParseFile('{}', [ref]$null, [ref]$e) "
+               "| Out-Null; $e | ForEach-Object {{ $_.ToString() }}; exit $e.Count").format(os.path.abspath(self.PS1))
+        r = subprocess.run(["powershell", "-NoProfile", "-Command", cmd], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_simular_pelo_pacote(self):
+        tmp = tempfile.mkdtemp()
+        try:
+            raiz = os.path.join(tmp, "iped")
+            shutil.copytree(FIXTURE, raiz)  # sem python\python.exe: usa o Python da máquina
+            r = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                                os.path.abspath(self.PS1), "-IpedRoot", raiz, "-Simular", "-Json"],
+                               capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn('"mudancas"', r.stdout)
+            self.assertFalse(os.path.exists(os.path.join(raiz, "pcba")))  # simulação não grava
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)

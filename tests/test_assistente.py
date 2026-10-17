@@ -49,6 +49,13 @@ class IaFalsa(object):
                             {"id": "call_1", "type": "function",
                              "function": {"name": "search_documents", "arguments": "{\"query\": \"pix\"}"}}]}
                     r = {"choices": [{"message": msg}]}
+                if corpo.get("stream"):
+                    self.send_response(200)
+                    self.end_headers()
+                    for linha in IaFalsa.em_partes(tipo, msg):
+                        self.wfile.write(linha.encode("utf-8") + b"\n")
+                        self.wfile.flush()
+                    return
                 dados = json.dumps(r).encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
@@ -63,6 +70,29 @@ class IaFalsa(object):
     def fechar(self):
         self.srv.shutdown()
         self.srv.server_close()
+
+    @staticmethod
+    def em_partes(tipo, msg):
+        """A mesma resposta em pedaços, como o Ollama (NDJSON) e o LM Studio (SSE) mandam com stream."""
+        texto = msg.get("content") or ""
+        partes = [texto[:5], texto[5:]] if texto else []
+        if tipo == "ollama":
+            for p in partes:
+                yield json.dumps({"message": {"role": "assistant", "content": p}, "done": False})
+            if msg.get("tool_calls"):
+                yield json.dumps({"message": {"role": "assistant", "content": "", "tool_calls": msg["tool_calls"]},
+                                  "done": False})
+            yield json.dumps({"message": {"role": "assistant", "content": ""}, "done": True})
+            return
+        for p in partes:
+            yield "data: " + json.dumps({"choices": [{"delta": {"content": p}}]})
+        for c in msg.get("tool_calls") or []:  # nome e argumentos chegam em pedaços
+            args = c["function"]["arguments"]
+            yield "data: " + json.dumps({"choices": [{"delta": {"tool_calls": [
+                {"index": 0, "id": c["id"], "function": {"name": c["function"]["name"], "arguments": args[:4]}}]}}]})
+            yield "data: " + json.dumps({"choices": [{"delta": {"tool_calls": [
+                {"index": 0, "function": {"arguments": args[4:]}}]}}]})
+        yield "data: [DONE]"
 
 
 class TestAgentes(unittest.TestCase):
@@ -127,14 +157,15 @@ class TestConversa(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmp)
 
-    def _executar(self, tipo, agente="financeiro", escrita=False):
+    def _executar(self, tipo, agente="financeiro", escrita=False, ao_trecho=None):
         ia = IaFalsa(tipo)
         mcp = ClienteMcp([sys.executable, MCP_FALSO], timeout=30)
         eventos = []
         try:
             mcp.iniciar()
             modelo = assistente.modelo_de({"tipo": tipo, "url": ia.url, "modelo": "falso"})
-            texto = assistente.executar(modelo, mcp, agentes.por_id(agente), "Procure PIX", eventos.append, escrita)
+            texto = assistente.executar(modelo, mcp, agentes.por_id(agente), "Procure PIX", eventos.append, escrita,
+                                        ao_trecho=ao_trecho)
         finally:
             mcp.fechar()
             ia.fechar()
@@ -171,6 +202,21 @@ class TestConversa(unittest.TestCase):
         self.assertEqual(msgs[2]["tool_calls"][0]["id"], "call_1")
         self.assertEqual(msgs[3], {"role": "tool", "tool_call_id": "call_1",
                                    "content": msgs[3]["content"]})
+
+    def test_resposta_aparece_enquanto_a_ia_escreve(self):
+        for tipo in ("ollama", "openai"):
+            trechos = []
+            texto, eventos, pedidos = self._executar(tipo, ao_trecho=trechos.append)
+            self.assertTrue(all(c.get("stream") for _, c in pedidos), tipo)
+            self.assertIn("Achei:", texto)
+            self.assertIn("Achei", trechos)                      # primeiro pedaço, antes do resto
+            self.assertIn(texto, trechos)
+            self.assertEqual(trechos[-1], "")                    # o parcial some quando o passo termina
+            self.assertEqual([e["tipo"] for e in eventos],
+                             ["pensando", "ferramenta", "resultado", "pensando", "resposta"], tipo)
+            msgs = pedidos[1][1]["messages"]
+            tool = [m for m in msgs if m["role"] == "tool"][0]
+            self.assertIn("doc_id 11", tool["content"])          # a ferramenta pedida em pedaços rodou inteira
 
     def test_agente_de_escrita_avisa_sem_escrita(self):
         _, eventos, pedidos = self._executar("ollama", agente="marcador", escrita=False)
