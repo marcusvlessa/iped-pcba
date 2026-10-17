@@ -109,18 +109,19 @@ def escolher(tipo, titulo="", multiplos=False, filtro=None):
     """Janela nativa de escolha de pasta/arquivo. Devolve lista de caminhos ([] se cancelar)."""
     if WIN:
         if tipo == "pasta":
-            ps = _DONO + ("$d=New-Object System.Windows.Forms.FolderBrowserDialog;$d.Description='{t}';"
-                  "$d.ShowNewFolderButton=$true;"
-                  "if($d.ShowDialog($f) -eq 'OK'){{[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
-                  "$d.SelectedPath}};$f.Close()").format(t=titulo.replace("'", ""))
+            ps = _DONO + ("$d=New-Object System.Windows.Forms.FolderBrowserDialog;$d.Description=$env:PCBA_TITULO;"
+                          "$d.ShowNewFolderButton=$true;"
+                          "if($d.ShowDialog($f) -eq 'OK'){[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
+                          "$d.SelectedPath};$f.Close()")
         else:
-            ps = _DONO + ("$d=New-Object System.Windows.Forms.OpenFileDialog;$d.Title='{t}';"
-                  "$d.Multiselect=${m};"
-                  "$d.Filter='{filtro}';"
-                  "if($d.ShowDialog($f) -eq 'OK'){{[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
-                  "$d.FileNames}};$f.Close()").format(t=titulo.replace("'", ""), m="true" if multiplos else "false",
-                                                   filtro=FILTROS.get(filtro, FILTROS[None]))
-        r = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", ps],
+            ps = _DONO + ("$d=New-Object System.Windows.Forms.OpenFileDialog;$d.Title=$env:PCBA_TITULO;"
+                          "$d.Multiselect=($env:PCBA_MULTIPLOS -eq '1');$d.Filter=$env:PCBA_FILTRO;"
+                          "if($d.ShowDialog($f) -eq 'OK'){[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
+                          "$d.FileNames};$f.Close()")
+        # textos e caminhos vão por variável de ambiente, nunca colados no comando do PowerShell
+        env = dict(os.environ, PCBA_TITULO=titulo, PCBA_MULTIPLOS="1" if multiplos else "0",
+                   PCBA_FILTRO=FILTROS.get(filtro, FILTROS[None]))
+        r = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", ps], env=env,
                            capture_output=True, timeout=600, creationflags=0x08000000)
         return [l.strip() for l in r.stdout.decode("utf-8", "replace").splitlines() if l.strip()]
     if shutil.which("zenity"):
@@ -421,7 +422,7 @@ class Estado(object):
         from . import agentes
         r = self.resumo()
         return {"agentes": agentes.para_painel(), "config": assistente.ler_config(),
-                "ia_local": clientesia.ia_local(), "escrita": (r.get("mcp") or {}).get("escrita"),
+                "escrita": (r.get("mcp") or {}).get("escrita"),
                 "mcp_instalado": (r.get("mcp") or {}).get("instalado"), "clientes": r.get("clientes")}
 
     def assist_enviar(self, d):
@@ -476,11 +477,10 @@ def criar_atalho(raiz):
     alvo = os.path.join(raiz, PASTA_PCBA, "painel-pcba.bat")
     if not os.path.isfile(alvo):
         raise ValueError("Aplique a configuração antes (ela cria o painel dentro do IPED).")
-    ps = ("$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{lnk}');$s.TargetPath='{alvo}';"
-          "$s.WorkingDirectory='{dir}';$s.WindowStyle=7;$s.Description='Painel IPED-PCBA';$s.Save()"
-          ).format(lnk=_atalho().replace("'", "''"), alvo=alvo.replace("'", "''"),
-                   dir=os.path.dirname(alvo).replace("'", "''"))
-    subprocess.run(["powershell", "-NoProfile", "-Command", ps], check=True, timeout=60,
+    ps = ("$s=(New-Object -ComObject WScript.Shell).CreateShortcut($env:PCBA_LNK);$s.TargetPath=$env:PCBA_ALVO;"
+          "$s.WorkingDirectory=$env:PCBA_DIR;$s.WindowStyle=7;$s.Description='Painel IPED-PCBA';$s.Save()")
+    env = dict(os.environ, PCBA_LNK=_atalho(), PCBA_ALVO=alvo, PCBA_DIR=os.path.dirname(alvo))
+    subprocess.run(["powershell", "-NoProfile", "-Command", ps], check=True, timeout=60, env=env,
                    creationflags=0x08000000)
     return {"atalho": _atalho()}
 
@@ -503,6 +503,7 @@ def _handler(estado, html):
             self.send_response(codigo)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Content-Length", str(len(dados)))
             self.end_headers()
             self.wfile.write(dados)
@@ -519,6 +520,8 @@ def _handler(estado, html):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Cache-Control", "no-store")
+                self.send_header("Referrer-Policy", "no-referrer")  # o token da URL não vaza para links externos
+                self.send_header("X-Content-Type-Options", "nosniff")
                 self.send_header("Content-Security-Policy",
                                  "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
                                  "script-src 'self' 'unsafe-inline'; frame-ancestors 'none'")
@@ -600,6 +603,11 @@ def _rotear(e, rota, d):
     if rota == "/api/multi/abrir-pasta":
         os.makedirs(multicasos.PASTA_SAIDA, exist_ok=True)
         return {"aberto": _abrir_local(multicasos.PASTA_SAIDA)}
+    if rota == "/api/iped/versao":
+        from . import dependencias
+        return dependencias._item_iped(e.raiz)
+    if rota == "/api/assist/ia":
+        return {"ia_local": clientesia.ia_local()}
     if rota == "/api/deps/ler":
         return e.deps_ler()
     if rota == "/api/deps/instalar":

@@ -11,6 +11,7 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import time
 import urllib.request
 
@@ -139,10 +140,18 @@ def _pastas_modelos_lmstudio():
     return [p for i, p in enumerate(pastas) if os.path.isdir(p) and p not in pastas[:i]]
 
 
-def lmstudio_baixados():
+_LMS_LS = {}
+
+
+def lmstudio_baixados(rapido=False):
     """Modelos baixados no LM Studio. Usa o lms quando existe (dá o nome que a API aceita); senão lê a pasta
-    de modelos (inclusive a que o analista trocou nas configurações do LM Studio)."""
-    cli = lms_cli()
+    de modelos (inclusive a que o analista trocou nas configurações do LM Studio).
+
+    rapido=True só lê a pasta: o lms leva vários segundos com o LM Studio fechado, e as telas do painel só
+    precisam saber se há modelo. O lms fica para a hora de carregar o modelo."""
+    cli = None if rapido else lms_cli()
+    if cli and _LMS_LS.get("quando", 0) > time.time() - 60:
+        return list(_LMS_LS["lista"])
     if cli:
         try:
             r = subprocess.run([cli, "ls", "--json"], capture_output=True, text=True, timeout=30,
@@ -152,6 +161,7 @@ def lmstudio_baixados():
                    if isinstance(m, dict) and m.get("type", "llm") == "llm"]
             out = [m for m in out if m]
             if out:
+                _LMS_LS.update(quando=time.time(), lista=out)
                 return out
         except (OSError, ValueError, subprocess.SubprocessError):
             pass
@@ -169,25 +179,36 @@ def lmstudio_baixados():
 
 def servidores(timeout=1.5, baixados=True):
     """Ollama e LM Studio nesta máquina: se estão instalados, se o servidor está ligado e os modelos."""
-    out = []
-    for nome, tipo, url, rota, lista, campo in (
-            ("Ollama", "ollama", OLLAMA_URL, "/api/tags", "models", "name"),
-            ("LM Studio", "openai", LMSTUDIO_URL, "/v1/models", "data", "id")):
-        s = {"nome": nome, "tipo": tipo, "url": url, "ativo": False, "modelos": []}
+    out = [{"nome": nome, "tipo": tipo, "url": url, "ativo": False, "modelos": [], "_rota": rota, "_lista": lista,
+            "_campo": campo}
+           for nome, tipo, url, rota, lista, campo in (
+               ("Ollama", "ollama", OLLAMA_URL, "/api/tags", "models", "name"),
+               ("LM Studio", "openai", LMSTUDIO_URL, "/v1/models", "data", "id"))]
+
+    def sondar(s):
         try:
-            dados = _get_json(url + rota, timeout)
+            dados = _get_json(s["url"] + s["_rota"], timeout)
             s["ativo"] = True
-            s["modelos"] = [m.get(campo) for m in dados.get(lista, []) if conversa(m.get(campo))]
+            s["modelos"] = [m.get(s["_campo"]) for m in dados.get(s["_lista"], []) if conversa(m.get(s["_campo"]))]
         except Exception:
             pass
-        if tipo == "ollama":
+    # os dois ao mesmo tempo: no Windows uma porta local fechada demora até o timeout para responder
+    ts = [threading.Thread(target=sondar, args=(s,), daemon=True) for s in out]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join(timeout + 1)
+    for s in out:
+        for k in ("_rota", "_lista", "_campo"):
+            s.pop(k)
+        if s["tipo"] == "ollama":
             s["instalado"] = s["ativo"] or bool(ollama_exe())
             s["baixados"] = ollama_baixados() if baixados else []
         else:
             s["instalado"] = s["ativo"] or lmstudio_instalado()
-            s["baixados"] = lmstudio_baixados() if baixados and s["instalado"] else []
+            s["baixados"] = lmstudio_baixados(rapido=True) if baixados and s["instalado"] else []
+        tipo = s["tipo"]
         s["pode_ligar"] = not s["ativo"] and (bool(ollama_exe()) if tipo == "ollama" else bool(lms_cli()))
-        out.append(s)
     return out
 
 
@@ -261,7 +282,8 @@ def preparar(config, aviso=lambda t: None, espera=60):
                 nome, alvo["url"], nome))
     lista = alvo["modelos"]
     if not lista and alvo["tipo"] == "openai" and alvo.get("baixados"):
-        quero = modelo if modelo in alvo["baixados"] else escolher(alvo["baixados"])
+        nomes = lmstudio_baixados() or alvo["baixados"]  # aqui sim o nome do lms, que o "lms load" aceita
+        quero = modelo if modelo in nomes else escolher(nomes)
         aviso("Carregando o modelo {} no LM Studio (pode levar alguns minutos)…".format(quero))
         carregar_lmstudio(quero)
         lista = next(x for x in servidores(baixados=False) if x["tipo"] == "openai")["modelos"]

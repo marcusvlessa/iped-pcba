@@ -55,6 +55,8 @@ textarea{font:inherit;width:100%;min-height:90px;padding:7px 9px;border:1px soli
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
 @media (max-width:760px){.grid2{grid-template-columns:1fr}}
 .lac{color:var(--bad);font-weight:600}
+button.lac{background:none;border:0;padding:0;font:inherit;cursor:pointer;text-decoration:underline dotted}
+.realce{outline:3px solid var(--ouro,#c9a227);outline-offset:2px;transition:outline-color .3s}
 .an{border:1px solid var(--line);border-radius:8px;padding:12px;margin:10px 0}
 .spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:g 1s linear infinite;vertical-align:-2px}
 @keyframes g{to{transform:rotate(360deg)}}
@@ -90,7 +92,7 @@ svg.ch [data-tip]:hover{opacity:.8}
 .rede-barra select,.rede-barra input{font-size:12px}
 .rede-bt{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
 .rede-tela{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--card)}
-svg.rede{width:100%;height:68vh;min-height:420px;touch-action:none;cursor:grab;user-select:none}
+svg.rede{width:100%;height:clamp(420px,55vh,600px);touch-action:none;cursor:grab;user-select:none}
 svg.rede.arrastando{cursor:grabbing}
 svg.rede g.no{cursor:pointer}
 svg.rede text{font-size:inherit;pointer-events:none}
@@ -563,7 +565,7 @@ function aviso(t,ruim){const e=$("toast");e.textContent=t;e.className="toast"+(r
 async function tentar(f){try{return await f()}catch(e){aviso(e.message,true)}}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>ir(b.dataset.s));
 let SECAO="inicio";
-function ir(s){SECAO=s;document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x.dataset.s==s));document.querySelectorAll("section").forEach(x=>x.classList.toggle("on",x.id==s));window.scrollTo(0,0);atualizarSecao()}
+function ir(s){SECAO=s;document.querySelectorAll("nav button").forEach(x=>{x.classList.toggle("on",x.dataset.s==s);if(x.dataset.s==s)x.setAttribute("aria-current","page");else x.removeAttribute("aria-current")});document.querySelectorAll("section").forEach(x=>x.classList.toggle("on",x.id==s));window.scrollTo(0,0);atualizarSecao()}
 function atualizarSecao(){const s=SECAO;if(s=="inicio")desenharInicio();if(s=="ia")carregarIa();if(s=="tarefas")desenharTarefas();if(s=="relatorio")entrarRt();if(s=="visao")entrarVisao();if(s=="assist")entrarAssist();if(s=="multi")entrarMulti();if(s=="config"){carregarDeps();carregarSkills()}if(s=="proc")lerFila()}
 const CASO=()=>R.caso_ativo||"";
 const mesmo=(a,b)=>(a||"").toLowerCase()==(b||"").toLowerCase();
@@ -616,7 +618,7 @@ function desenharDiag(){
   <b>Java 21 (MCP)</b><span>${DIAG.java21?esc(DIAG.java21):'<span class="tag warn">não encontrado</span> use o pacote completo da página de Releases, que já traz o Java'}</span>
   </div></div>`;
   h+=`<div class="card"><h3>Configuração proposta</h3><table><thead><tr><th></th><th>Arquivo</th><th>Chave</th><th>Atual</th><th>Novo valor</th><th>Por quê</th></tr></thead><tbody>`+
-    DIAG.alteracoes.map((a,i)=>`<tr><td><input type="checkbox" id="al${i}" checked></td><td>${esc(a.arquivo)}</td><td>${esc(a.chave)}</td><td class="muted">${esc(a.atual??"-")}</td><td><input type="text" id="av${i}" value="${esc(a.valor)}"></td><td class="muted">${esc(a.motivo)}</td></tr>`).join("")+`</tbody></table>`;
+    DIAG.alteracoes.map((a,i)=>`<tr><td><input type="checkbox" id="al${i}" checked></td><td>${esc(a.arquivo)}</td><td>${esc(a.chave)}</td><td class="muted">${esc(a.atual??"-")}</td><td><input type="text" id="av${i}" value="${esc(a.valor)}" title="${esc(a.valor)}" style="min-width:260px;font-family:ui-monospace,Consolas,monospace;font-size:12px"></td><td class="muted">${esc(a.motivo)}</td></tr>`).join("")+`</tbody></table>`;
   h+=(DIAG.avisos||[]).map(a=>`<div class="aviso">${esc(a)}</div>`).join("");
   h+=`<div class="row" style="margin-top:12px">
     <label class="switch"><input type="checkbox" id="apPerfis" checked> Criar perfis pcba-*</label>
@@ -813,6 +815,14 @@ async function salvarUnidade(){await tentar(async()=>{const u={};UN_CAMPOS.forEa
   await api("unidade/gravar",{unidade:u});aviso("Dados da unidade salvos.");await carregarUnidade();if(RT)carregarRt()})}
 async function carregarRt(){const caso=CASO();if(!caso){$("rtCorpo").style.display="none";return}
   await tentar(async()=>{const r=await api("rt/ler",{caso});desenharRt(r)})}
+// Leva da lista de lacunas ao campo que a preenche: "analises[0].conclusao" -> #an0_con, "unidade.orgao" -> #un_orgao.
+function irLacuna(o){let m,id="rt_"+o.split(/[.[]/)[0],caixa=null;const AN={conclusao:"con",texto:"txt",titulo:"tit",provedor:"prov",tabela:"tab"};
+  if((m=o.match(/^analises\[(\d+)\]\.(\w+)/))){id="an"+m[1]+"_"+(AN[m[2]]||"txt");caixa="an"+m[1]}
+  else if((m=o.match(/^pedidos\[(\d+)\]/)))id="pe"+m[1]+"_tit";
+  else if((m=o.match(/^unidade\.(\w+)/)))id="un_"+m[1];
+  const el=$(id)||(caixa&&$(caixa));if(!el)return aviso("Esse trecho vem de um texto gerado; procure-o nas análises abaixo.");
+  el.scrollIntoView({behavior:"smooth",block:"center"});if(el.focus)setTimeout(()=>el.focus({preventScroll:true}),350);
+  el.classList.add("realce");setTimeout(()=>el.classList.remove("realce"),2000)}
 function desenharRt(r){RT=r;const d=r.dados;$("rtCorpo").style.display="block";$("rtSit").textContent="Rascunho: "+r.pasta;
   $("rtCampos").innerHTML=r.campos.map(([k,n,m])=>`<div style="${m?'grid-column:1/-1':''}"><label class="f">${esc(n)}</label>${m?`<textarea id="rt_${k}">${esc(d[k])}</textarea>`:`<input type="text" style="width:100%" id="rt_${k}" value="${esc(d[k])}">`}</div>`).join("");
   $("rtAnalises").innerHTML=(d.analises||[]).map((a,i)=>`<div class="an" id="an${i}"><div class="row" style="margin-top:0"><b>${esc(a.provedor||"")}</b>${a.gerado_automaticamente?' <span class="tag warn">rascunho automático: revise</span>':''}<span style="flex:1"></span><button class="b d" onclick="tirarAnalise(${i})">Remover</button></div>
@@ -826,7 +836,7 @@ function desenharRt(r){RT=r;const d=r.dados;$("rtCorpo").style.display="block";$
   $("rtEmails").value=(d.emails_investigadores||[]).join("\n");$("rtAnal").value=anaTexto(d.analistas);
   $("rtListas").innerHTML=r.listas.length?r.listas.map(a=>`<div class="row" style="margin:4px 0"><span class="grow">${esc(a)}</span><button class="b" onclick="hashArq('${esc(js(a))}')">Calcular SHA-256</button></div>`).join(""):"Nenhuma “Lista de Arquivos.csv” dentro do caso. Exporte do IPED (Lista de arquivos) ou escolha o arquivo abaixo.";
   const lac=r.lacunas;$("rtNLac").textContent=lac.length;$("rtNLac").className="tag "+(lac.length?"warn":"ok");
-  $("rtLac").innerHTML=lac.length?lac.slice(0,60).map(([o,t])=>`<div><span class="lac">${esc(t)}</span> <span class="muted">${esc(o)}</span></div>`).join("")+(lac.length>60?`<div>… e mais ${lac.length-60}</div>`:""):"Nenhuma lacuna. Revise o texto e gere o .docx.";
+  $("rtLac").innerHTML=lac.length?lac.slice(0,60).map(([o,t])=>`<div><button class="lac" onclick="irLacuna('${esc(o)}')" title="Ir ao campo">${esc(t)}</button> <span class="muted">${esc(o)}</span></div>`).join("")+(lac.length>60?`<div>… e mais ${lac.length-60}</div>`:""):"Nenhuma lacuna. Revise o texto e gere o .docx.";
   $("rtAbrir").disabled=!r.docx;
   const ia=Object.entries(d.ia_editou||{});$("rtIaCard").style.display=ia.length?"block":"none";
   $("rtIa").innerHTML=ia.map(([k,q])=>`<div>${esc(k)} <span class="muted">em ${esc(q.replace("T"," "))}</span></div>`).join("");
@@ -956,6 +966,8 @@ function juntarLigacoes(edges){
 // hierárquico, radial e grade. Nada é cortado: a quantidade de ligações e os rótulos são escolhas do usuário.
 const RV={qtd:null,foco:null,layout:"forca",rot:"principais",cor:"tipo",tela:false};
 const CORES_GRUPO=["#2a78d6","#eb6834","#1baf7a","#9b59b6","#d4a017","#e0457b","#16a2b8","#7f8c8d","#8e5a2b","#4b6cb7"];
+// cores dos casos na rede multicasos: sem o laranja, que se confunde com o vermelho de "em mais de um caso"
+const CORES_CASO=CORES_GRUPO.filter(c=>c!="#eb6834");
 function redeNos(ar,porId){
   const peso={};ar.forEach(e=>{peso[e.source]=(peso[e.source]||0)+e.weight;peso[e.target]=(peso[e.target]||0)+e.weight});
   const nos=Object.keys(peso).map(k=>Object.assign({label:k},porId[k]||{},{id:k,total:peso[k]}));
@@ -1012,6 +1024,10 @@ const LAYOUTS={
   radial(nos,ar,ix,raiz){const t=redeArvore(nos,raiz),passo=Math.max(150,t.T*24/(2*Math.PI)/Math.max(1,t.prof));
     nos.forEach((p,i)=>{const a=t.meio[i]/t.T*2*Math.PI,R=t.anel[i]*passo;p.x=Math.cos(a)*R;p.y=Math.sin(a)*R})},
   grade(nos){const c=Math.ceil(Math.sqrt(nos.length));nos.forEach((p,i)=>{p.x=(i%c)*90;p.y=Math.floor(i/c)*70})}};
+// Afasta na vertical contatos lado a lado na mesma altura, para os nomes não se sobreporem.
+function separarRotulos(nos){const H=16,W=110,ord=nos.slice().sort((a,b)=>a.y-b.y);
+  for(let v=0;v<3;v++)for(let i=0;i<ord.length;i++)for(let j=i+1;j<ord.length&&ord[j].y-ord[i].y<H;j++)
+    if(Math.abs(ord[j].x-ord[i].x)<W)ord[j].y=ord[i].y+H}
 function desenharRede(id,rede){
   const caixa=$(id),porId={};(rede.nodes||[]).forEach(n=>porId[n.id]=n);
   const todas=juntarLigacoes(rede.edges||[]);
@@ -1021,8 +1037,9 @@ function desenharRede(id,rede){
   if(!(RV.foco in ix))RV.foco=null;
   const raiz=RV.foco!=null?ix[RV.foco]:0,maxw=Math.max(...ar.map(e=>e.weight)),maxn=Math.max(...nos.map(n=>n.total));
   (LAYOUTS[RV.layout]||LAYOUTS.forca)(nos,ar,ix,raiz);
+  if((RV.layout||"forca")=="forca")separarRotulos(nos);
   const r=n=>5+12*Math.sqrt(n.total/maxn),nome=n=>String(n.label||n.id),
-    cor=n=>RV.cor=="caso"&&rede.multicaso?((n.casos||[]).length>1?"#d62728":CORES_GRUPO[(rede.casos.indexOf((n.casos||[])[0])+1)%CORES_GRUPO.length]):
+    cor=n=>RV.cor=="caso"&&rede.multicaso?((n.casos||[]).length>1?"#d62728":CORES_CASO[Math.max(0,rede.casos.indexOf((n.casos||[])[0]))%CORES_CASO.length]):
       RV.cor=="grupo"?CORES_GRUPO[n.com%CORES_GRUPO.length]:n.is_group?"var(--s3)":"var(--s1)";
   const exp=rede.edges_before_limit>(rede.edges||[]).length?` O MCP enviou ${fmt((rede.edges||[]).length)} de ${fmt(rede.edges_before_limit)} ligações; atualize o painel para receber a rede inteira.`:"";
   const opc=[50,100,200,500,1000,0].filter(q=>!q||q<todas.length).map(q=>`<option value="${q}"${q==(ar.length<todas.length?RV.qtd:0)?" selected":""}>${q?q+" mais fortes":"todas ("+fmt(todas.length)+")"}</option>`).join("");
@@ -1032,7 +1049,7 @@ function desenharRede(id,rede){
       (todas.length>50?`<label>Ligações <select id="redeQtd">${opc}</select></label>`:"")+
       `<label>Nomes ${sel("redeRot",RV.rot,[["principais","principais"],["todos","todos"],["nenhum","nenhum"]])}</label>`+
       `<label>Cor ${sel("redeCor",RV.cor,(rede.multicaso?[["caso","por caso"]]:[]).concat([["tipo","pessoa / grupo"],["grupo","grupos de contatos ("+ncom+")"]]))}</label>`+
-      (rede.multicaso&&RV.cor=="caso"?`<span class="leg">${rede.casos.map((c,i)=>`<span><i style="background:${CORES_GRUPO[(i+1)%CORES_GRUPO.length]}"></i>${esc(c)}</span>`).join("")}<span><i style="background:#d62728"></i>em mais de um caso</span></span>`:"")+
+      (rede.multicaso&&RV.cor=="caso"?`<span class="leg">${rede.casos.map((c,i)=>`<span><i style="background:${CORES_CASO[i%CORES_CASO.length]}"></i>${esc(c)}</span>`).join("")}<span><i style="background:#d62728"></i>em mais de um caso</span></span>`:"")+
       `<input id="redeBusca" list="redeNomes" placeholder="Achar contato…" style="width:170px"><datalist id="redeNomes">${nos.slice(0,3000).map(n=>`<option value="${esc(nome(n))}">`).join("")}</datalist>`+
       `<span class="rede-bt"><button class="sec" id="redeMais" title="Aproximar">+</button><button class="sec" id="redeMenos" title="Afastar">−</button>`+
       `<button class="sec" id="redeAjustar">Ajustar à tela</button><button class="sec" id="redeTela">${RV.tela?"Sair da tela cheia":"Tela cheia"}</button>`+
@@ -1145,6 +1162,10 @@ async function entrarAssist(){
   await tentar(async()=>{AG=await api("assist/agentes");
     const bt=a=>`<button class="agente" data-id="${a.id}" onclick="escolherAgente('${a.id}')"><b>${esc(a.nome)}</b>${a.escrita?'<span class="tag warn esc">escreve no caso</span>':''}<div class="d">${esc(a.descricao)}</div></button>`;
     $("agentes").innerHTML=AG.agentes.filter(a=>!a.skill).map(bt).join("");$("agSkills").innerHTML=AG.agentes.filter(a=>a.skill).map(bt).join("");
+    escolherAgente(AGsel||(AG.agentes[0]||{}).id);
+    // os modelos vêm à parte: sondar o Ollama e o LM Studio leva alguns segundos e não deve segurar a lista de agentes
+    if(CASO())$("iaSit").innerHTML='<span class="spin"></span> Procurando a IA local desta máquina…';
+    AG.ia_local=(await api("assist/ia")).ia_local;
     const op=[{tipo:"auto",url:"",modelo:"",rot:"Automático (o painel liga e escolhe)"}];
     AG.ia_local.forEach(sv=>{if(sv.ativo)sv.modelos.forEach(m=>op.push({tipo:sv.tipo,url:sv.url,modelo:m,rot:sv.nome+": "+m}))});
     const c=AG.config;if(c.modelo&&!op.some(o=>o.modelo==c.modelo&&o.tipo==c.tipo))op.push({tipo:c.tipo,url:c.url,modelo:c.modelo,rot:(c.tipo=="ollama"?"Ollama":"LM Studio")+": "+c.modelo+" (liga ao enviar)"});
@@ -1157,7 +1178,7 @@ async function entrarAssist(){
     liga.forEach(sv=>avisos.push(`${sv.nome} instalado com ${sv.baixados.length} modelo(s) baixado(s) e servidor desligado: ao enviar, o painel liga o servidor sozinho.`));
     if(!AG.escrita)avisos.push("Escrita no caso desligada: agentes que marcam itens ou escrevem no RT só vão consultar.");
     if(CASO())$("iaSit").innerHTML=avisos.map(esc).join("<br>")||"Pronto. A IA local roda nesta máquina; sem GPU, cada resposta pode levar alguns minutos.";
-    escolherAgente(AGsel||(AG.agentes[0]||{}).id)});carregarContexto()}
+    });carregarContexto()}
 async function carregarContexto(r){
   if(!CASO()){$("ctxLista").innerHTML='<span class="muted">Escolha o caso em análise para anexar arquivos.</span>';return}
   await tentar(async()=>{r=r||await api("contexto/ler",{caso:CASO()});
@@ -1259,7 +1280,11 @@ async function aplicarAtualizacao(){if(!confirm("O painel vai fechar, instalar a
   $("inicio").innerHTML=`<div class="card"><h3>Atualizando o IPED-PCBA</h3><p>O painel fechou para instalar a versão nova.${r.reabre?" Uma janela mostra a troca e o painel reabre sozinho numa nova aba.":" Abra o painel de novo quando a troca terminar."}</p><p>A versão anterior fica guardada em <code>${esc(r.anterior)}</code>.</p><p>Pode fechar esta aba.</p></div>`;ir("inicio")})}
 async function trocarAutoAtualizacao(v){await tentar(async()=>{await api("atualizacao/config",{automatica:v});if(ATU)ATU.automatica=v;mostrarAtualizacao();
   aviso(v?"O painel vai baixar as versões novas sozinho e instalá-las ao abrir.":"O painel só vai avisar quando houver versão nova.")})}
-async function verificarIped(){try{const r=await api("deps/ler");const v=r.itens.find(i=>i.desatualizado);$("chipIped").style.display=v?"":"none";if(v)$("chipIped").textContent="Atualizar IPED "+v.versao+" → "+v.mais_nova}catch(e){}}
+// Cada <label class="f"> passa a apontar para o campo logo depois dela (leitores de tela e clique no rótulo).
+function ligarRotulos(){document.querySelectorAll("label.f:not([for])").forEach(l=>{let c=l.nextElementSibling;
+  if(c&&!/^(INPUT|SELECT|TEXTAREA)$/.test(c.tagName))c=c.querySelector("input,select,textarea");if(c&&c.id)l.htmlFor=c.id})}
+new MutationObserver(()=>{clearTimeout(ligarRotulos._t);ligarRotulos._t=setTimeout(ligarRotulos,150)}).observe(document.querySelector("main"),{childList:true,subtree:true});
+async function verificarIped(){try{const v0=await api("iped/versao");const v=v0.desatualizado?v0:null;$("chipIped").style.display=v?"":"none";if(v)$("chipIped").textContent="Atualizar IPED "+v.versao+" → "+v.mais_nova}catch(e){}}
 setInterval(()=>{if(document.visibilityState=="visible")api("resumo").then(r=>{R=r;desenharTarefas();}).catch(()=>{})},15000);
 </script>
 </body>

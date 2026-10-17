@@ -253,16 +253,15 @@ def modelo_sugerido():
 
 
 def modelos_ollama():
-    """Modelos do Ollama: pelo disco (Ollama fechado) e pelo ollama list."""
+    """Modelos do Ollama: pelo disco (Ollama fechado) e pelo servidor, se estiver ligado. Não usa o
+    "ollama list", que fica preso esperando o servidor quando ele está desligado."""
     from . import ialocal
     mods = ialocal.ollama_baixados()
-    exe = ollama_exe()
-    if exe:
-        try:
-            out = subprocess.run([exe, "list"], capture_output=True, text=True, timeout=30).stdout
-            mods += [l.split()[0] for l in out.splitlines()[1:] if l.strip() and l.split()[0] not in mods]
-        except (OSError, subprocess.SubprocessError):
-            pass
+    try:
+        dados = ialocal._get_json(ialocal.OLLAMA_URL + "/api/tags", 1)
+        mods += [m.get("name") for m in dados.get("models", []) if m.get("name") and m.get("name") not in mods]
+    except Exception:
+        pass
     return mods
 
 
@@ -272,12 +271,11 @@ def _item_skills():
     auto = [d for d in sit["destinos"] if d["detectado"] and not d.get("manual")]
     faltam = [d["nome"] for d in auto if any(i["estado"] != "instalada" for i in d["itens"])]
     zips = next((d for d in sit["destinos"] if d["id"] == "zip"), {"itens": []})["itens"]
-    sem_zip = any(i["estado"] == "falta" for i in zips)
     enviadas = sum(i["estado"] == "enviada" for i in zips)
     det = ("instalar ou atualizar em: " + ", ".join(faltam)) if faltam else \
         "instaladas em: " + (", ".join(d["nome"] for d in auto) or "IA local do painel")
     det += "; Claude Desktop: {} de {} enviadas (envio manual, veja Skills de análise abaixo)".format(enviadas, len(zips))
-    return {"id": "skills", "nome": "Skills de análise ({})".format(len(sit["skills"])), "ok": not faltam and not sem_zip,
+    return {"id": "skills", "nome": "Skills de análise ({})".format(len(sit["skills"])), "ok": not faltam,
             "detalhe": det, "auto": True}
 
 
@@ -315,7 +313,7 @@ def situacao(raiz=None):
     from . import ialocal
     gpu = gpu_nvidia()
     mods = modelos_ollama()
-    lms = ialocal.lmstudio_baixados() if ialocal.lmstudio_instalado() else []
+    lms = ialocal.lmstudio_baixados(rapido=True) if ialocal.lmstudio_instalado() else []
     bons = [m for m in mods + lms if ialocal.com_ferramentas(m)]
     det = "; ".join(x for x in ("Ollama: " + ", ".join(mods) if mods else "",
                                  "LM Studio: " + ", ".join(lms) if lms else "") if x)

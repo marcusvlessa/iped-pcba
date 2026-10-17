@@ -133,5 +133,24 @@ class TestIaLocal(unittest.TestCase):
         self.assertTrue(s["skills"]["auto"])
 
 
+class TestRapido(unittest.TestCase):
+    def test_servidores_nao_chama_o_lms(self):
+        """A tela do Assistente não pode esperar o 'lms ls' (vários segundos)."""
+        with mock.patch.object(ialocal, "lms_cli", lambda: "/x/lms"), \
+                mock.patch("subprocess.run", side_effect=AssertionError("chamou o lms")):
+            ialocal.servidores(timeout=0.2)
+
+    def test_skills_ok_sem_os_zips_do_claude_desktop(self):
+        sit = {"skills": [1, 2], "destinos": [
+            {"id": "claude-code", "nome": "Claude Code", "detectado": True,
+             "itens": [{"estado": "instalada"}, {"estado": "instalada"}]},
+            {"id": "zip", "nome": "Claude Desktop", "detectado": True, "manual": True,
+             "itens": [{"estado": "falta"}, {"estado": "falta"}]}]}
+        with mock.patch("iped_pcba.skills.situacao", return_value=sit):
+            item = dep._item_skills()
+        self.assertTrue(item["ok"])
+        self.assertIn("0 de 2 enviadas", item["detalhe"])
+
+
 if __name__ == "__main__":
     unittest.main()
