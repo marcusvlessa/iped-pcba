@@ -5,6 +5,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "instalador"))
 
@@ -128,7 +129,20 @@ class TestLocalizar(unittest.TestCase):
             # só configuração, sem iped.jar: não é instalação
             os.makedirs(os.path.join(tmp, "Downloads"))
             open(os.path.join(tmp, "Downloads", "IPEDConfig.txt"), "w").close()
-            achados = localizar.localizar_iped(bases=[tmp])
+            # um IPED registrado em ~/.iped fora das bases não entra na busca
+            fora = os.path.join(tempfile.mkdtemp(), "iped-4.3.1")
+            os.makedirs(os.path.join(fora, "lib"))
+            for f in ("IPEDConfig.txt", "iped.jar", os.path.join("lib", "iped-engine-4.3.1.jar")):
+                open(os.path.join(fora, f), "w").close()
+            home = tempfile.mkdtemp()
+            os.makedirs(os.path.join(home, ".iped"))
+            with open(os.path.join(home, ".iped", "ipedRoot.txt"), "w") as f:
+                f.write(fora)
+            with mock.patch.dict(os.environ, {"HOME": home, "USERPROFILE": home}):
+                os.environ.pop("IPED_ROOT", None)
+                achados = localizar.localizar_iped(bases=[tmp])
+            shutil.rmtree(home)
+            shutil.rmtree(os.path.dirname(fora))
             self.assertEqual([a["versao"] for a in achados], ["4.3.1", "4.2.2"])  # 4.4.0 fundo demais
 
             # duas 4.3.1: vence a registrada pelo IPED como em uso

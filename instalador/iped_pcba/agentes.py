@@ -143,7 +143,8 @@ AGENTES = [
         "nome": "Redator do RT",
         "descricao": "Lê os achados e escreve partes do relatório técnico, marcadas para sua revisão.",
         "papel": "Ajude a redigir o Relatório Técnico (RT) no modelo da PCBA: texto formal, impessoal, em terceira pessoa, "
-                 "sem conclusões que caibam ao analista. Deixe [ENTRE COLCHETES] o que não estiver nos dados.",
+                 "sem conclusões que caibam ao analista. Deixe [ENTRE COLCHETES] o que não estiver nos dados. Se sugerir "
+                 "uma conclusão, escreva-a inteira entre colchetes: [SUGESTÃO DA IA — REVISAR: ...].",
         "escrita": True,
         "ferramentas": LEITURA_BASICA + ["get_report_draft", "update_report_field", "update_report_analysis",
                                          "get_top_contacts"],

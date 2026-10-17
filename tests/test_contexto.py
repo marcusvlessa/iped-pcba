@@ -56,6 +56,23 @@ class TestContexto(unittest.TestCase):
         self.assertTrue(all(len(h) == 64 for h in c.hashes.values()))
         self.assertEqual(len(c.para_registro()), 3)
 
+    def test_planilha_xlsx_mantem_numeros_e_colunas(self):
+        ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+        arq = os.path.join(self.tmp, "extrato.xlsx")
+        with zipfile.ZipFile(arq, "w") as z:
+            z.writestr("xl/workbook.xml", '<workbook {}><sheets><sheet name="PIX" sheetId="1"/></sheets>'
+                                          '</workbook>'.format(ns))
+            z.writestr("xl/sharedStrings.xml", '<sst {}><si><t>Data</t></si><si><t>Valor</t></si>'
+                                               '<si><t>FULANO FICTÍCIO</t></si></sst>'.format(ns))
+            z.writestr("xl/worksheets/sheet1.xml",
+                       '<worksheet {}><sheetData>'
+                       '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row>'
+                       '<row r="2"><c r="A2"><v>46000</v></c><c r="B2"><v>1500.5</v></c>'
+                       '<c r="D2" t="inlineStr"><is><t>obs</t></is></c><c r="E2" t="s"><v>2</v></c></row>'
+                       '</sheetData></worksheet>'.format(ns))
+        t = contexto.extrair(arq)
+        self.assertEqual(t.splitlines(), ["## Aba: PIX", "Data\tValor", "46000\t1500.5\t\tobs\tFULANO FICTÍCIO"])
+
     def test_pequeno_vai_na_pergunta(self):
         c = contexto.Contexto([{"caminho": os.path.join(self.docs, "bo.txt")}])
         a = c.apresentacao()

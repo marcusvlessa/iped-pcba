@@ -27,6 +27,10 @@ PASTA_CONVERSAS = os.path.join("iped-pcba-ia", "conversas")
 MAX_PASSOS = 12
 MAX_RESULTADO = 6000  # caracteres de cada resultado de ferramenta entregues ao modelo
 TIMEOUT_MODELO = 900  # CPU sem GPU pode levar minutos por resposta
+# Sem num_ctx o Ollama usa 2048-4096 tokens e descarta em silêncio o começo da conversa (o papel do agente).
+NUM_CTX = 16384
+MANTER_RESULTADOS = 6   # resultados de ferramenta mais recentes que vão inteiros ao modelo
+RESUMO_ANTIGO = 600     # os mais antigos encolhem para este tamanho
 
 
 # ------------------------------------------------------------------ configuração da IA local
@@ -87,6 +91,18 @@ def _post(url, corpo, timeout):
         raise RuntimeError("Não consegui falar com a IA local em {} ({}). Ela está aberta?".format(url, e.reason))
 
 
+def _compactar(mensagens, manter=MANTER_RESULTADOS, curto=RESUMO_ANTIGO):
+    """Encolhe os resultados de ferramenta antigos para a conversa caber na janela do modelo.
+    O papel do agente, a pergunta e os resultados recentes ficam inteiros."""
+    resultados = [m for m in mensagens if m.get("role") == "tool"]
+    for m in resultados[:-manter] if manter else resultados:
+        c = m.get("content") or ""
+        if len(c) > curto and not m.get("_encolhido"):
+            m["content"] = c[:curto] + "\n[... resultado antigo encurtado; consulte de novo se precisar]"
+            m["_encolhido"] = True
+    return [{k: v for k, v in m.items() if k != "_encolhido"} for m in mensagens]
+
+
 def _ferramentas_para_modelo(ferramentas):
     return [{"type": "function", "function": {
         "name": f["name"], "description": (f.get("description") or "")[:1500],
@@ -100,7 +116,7 @@ class ModeloOllama(object):
     def responder(self, mensagens, ferramentas):
         r = _post(self.url + "/api/chat", {"model": self.modelo, "messages": mensagens, "stream": False,
                                            "tools": _ferramentas_para_modelo(ferramentas),
-                                           "options": {"temperature": 0.2}}, TIMEOUT_MODELO)
+                                           "options": {"temperature": 0.2, "num_ctx": NUM_CTX}}, TIMEOUT_MODELO)
         m = r.get("message") or {}
         chamadas = []
         for i, c in enumerate(m.get("tool_calls") or []):
@@ -176,7 +192,7 @@ def executar(modelo, mcp, agente, pergunta, ao_evento, escrita=False, parar=lamb
         if parar():
             raise RuntimeError("Conversa interrompida.")
         ao_evento({"tipo": "pensando", "passo": passo + 1})
-        texto, chamadas, msg = modelo.responder(mensagens, ferramentas)
+        texto, chamadas, msg = modelo.responder(_compactar(mensagens), ferramentas)
         mensagens.append(msg)
         if not chamadas:
             ao_evento({"tipo": "resposta", "texto": texto})
@@ -200,7 +216,7 @@ def executar(modelo, mcp, agente, pergunta, ao_evento, escrita=False, parar=lamb
                                                  "leia um item por vez]".format(MAX_RESULTADO)
             mensagens.append(modelo.resultado(c, saida))
     mensagens.append({"role": "user", "content": "Pare de consultar e responda agora com o que já encontrou."})
-    texto, _, _ = modelo.responder(mensagens, [])
+    texto, _, _ = modelo.responder(_compactar(mensagens), [])
     ao_evento({"tipo": "resposta", "texto": texto})
     return texto
 

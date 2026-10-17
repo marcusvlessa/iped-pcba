@@ -14,12 +14,17 @@ Cada pasta é uma skill no formato aberto `SKILL.md` (Agent Skills). Elas usam a
 
 ## Instalação
 
-O painel instala sozinho (tela **Conectar IA > Skills de análise**):
+No painel, tela **1. Configurar a máquina > Skills de análise**, botão **Instalar e atualizar as skills**:
 
-- **IA local (Ollama, LM Studio)**: as skills aparecem como agentes no Assistente de IA, sem instalar nada.
-- **Claude Code**: copia para `~/.claude/skills/`.
-- **Hermes Agent**: copia para `~/.hermes/skills/iped-pcba/`.
-- **Claude Desktop e claude.ai**: o painel gera um `.zip` por skill; envie em Configurações > Capacidades > Skills.
+- **IA local (Ollama, LM Studio)**: cada skill vira um agente do **Assistente de IA**, sem instalar nada.
+- **Claude Code**: copia as pastas para `~/.claude/skills/`.
+- **Hermes Agent**: copia as pastas para `~/.hermes/skills/iped-pcba/`.
+- **Claude Desktop e claude.ai**: as skills ficam na conta Claude, não numa pasta do PC. O painel gera um `.zip`
+  por skill em `skills-zip/` e você envia cada um uma vez em **Personalizar > Skills > +** (em algumas versões:
+  Configurações > Capacidades > Skills). O botão **Mostrar o .zip** abre a pasta com o arquivo selecionado.
+
+Se uma skill já instalada estiver diferente, a versão anterior é guardada em `~/.iped-pcba/backup-skills/` antes
+de ser trocada.
 
 Pelo terminal: `python -m iped_pcba skills --instalar`.
 
